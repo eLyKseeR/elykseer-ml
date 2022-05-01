@@ -1,0 +1,16 @@
+.lia.cache
+
+*.aux
+*.glob
+*.vo
+*.vok
+*.vos
+
+.\#*
+\#*\#
+
+.DS_Store
+.Makefile.coq.d
+Makefile.coq
+Makefile.coq.conf
+
