@@ -82,8 +82,11 @@ Set Extraction AccessOpaque.
 Extract Constant get_file_information =>
    "  
     fun fn ->
-        { Filetypes.fname = fn; Filetypes.fsize = (Conversion.i2n 10394); Filetypes.fowner = ""me"";
-          Filetypes.fpermissions = Conversion.i2n 644; Filetypes.fmodified = ""2022-04-30 17:38:12"";
+        { Filetypes.fname = fn;
+          Filetypes.fsize = Conversion.i2n (Elykseer_base.Fsutils.fsize fn);
+          Filetypes.fowner = string_of_int (Elykseer_base.Fsutils.fowner fn);
+          Filetypes.fpermissions = Conversion.i2n (Elykseer_base.Fsutils.fperm fn);
+          Filetypes.fmodified = Elykseer_base.Fsutils.fmod fn;
           Filetypes.fchecksum = ""abc"" }
    ".
 
