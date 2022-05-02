@@ -13,8 +13,8 @@ Open Scope positive_scope.
 Open Scope N_scope.
 
 From LXR Require Import Backup.
-From LXR Require Import FileSupport.
-From LXR Require Import FileTypes.
+From LXR Require Import Filesupport.
+From LXR Require Import Filetypes.
 
 Open Scope string_scope.
 

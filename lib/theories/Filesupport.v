@@ -3,14 +3,14 @@
 *)
 
 (**
- Module: FileSupport
+ Module: Filesupport
  Description: provides abstract definitions of file functions.
  *)
 
-Module Export FileSupport.
+Module Export Filesupport.
 
-From LXR Require Import FileTypes.
+From LXR Require Import Filetypes.
 
 Axiom get_file_information : filename -> fileinformation.
 
-End FileSupport.
+End Filesupport.

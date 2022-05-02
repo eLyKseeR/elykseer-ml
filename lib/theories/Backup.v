@@ -16,8 +16,8 @@ Open Scope N_scope.
 
 From LXR Require Import Assembly.
 From LXR Require Import Conversion.
-From LXR Require Import FileSupport.
-From LXR Require Import FileTypes.
+From LXR Require Import Filesupport.
+From LXR Require Import Filetypes.
 
 Open Scope string_scope.
 

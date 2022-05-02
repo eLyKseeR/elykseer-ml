@@ -3,11 +3,11 @@
 *)
 
 (**
- Module: FileSupport
+ Module: Filetypes
  Description: provides abstract definitions of file functions.
  *)
 
-Module Export FileTypes.
+Module Export Filetypes.
 
 From Coq Require Import Strings.String Strings.Byte.
 Open Scope string_scope.
@@ -28,4 +28,4 @@ Record fileinformation : Type := mkfileinformation
      ; fchecksum : string
      }.
  
-End FileTypes.
+End Filetypes.
