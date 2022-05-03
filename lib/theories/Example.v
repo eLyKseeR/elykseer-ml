@@ -34,7 +34,7 @@ Example env0 (c : configuration) : environment :=
 Lemma test1 : 
     let e := env0 config0 in
     let fi := {| fname := "t1.dat"; fsize := 33; fowner := "me"; fpermissions := 644; fmodified := ""; fchecksum := "" |} in
-    let bi := {| blockid := 1; blocksize := 33 |} in
+    let bi := {| blockid := 1; blocksize := 33; blockaid := 1 |} in
     backup_file config0 e "t1.dat" =
     {| cur_assembly := first_assembly (num_chunks config0) 
     ;  count_input_bytes := 33

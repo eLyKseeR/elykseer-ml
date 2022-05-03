@@ -16,7 +16,6 @@ From LXR Require Import Filesupport.
 From LXR Require Import Filetypes.
 
 From Coq Require Import ExtrOcamlBasic.
-(* From Coq Require Import ExtrOCamlInt63. *)
 From Coq Require Import ExtrOcamlNativeString.
 
 
@@ -76,7 +75,6 @@ Extract Constant n2i =>
    ".
 
 Set Extraction AccessOpaque.
-(* Extraction "conversion.ml" int i2p p2i i2n n2i z2i i2z. *)
 
 (* an example implementation *)
 Extract Constant get_file_information =>
@@ -91,7 +89,3 @@ Extract Constant get_file_information =>
    ".
 
 Extraction "lxr.ml" Backup Conversion backup_file.
-(* Extraction "lxr.ml" initial_environment int i2p p2i i2n n2i z2i i2z backup_file. *)
-
-(* Extraction "filesupport.ml" Filesupport. *)
-(* Extraction "filetypes.ml" Filetypes. *)

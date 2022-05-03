@@ -28,6 +28,7 @@ Record blockinformation : Type :=
     mkblockinformation
         { blockid : N
         ; blocksize : N
+        ; blockaid : positive
         }.
 
 (** 1 preparations *)
@@ -68,16 +69,16 @@ Definition env_add_file (e : environment) (fi : fileinformation) : environment :
     |}.
 Definition env_add_block (e : environment) (b : blockinformation) : environment :=
     {| cur_assembly := cur_assembly e
-    ; count_input_bytes := count_input_bytes e
+    ; count_input_bytes := blocksize b + count_input_bytes e
     ; files := files e
     ; blocks := b :: blocks e
     |}.
 
-Definition blocksz (c : configuration) : N := pos2N (chunkwidth * chunklength * (num_chunks c)).
+Definition assemblysz (c : configuration) : N := pos2N (chunkwidth * chunklength * (num_chunks c)).
 
 Definition prepare_assembly (c : configuration) (e : environment) : environment :=
     let a := cur_assembly e in
-    match (blocksz c) - apos a with
+    match (assemblysz c) - apos a with
     | 0 => (* TODO: extract cur_assembly and create a new assembly if apos >= alen *)
         (* extract_assembly a *)
         env_set_assembly e (new_assembly a)
@@ -103,23 +104,28 @@ Definition read_file (size : nat) (ptr : fptr) : block := x03 :: x14 :: xab :: x
     let env : environment := run_file (fsize fi) fptr e act in
     env. *)
 
-Definition backup_block (idx : nat) (fi : fileinformation) (c : configuration) (e : environment) : environment :=
+Definition backup_block (idx : nat) (fi : fileinformation) (wrote : N) (c : configuration) (e : environment) : (N * environment) :=
     let e1 := prepare_assembly c e in
-    let blocksz := (blocksz c) - apos (cur_assembly e1) in
-    env_add_block e {| blockid := N.of_nat idx; blocksize := blocksz |}.
+    let avsz := (assemblysz c) - apos (cur_assembly e1) in
+    let rsz := (fsize fi) - wrote in
+    let bsz := N.min avsz rsz in
+    (** write block to assembly *)
+    let e2 := env_add_block e1 {| blockid := N.of_nat idx; blocksize := bsz; blockaid := aid (cur_assembly e1) |} in
+    (bsz, e2).
 
-Program Fixpoint backup_blocks (idx : nat) (fi : fileinformation) (c : configuration) (e : environment) : environment :=
+Program Fixpoint backup_blocks (idx : nat) (fi : fileinformation) (wrote : N) (c : configuration) (e : environment) : environment :=
     match idx with
     | O => env_add_file e fi
-    | S p => backup_blocks p fi c (backup_block idx fi c e)
+    | S p => let (w, e2) := backup_block idx fi wrote c e in
+             backup_blocks p fi (wrote + w) c e2
     end.
 
 Definition backup_file (c : configuration) (e : environment) (f : filename) : environment :=
     let fi : fileinformation := get_file_information f in
-    let blocksz := blocksz c in
-    let fstbsz := blocksz - apos (cur_assembly e) in
-    let num_blocks := (((fsize fi) - fstbsz) / blocksz) + 1 in
-    backup_blocks (N.to_nat num_blocks) fi c e.
+    let asz := assemblysz c in
+    let fstbsz := asz - apos (cur_assembly e) in
+    let num_blocks := (((fsize fi) - fstbsz) / asz) + 1 in
+    backup_blocks (N.to_nat num_blocks) fi 0%N c e.
 
 (** 4 termination & cleanup *)
 
