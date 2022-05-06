@@ -2,16 +2,16 @@
 Preparations
 ============
 
-0.) opam switch create $(pwd)/opam-4.14.0 4.14.0
+0.) `opam switch create $(pwd)/opam-4.14.0 4.14.0`
 
-1.) eval $(opam env --set-switch --switch=$(pwd)/opam-4.14.0)
+1.) `eval $(opam env --set-switch --switch=$(pwd)/opam-4.14.0)`
 
 
 # newest version
-opam pin add coq 8.15.1
+`opam pin add coq 8.15.1`
 
 # more packages
-opam repo add coq-released https://coq.inria.fr/opam/released
+`opam repo add coq-released https://coq.inria.fr/opam/released`
 
 
 Code generation
