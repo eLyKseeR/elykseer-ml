@@ -17,6 +17,9 @@ Preparations
 Code generation
 ===============
 
+0) create _Coq_'s Makefile
+    `cd lib; coq_makefile -f _CoqProject -o Makefile`
+
 1) run proofs in _Coq_ and extract _ML_ code:
     `make -C lib`
 

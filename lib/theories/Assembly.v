@@ -22,9 +22,7 @@ From Coq Require Import NArith.BinNat.
 Open Scope positive_scope.
 Open Scope N_scope.
 
-From LXR Require Import Buffer.
-(* From CoLoR Require Import Util.Matrix.Matrix.
-From CoLoR Require Import Util.Vector.VecUtil. *)
+From LXR Require Import Buffer Conversion.
 
 (** constants *)
 Section Constants.
@@ -70,7 +68,7 @@ Record chunk : Type := mkchunk
     ; buffer : Buffer.buffer (*mkbuffer chunkwidth chunklength*)
     }.
     (* ; buffer : matrix (to_nat chunkwidth) (to_nat chunklength) *)
-Print chunk.
+(* Print chunk. *)
 Definition new_chunk (p_cid p_aid : positive) : chunk :=
     mkchunk p_cid p_aid (mkbuffer chunkwidth chunklength).
 
@@ -192,13 +190,11 @@ Proof.
     lia.
 Qed.
 
-(*
-Definition add_data {n : positive} (d : string) (a : assembly) : Prop :=
-    let len := N.of_nat (String.length d) in
-    let upd_a := {| nchunks := n; aid := aid a; valid := valid a;
-                    apos := (apos a) + len; encrypted := encrypted a; chunks := chunks a |} in
-    (apos a) = len + (apos a)%N.
-*)
+
+Definition add_data (len : N) (a : assembly) : assembly :=
+    {| nchunks := nchunks a; aid := aid a; valid := valid a;
+       apos := (apos a) + len; encrypted := encrypted a; chunks := chunks a |}.
+
 
 End Data.
 

@@ -26,7 +26,7 @@ Open Scope string_scope.
 Definition block := list byte.
 Record blockinformation : Type :=
     mkblockinformation
-        { blockid : N
+        { blockid : positive
         ; blocksize : N
         ; blockaid : positive
         }.
@@ -104,20 +104,22 @@ Definition read_file (size : nat) (ptr : fptr) : block := x03 :: x14 :: xab :: x
     let env : environment := run_file (fsize fi) fptr e act in
     env. *)
 
-Definition backup_block (idx : nat) (fi : fileinformation) (wrote : N) (c : configuration) (e : environment) : (N * environment) :=
+Definition backup_block (idx : positive) (fi : fileinformation) (wrote : N) (c : configuration) (e : environment) : (N * environment) :=
     let e1 := prepare_assembly c e in
-    let avsz := (assemblysz c) - apos (cur_assembly e1) in
-    let rsz := (fsize fi) - wrote in
+    let a0 := cur_assembly e1 in
+    let avsz := assemblysz c - apos a0 in
+    let rsz := fsize fi - wrote in
     let bsz := N.min avsz rsz in
-    (** write block to assembly *)
-    let e2 := env_add_block e1 {| blockid := N.of_nat idx; blocksize := bsz; blockaid := aid (cur_assembly e1) |} in
-    (bsz, e2).
+    let a1 := add_data bsz a0 in     (** TODO: write block to assembly *)
+    let e2 := env_set_assembly e1 a1 in
+    let e3 := env_add_block e2 {| blockid := idx; blocksize := bsz; blockaid := aid a1 |} in
+    (bsz, e3).
 
-Program Fixpoint backup_blocks (idx : nat) (fi : fileinformation) (wrote : N) (c : configuration) (e : environment) : environment :=
+Program Fixpoint backup_blocks (idx : nat) (fi : fileinformation) (wrote : N) (bidx : positive) (c : configuration) (e : environment) : environment :=
     match idx with
     | O => env_add_file e fi
-    | S p => let (w, e2) := backup_block idx fi wrote c e in
-             backup_blocks p fi (wrote + w) c e2
+    | S p => let (w, e2) := backup_block bidx fi wrote c e in
+             backup_blocks p fi (wrote + w) (bidx + 1) c e2
     end.
 
 Definition backup_file (c : configuration) (e : environment) (f : filename) : environment :=
@@ -125,7 +127,7 @@ Definition backup_file (c : configuration) (e : environment) (f : filename) : en
     let asz := assemblysz c in
     let fstbsz := asz - apos (cur_assembly e) in
     let num_blocks := (((fsize fi) - fstbsz) / asz) + 1 in
-    backup_blocks (N.to_nat num_blocks) fi 0%N c e.
+    backup_blocks (N.to_nat num_blocks) fi 0%N 1 c e.
 
 (** 4 termination & cleanup *)
 

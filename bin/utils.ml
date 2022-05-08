@@ -10,7 +10,7 @@ let fi2s fi = "Fileinformation: fname = \"" ^ fi.fname ^ "\""
             ^ ", fmodified = \"" ^ fi.fmodified ^ "\""
             ^ ", fchecksum = \"" ^ fi.fchecksum ^ "\""
 
-let b2s b = "Block: blockid = " ^ (string_of_int @@ Conversion.n2i @@ b.blockid)
+let b2s b = "Block: blockid = " ^ (string_of_int @@ Conversion.p2i @@ b.blockid)
           ^ ", blocksize = " ^ (string_of_int @@ Conversion.n2i @@ b.blocksize)
           ^ ", blockaid = " ^ (string_of_int @@ Conversion.p2i @@ b.blockaid)
 
