@@ -14,10 +14,11 @@
 Makefile.coq
 Makefile.coq.conf
 
-opam-4.*
-_build
+/opam-4.*
+/_build
 .Makefile.d
-lib/Makefile.conf
+/Makefile
+/Makefile.conf
 elykseer.opam
-lib/lxr.ml
-lib/lxr.mli
+/lxr.ml
+/lxr.mli
