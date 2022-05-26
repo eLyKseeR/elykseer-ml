@@ -193,7 +193,7 @@ Qed.
 
 Definition add_data (len : N) (a : assembly) : assembly :=
     {| nchunks := nchunks a; aid := aid a; valid := valid a;
-       apos := (apos a) + len; encrypted := encrypted a; chunks := chunks a |}.
+       apos := len + apos a; encrypted := encrypted a; chunks := chunks a |}.
 
 
 End Data.

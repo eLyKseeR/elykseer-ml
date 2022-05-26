@@ -2,6 +2,8 @@
 (* open Elykseer *)
 open Elykseer__Lxr
 open Elykseer__Lxr.Backup
+open Elykseer__Lxr.Configuration
+open Elykseer__Lxr.Environment
 
 let arg_verbose = ref false
 let arg_files = ref []

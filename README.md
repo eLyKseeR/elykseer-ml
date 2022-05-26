@@ -26,5 +26,5 @@ Code generation
 2) build library:
     `dune build`
 
-3) build and run executable:
-    `dune exec lxr_backup`
+3) build and run executable (shows help):
+    `dune exec lxr_backup -- -h`

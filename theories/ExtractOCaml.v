@@ -10,8 +10,11 @@ Open Scope positive_scope.
 
 From LXR Require Import Assembly.
 From LXR Require Import Backup.
+From LXR Require Import Block.
 From LXR Require Import Buffer.
+From LXR Require Import Configuration.
 From LXR Require Import Conversion.
+From LXR Require Import Environment.
 From LXR Require Import Filesupport.
 From LXR Require Import Filetypes.
 
@@ -88,4 +91,5 @@ Extract Constant get_file_information =>
           Filetypes.fchecksum = ""abc"" }
    ".
 
-Extraction "lxr.ml" Backup Conversion backup_file.
+(* extract into "lxr.ml" all named modules and definitions, and their dependencies *)
+Extraction "lxr.ml" Backup Block Configuration Conversion Environment backup_file.

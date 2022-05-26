@@ -1,5 +1,6 @@
 -R theories LXR
 
+theories/Block.v
 theories/Buffer.v
 theories/Filesupport.v
 theories/Filetypes.v
@@ -8,5 +9,7 @@ theories/Example.v
 theories/Assembly.v
 theories/Backup.v
 theories/Conversion.v
+theories/Configuration.v
+theories/Environment.v
 
 
