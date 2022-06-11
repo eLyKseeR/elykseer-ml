@@ -4,7 +4,7 @@
 
 (** modeling backup of multiple files to LXR *)
 
-Module Export Backup.
+Module Export BackupPlanner.
 
 (** imports *)
 From Coq Require Import Strings.String Strings.Byte Lists.List Lia.
@@ -46,18 +46,18 @@ Definition prepare_assembly (c : configuration) (e : environment) : environment 
 (** 3 backup *)
 
 Definition backup_block (idx : positive) (fi : fileinformation) (wrote : N) (c : configuration) (e : environment) : (blockinformation * environment) :=
-    let e1 := prepare_assembly c e in
-    let a0 := cur_assembly e1 in
+    let a0 := cur_assembly e in
     let apos0 := apos a0 in
     let avsz := assemblysz c - apos0 in
     let rsz := fsize fi - wrote in
     let bsz := N.min avsz rsz in
     let a1 := Assembly.add_data bsz a0 in     (** TODO write block to assembly *)
-    let e2 := env_set_assembly e1 a1 in
+    let e2 := env_set_assembly e a1 in
+    let e3 := prepare_assembly c e2 in    (* renew assembly in case full *)
     let bi := {| blockid := idx; blocksize := bsz;
                  filepos := wrote;
                  blockaid := aid a1; blockapos := apos0 |} in
-    (bi, e2).
+    (bi, e3).
 
 Program Fixpoint backup_blocks (idx : nat) (fi : fileinformation) (wrote : N) (bidx : positive) (bis : list blockinformation) (c : configuration) (e : environment) : environment :=
     match idx with
@@ -131,4 +131,4 @@ Eval compute in
 (** 4 termination & cleanup *)
 
 
-End Backup.
+End BackupPlanner.

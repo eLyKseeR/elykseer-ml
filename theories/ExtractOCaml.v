@@ -9,7 +9,7 @@ Require Import ZArith NArith.
 Open Scope positive_scope.
 
 From LXR Require Import Assembly.
-From LXR Require Import Backup.
+From LXR Require Import BackupPlanner.
 From LXR Require Import Block.
 From LXR Require Import Buffer.
 From LXR Require Import Configuration.
@@ -79,7 +79,7 @@ Extract Constant n2i =>
 
 Set Extraction AccessOpaque.
 
-(* an example implementation *)
+(* accessing information about a realistic file *)
 Extract Constant get_file_information =>
    "  
     fun fn ->
@@ -88,8 +88,8 @@ Extract Constant get_file_information =>
           Filetypes.fowner = string_of_int (Elykseer_base.Fsutils.fowner fn);
           Filetypes.fpermissions = Conversion.i2n (Elykseer_base.Fsutils.fperm fn);
           Filetypes.fmodified = Elykseer_base.Fsutils.fmod fn;
-          Filetypes.fchecksum = ""abc"" }
+          Filetypes.fchecksum = Elykseer_base.Fsutils.fchksum fn }
    ".
 
 (* extract into "lxr.ml" all named modules and definitions, and their dependencies *)
-Extraction "lxr.ml" Backup Block Configuration Conversion Environment backup_file.
+Extraction "lxr.ml" BackupPlanner Block Configuration Conversion Environment backup_file.

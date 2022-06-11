@@ -1,7 +1,7 @@
 
 (* open Elykseer *)
 open Elykseer__Lxr
-open Elykseer__Lxr.Backup
+open Elykseer__Lxr.BackupPlanner
 open Elykseer__Lxr.Configuration
 open Elykseer__Lxr.Environment
 

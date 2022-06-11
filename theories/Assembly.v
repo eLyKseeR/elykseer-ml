@@ -100,7 +100,7 @@ Record assembly (*(n : nat (*| n >= assemblyminsz /\ n <= assemblymaxsz*))*) : T
     ; valid : Prop
     ; apos : N
     ; encrypted : bool
-    ; chunks : list chunk
+    (* ; chunks : list chunk *)
     }.
 (* Print mkassembly. *)
 (** an experiment to have the size checked on creation.
@@ -156,7 +156,7 @@ Definition first_assembly (n : positive) : assembly :=
                (valid_assembly_size n)
                N0
                false
-               (mk_chunk_list n this_aid).
+               (*mk_chunk_list n this_aid*).
 Definition new_assembly (a : assembly) : assembly :=
     let this_aid := 1 + (aid a) in
     let n := nchunks a in
@@ -165,7 +165,7 @@ Definition new_assembly (a : assembly) : assembly :=
                (valid_assembly_size n)
                N0
                false
-               (mk_chunk_list n this_aid).
+               (*mk_chunk_list n this_aid*).
 
 Lemma valid_assembly_20 : let a1 := first_assembly 20 in valid a1.
 Proof.
@@ -176,24 +176,22 @@ Proof.
 Qed.
 Lemma two_assemblies_20 : let a1 := first_assembly 20 in
                           let a2 := new_assembly a1 in valid a2
-                                                       /\ 1 + aid a1 = aid a2
-                                                       /\ length (chunks a1) = 20%nat
-                                                       /\ length (chunks a2) = 20%nat.
+                                                       /\ 1 + aid a1 = aid a2.
+                                                       (* /\ length (chunks a1) = 20%nat
+                                                       /\ length (chunks a2) = 20%nat. *)
 Proof.
     unfold new_assembly. simpl. unfold valid_assembly_size.
     split.
     + split.
       - unfold assemblyminsz. lia.
       - unfold assemblymaxsz. lia.
-    + split.
-      reflexivity.
-    lia.
+    + reflexivity.
 Qed.
 
 
 Definition add_data (len : N) (a : assembly) : assembly :=
     {| nchunks := nchunks a; aid := aid a; valid := valid a;
-       apos := len + apos a; encrypted := encrypted a; chunks := chunks a |}.
+       apos := len + apos a; encrypted := encrypted a; (*chunks := chunks a*) |}.
 
 
 End Data.

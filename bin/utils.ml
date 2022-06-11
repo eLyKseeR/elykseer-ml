@@ -18,10 +18,10 @@ let b2s b = "Block: blockid = " ^ (string_of_int @@ Conversion.p2i @@ b.blockid)
           ^ ", blockapos = " ^ (string_of_int @@ Conversion.n2i @@ b.blockapos)
 
 let fibs2s fibs = "\n  " ^ fi2s (bfi fibs)
-          ^ "\n                 , blocks = " ^ (string_of_int @@ List.length @@ blocks fibs) ^ "@[" ^ (String.concat "; " (map b2s (blocks fibs))) ^ "]"
+          ^ "\n                 , blocks = " ^ (string_of_int @@ List.length @@ blocks fibs) ^ "@[" ^ (String.concat "; " (List.map b2s (blocks fibs))) ^ "]"
 
 let e2s e = "Environment: cur_assembly = " ^ (string_of_int @@ Conversion.p2i @@ Assembly.aid @@ cur_assembly e)
           ^ ", count_input_bytes = " ^ (string_of_int @@ Conversion.n2i @@ count_input_bytes e)
-          ^ ", files = " ^ (string_of_int @@ List.length @@ files e) ^ "@[" ^ (String.concat "; " (map fibs2s (files e))) ^ "]"
+          ^ ", files = " ^ (string_of_int @@ List.length @@ files e) ^ "@[" ^ (String.concat "; " (List.map fibs2s (files e))) ^ "]"
           ^ "\n."
 
