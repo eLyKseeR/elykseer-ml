@@ -142,8 +142,8 @@ Proof.
 Qed. *)
 
 (** create list of chunks *)
-Definition mk_chunk_list (n : positive) (p_aid : positive) : list chunk :=
-  map (fun p_cid => new_chunk (Pos.of_nat p_cid) p_aid) (seq 1 (Pos.to_nat n)).
+(* Definition mk_chunk_list (n : positive) (p_aid : positive) : list chunk :=
+  map (fun p_cid => new_chunk (Pos.of_nat p_cid) p_aid) (seq 1 (Pos.to_nat n)). *)
 
 (* Compute mk_chunk_list 3 42. *)
 
@@ -193,31 +193,8 @@ Definition add_data (len : N) (a : assembly) : assembly :=
     {| nchunks := nchunks a; aid := aid a; valid := valid a;
        apos := len + apos a; encrypted := encrypted a; (*chunks := chunks a*) |}.
 
-
 End Data.
 
-(** The work is managed as a list of actions.
-    With a smart idea, disjointness of actions, we can split this list into sublists
-    and apply it by a set of threads concurrently. *)
-
-(** Example: read "bunch" of 256 bytes from a file and store in assembly
-             by distributing over its 16 chunks.
-    
-    Fixpoint add_data (d : bunch) (i : nat) (nc : nat): list action :=
-        match d with
-        | [] => []
-        | h :: t => AppendAction (i % nc) h :: add_data t (i + 1) 
-        end.
-    
-    (* create list of pairs of chunk id * position in chunk *)
-    Fixpoint apply_actions (a : list action) : list (cid, idx) :=
-        ...
-
-    (* proof that there are no two equal pairs in the list of actions *)
-    Theorem add_data_disjoint : let d := test_bunch in 
-                                let as := apply_actions(add_data d) in
-                                length as = length(disjoint_pairs as).
-      *)
 Section Access.
 (** Reading from and writing to an assembly
     and the underlying chunks *)

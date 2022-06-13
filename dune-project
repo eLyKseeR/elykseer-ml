@@ -24,6 +24,8 @@
  (depends
    (ocaml (>= 4.12.0))
    dune
+   sha
+   yojson
  )
  (tags
   ("elixir for your data"

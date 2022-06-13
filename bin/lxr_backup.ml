@@ -21,11 +21,11 @@ let argspec =
 
 let anon_args_fun fn = arg_files := fn :: !arg_files
 
-let rec backup_files fns conf0 e0 =
+let rec backup_files conf0 e0 fns =
         match fns with
           [] -> e0
         | fn :: fns' -> let e1 = backup_file conf0 e0 fn in
-                        backup_files fns' conf0 e1
+                        backup_files conf0 e1 fns'
 
 (* main *)
 let () = Arg.parse argspec anon_args_fun "lxr_backup: vxon";
@@ -38,5 +38,5 @@ let () = Arg.parse argspec anon_args_fun "lxr_backup: vxon";
                          path_chunks = !arg_chunkpath;
                          path_meta   = !arg_metapath } in
            let e0 = initial_environment conf0 in
-           let e1 = backup_files !arg_files conf0 e0 in
-           print_string (Utils.e2s e1)
+           let e1 = backup_files conf0 e0 !arg_files in
+           print_string (Elykseer_utils.Utils.e2j e1)

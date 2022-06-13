@@ -1,4 +1,4 @@
 (library
  (name elykseer_base)
- (libraries unix)
+ (libraries unix sha)
 )

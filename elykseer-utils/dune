@@ -1,0 +1,4 @@
+(library
+ (name elykseer_utils)
+ (libraries elykseer yojson)
+)
