@@ -4,7 +4,7 @@
 
 Module Export Configuration.
 
-Require Import PArith.
+Require Import NArith PArith.
 From Coq Require Import Strings.String.
 
 Record configuration : Type :=
@@ -12,6 +12,7 @@ Record configuration : Type :=
         { num_chunks : positive
         ; path_chunks : string
         ; path_meta : string
+        ; my_id : N
         }.
 
 End Configuration.

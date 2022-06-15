@@ -64,17 +64,17 @@ Qed.
 *)
 Record chunk : Type := mkchunk
     { cid : positive
-    ; in_aid : positive
+    ; in_anum : positive
     ; buffer : Buffer.buffer (*mkbuffer chunkwidth chunklength*)
     }.
     (* ; buffer : matrix (to_nat chunkwidth) (to_nat chunklength) *)
 (* Print chunk. *)
-Definition new_chunk (p_cid p_aid : positive) : chunk :=
-    mkchunk p_cid p_aid (mkbuffer chunkwidth chunklength).
+Definition new_chunk (p_cid p_anum : positive) : chunk :=
+    mkchunk p_cid p_anum (mkbuffer chunkwidth chunklength).
 
 Definition equal_chunks (c1 c2 : chunk) : Prop :=
-    cid c1 = cid c2 /\ in_aid c1 = in_aid c2.
-Lemma eq_chunk_dec : forall (c1 c2 : chunk), { equal_chunks c1 c2 } + { ~ (equal_chunks c1 c2) } -> { cid c1 = cid c2 /\ in_aid c1 = in_aid c2 } + { ~ (cid c1 = cid c2 /\ in_aid c1 = in_aid c2) }.
+    cid c1 = cid c2 /\ in_anum c1 = in_anum c2.
+Lemma eq_chunk_dec : forall (c1 c2 : chunk), { equal_chunks c1 c2 } + { ~ (equal_chunks c1 c2) } -> { cid c1 = cid c2 /\ in_anum c1 = in_anum c2 } + { ~ (cid c1 = cid c2 /\ in_anum c1 = in_anum c2) }.
     intros c1 c2 H. unfold equal_chunks in H.
     destruct H.
     - left. apply a.
@@ -96,7 +96,8 @@ Qed.
 (** the ordered set of chunks is an assembly *)
 Record assembly (*(n : nat (*| n >= assemblyminsz /\ n <= assemblymaxsz*))*) : Type := mkassembly
     { nchunks : positive
-    ; aid : positive
+    ; anum : positive
+    ; aid : string
     ; valid : Prop
     ; apos : N
     ; encrypted : bool
@@ -149,23 +150,23 @@ Qed. *)
 
 (** create assembly (count of chunks) *)
 Definition first_assembly (n : positive) : assembly :=
-    let this_aid := 1
+    let this_anum := 1
     in
     mkassembly n
-               this_aid
+               this_anum ""
                (valid_assembly_size n)
                N0
                false
-               (*mk_chunk_list n this_aid*).
+               (*mk_chunk_list n this_anum*).
 Definition new_assembly (a : assembly) : assembly :=
-    let this_aid := 1 + (aid a) in
+    let this_anum := 1 + (anum a) in
     let n := nchunks a in
     mkassembly n
-               this_aid
+               this_anum ""
                (valid_assembly_size n)
                N0
                false
-               (*mk_chunk_list n this_aid*).
+               (*mk_chunk_list n this_anum*).
 
 Lemma valid_assembly_20 : let a1 := first_assembly 20 in valid a1.
 Proof.
@@ -176,7 +177,7 @@ Proof.
 Qed.
 Lemma two_assemblies_20 : let a1 := first_assembly 20 in
                           let a2 := new_assembly a1 in valid a2
-                                                       /\ 1 + aid a1 = aid a2.
+                                                       /\ 1 + anum a1 = anum a2.
                                                        (* /\ length (chunks a1) = 20%nat
                                                        /\ length (chunks a2) = 20%nat. *)
 Proof.
@@ -190,7 +191,7 @@ Qed.
 
 
 Definition add_data (len : N) (a : assembly) : assembly :=
-    {| nchunks := nchunks a; aid := aid a; valid := valid a;
+    {| nchunks := nchunks a; anum := anum a; aid := aid a; valid := valid a;
        apos := len + apos a; encrypted := encrypted a; (*chunks := chunks a*) |}.
 
 End Data.

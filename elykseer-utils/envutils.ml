@@ -1,7 +1,8 @@
 
 open Elykseer__Lxr
+open Elykseer__Lxr.Assembly
 open Elykseer__Lxr.Block
-(* open Elykseer__Lxr.Configuration *)
+open Elykseer__Lxr.Configuration
 open Elykseer__Lxr.Environment
 open Elykseer__Lxr.Filetypes
 
@@ -9,6 +10,19 @@ open Elykseer__Lxr.Filetypes
 open Yojson.Basic.Util
 
 module JsonTr = struct
+    let tr_cur_assembly json =
+        { anum = json |> member "anum" |> to_int |> Conversion.i2p;
+          aid = json |> member "aid" |> to_string;
+          nchunks = Conversion.i2p 256;
+          apos = Conversion.i2n 0;
+          encrypted = false;
+        }
+    let tr_config json =
+        { num_chunks = json |> member "num_chunks" |> to_int |> Conversion.i2p;
+          path_chunks = json |> member "path_chunks" |> to_string;
+          path_meta = json |> member "path_meta" |> to_string;
+          my_id = json |> member "my_id" |> to_int |> Conversion.i2n;
+        }
     let tr_fi json = 
         { fname = json |> member "fname" |> to_string;
           fsize = json |> member "fsize" |> to_int |> Conversion.i2n;
@@ -26,15 +40,26 @@ module JsonTr = struct
         }
     let rec tr_blocks acc bs =
         match bs with
-        | [] -> List.rev acc
+        | [] -> (* List.rev *) acc
         | b :: bs' -> tr_blocks (tr_block b :: acc) bs'
+    let tr_assembly json =
+        { anum = json |> member "anum" |> to_int |> Conversion.i2p;
+          aid = json |> member "aid" |> to_string;
+          nchunks = json |> member "nchunks" |> to_int |> Conversion.i2p;
+          apos = json |> member "apos" |> to_int |> Conversion.i2n;
+          encrypted = json |> member "encrypted" |> to_int |> (fun x -> if x = 1 then true else false);
+        }
+    let rec tr_assemblies acc ass =
+        match ass with
+        | [] -> (* List.rev *) acc
+        | a :: ass' -> tr_assemblies (tr_assembly a :: acc) ass'
     let tr_fileblocks json =
-        { bfi = json |> member "bfi" |> tr_fi;
+        { bfi = json |> member "fi" |> tr_fi;
           blocks = json |> member "blocks" |> to_list |> tr_blocks [];
         }
     let rec tr_files acc fs =
         match fs with
-        | [] -> List.rev acc
+        | [] -> (* List.rev *) acc
         | f :: fs' -> tr_files (tr_fileblocks f :: acc) fs'
 end
 
@@ -44,3 +69,11 @@ let envload c fn =
         { env0 with count_input_bytes = json |> member "count_input_bytes" |> to_int |> Conversion.i2n;
                     files = json |> member "files" |> to_list |> JsonTr.tr_files []; }
 
+let envrestore fn =
+    let json = Yojson.Basic.from_file fn in
+    { count_input_bytes = json |> member "count_input_bytes" |> to_int |> Conversion.i2n
+    ; files = json |> member "files" |> to_list |> JsonTr.tr_files []
+    ; config = json |> member "configuration" |> JsonTr.tr_config
+    ; assemblies = json |> member "assemblies" |> to_list |> JsonTr.tr_assemblies []
+    ; cur_assembly = json |> member "cur_assembly" |> JsonTr.tr_cur_assembly
+    }

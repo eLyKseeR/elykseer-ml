@@ -28,27 +28,32 @@ Example config0 : configuration :=
     {| num_chunks := 16
      ; path_chunks := "./lxr"
      ; path_meta := "./meta"
+     ; my_id := 11111
     |}.
 
 
 Example fi_t1_dat : fileinformation := {| fname := "t1.dat"; fsize := 4194304; fowner := "me"; fpermissions := 644; fmodified := ""; fchecksum := "" |}.
 
-Lemma test1 : 
+Lemma test1 :
+    let setup := setup_environment in
     let e := initial_environment config0 in
     let fi := fi_t1_dat in
     let bi := {| blockid := 1; blocksize := 4194304; filepos := 0; blockaid := 1; blockapos := 0 |} in
     backup_file config0 e "t1.dat" =
     {| cur_assembly := {|
                         nchunks := 16;
-                        aid := 2;
+                        anum := 2; aid := "";
                         valid := valid_assembly_size 16;
                         apos := 0; (*N.min (assemblysz config0) 33;*)
                         encrypted := false;
                         (* chunks := mk_chunk_list 16 1 *)
                        |} 
     ;  count_input_bytes := 4194304
+    ;  config := {| num_chunks := 16; path_chunks := "./lxr"; path_meta := "./meta"; my_id := 11111 |}
     ;  files := {| bfi:= fi;
                    blocks := bi :: nil |} :: nil
+    ;  assemblies := {| nchunks := 16; anum := 2; aid := ""; valid := valid_assembly_size 16; apos := 0; encrypted := false; |} ::
+                     {| nchunks := 16; anum := 1; aid := ""; valid := valid_assembly_size 16; apos := 4194304; encrypted := false; |} :: nil
     |}.
 Proof. intros.
     unfold backup_file.
@@ -71,17 +76,20 @@ Lemma test2 :
     backup_file config0 e1 "t2.dat" =
     {| cur_assembly := {|
                         nchunks := 16;
-                        aid := 2;
+                        anum := 2; aid := "";
                         valid := valid_assembly_size 16;
                         apos := 1048576;
                         encrypted := false;
                         (* chunks := mk_chunk_list 16 1 *)
                        |} 
     ;  count_input_bytes := 4194304 + 1048576
+    ;  config := {| num_chunks := 16; path_chunks := "./lxr"; path_meta := "./meta"; my_id := 11111 |}
     ;  files := {| bfi:= fi_t2_dat
                   ; blocks := {| blockid := 1; blocksize := 1048576; filepos := 0; blockaid := 2; blockapos := 0 |} :: nil |}
                 ::  {| bfi := fi1
                      ; blocks := bi1 :: nil |} :: nil
+    ;  assemblies := {| nchunks := 16; anum := 2; aid := ""; valid := valid_assembly_size 16; apos := 1048576; encrypted := false; |} ::
+                     {| nchunks := 16; anum := 1; aid := ""; valid := valid_assembly_size 16; apos := 4194304; encrypted := false; |} :: nil
     |}.
 Proof. intros.
     vm_compute (backup_file' config0 e0 fi1) in * |-.

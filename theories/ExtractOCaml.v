@@ -17,6 +17,7 @@ From LXR Require Import Conversion.
 From LXR Require Import Environment.
 From LXR Require Import Filesupport.
 From LXR Require Import Filetypes.
+From LXR Require Import Utilities.
 
 From Coq Require Import ExtrOcamlBasic.
 From Coq Require Import ExtrOcamlNativeString.
@@ -77,6 +78,18 @@ Extract Constant n2i =>
     | Npos p -> p2i p
    ".
 
+Extract Constant rndsetup =>
+   "
+    function
+     _ -> Random.self_init (); Conversion.i2n 0
+   ".
+
+Extract Constant rnd =>
+   "
+    function
+     _ -> int_of_float  (2. ** 30. -. 1.) |> Random.int |> Conversion.i2n
+   ".
+
 Set Extraction AccessOpaque.
 
 (* accessing information about a realistic file *)
@@ -92,4 +105,4 @@ Extract Constant get_file_information =>
    ".
 
 (* extract into "lxr.ml" all named modules and definitions, and their dependencies *)
-Extraction "lxr.ml" BackupPlanner Block Configuration Conversion Environment backup_file.
+Extraction "lxr.ml" BackupPlanner Block Configuration Conversion Environment Utilities backup_file.
