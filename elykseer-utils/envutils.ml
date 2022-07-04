@@ -27,7 +27,7 @@ module JsonTr = struct
         { fname = json |> member "fname" |> to_string;
           fsize = json |> member "fsize" |> to_int |> Conversion.i2n;
           fowner = json |> member "fowner" |> to_string;
-          fpermissions = json |> member "fpermissions" |> to_int |> Conversion.i2n;
+          fpermissions = json |> member "fpermissions" |> to_string |> int_of_string |> Conversion.i2n;
           fmodified = json |> member "fmodified" |> to_string;
           fchecksum = json |> member "fchecksum" |> to_string;
         }
@@ -63,11 +63,13 @@ module JsonTr = struct
         | f :: fs' -> tr_files (tr_fileblocks f :: acc) fs'
 end
 
+
 let envload c fn =
     let env0 = initial_environment c in
     let json = Yojson.Basic.from_file fn in
         { env0 with count_input_bytes = json |> member "count_input_bytes" |> to_int |> Conversion.i2n;
                     files = json |> member "files" |> to_list |> JsonTr.tr_files []; }
+
 
 let envrestore fn =
     let json = Yojson.Basic.from_file fn in
@@ -77,3 +79,19 @@ let envrestore fn =
     ; assemblies = json |> member "assemblies" |> to_list |> JsonTr.tr_assemblies []
     ; cur_assembly = json |> member "cur_assembly" |> JsonTr.tr_cur_assembly
     }
+
+
+let env2assemblies e =
+    let anums = List.rev @@ List.map (anum) e.assemblies in
+    let fbs = List.map (fun anum ->
+                            let fs = e.files |> List.map (fun fb ->
+                                (* list blocks in this assembly *)
+                                let bs = fb.blocks |> List.filter (fun b ->
+                                    b.blockaid = anum) in
+                                { bfi = fb.bfi; blocks = bs } ) |>
+                                (* filter out files without blocks in this assembly *)
+                                List.filter (fun fb -> fb.blocks <> []) |>
+                                List.rev in
+                            (anum, fs)
+                       ) anums in
+    fbs

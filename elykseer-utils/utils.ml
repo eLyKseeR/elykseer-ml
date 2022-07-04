@@ -16,7 +16,7 @@ let fi2s fi = "Fileinformation: fname = \"" ^ fi.fname ^ "\""
 let fi2j fi = "{ \"fname\":  \"" ^ fi.fname ^ "\""
             ^ ", \"fsize\": " ^ (string_of_int @@ Conversion.n2i @@ fi.fsize)
             ^ ", \"fowner\": \"" ^ fi.fowner ^ "\""
-            ^ ", \"fpermissions\": " ^ (Printf.sprintf "%#o" @@ Conversion.n2i @@ fi.fpermissions)
+            ^ ", \"fpermissions\": " ^ (Printf.sprintf "\"0o%#o\"" @@ Conversion.n2i @@ fi.fpermissions)
             ^ ", \"fmodified\": \"" ^ fi.fmodified ^ "\""
             ^ ", \"fchecksum\": \"" ^ fi.fchecksum ^ "\" }"
 

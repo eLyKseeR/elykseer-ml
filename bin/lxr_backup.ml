@@ -32,7 +32,7 @@ let rec backup_files conf0 e0 fns =
                         backup_files conf0 e1 fns'
 
 (* main *)
-let () = Arg.parse argspec anon_args_fun "lxr_backup: vxon";
+let () = Arg.parse argspec anon_args_fun "lxr_backup: vxoni";
          let nchunks = int_of_string !arg_nchunks in
          if List.length !arg_files > 0 &&
             nchunks >= 16

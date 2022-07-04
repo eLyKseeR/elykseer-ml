@@ -5,8 +5,14 @@
  (libraries elykseer elykseer_base elykseer_utils)
 )
 (executable
+ (public_name lxr_controller)
+ (name lxr_controller)
+ (modules lxr_controller)
+ (libraries elykseer elykseer_base elykseer_utils lwt.unix lwt_ppx)
+)
+(executable
  (public_name lxr_encoder)
  (name lxr_encoder)
  (modules lxr_encoder)
- (libraries elykseer elykseer_base elykseer_utils)
+ (libraries elykseer elykseer_base elykseer_utils lwt.unix lwt_ppx)
 )
