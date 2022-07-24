@@ -90,6 +90,15 @@ Extract Constant rnd =>
      _ -> int_of_float  (2. ** 30. -. 1.) |> Random.int |> Conversion.i2n
    ".
 
+Extract Constant rnd256 =>
+   "
+   function
+   x -> int_of_float  (2. ** 30. -. 1.) |> Random.int |> string_of_int |>
+     String.cat (Conversion.n2i x |> string_of_int) |>
+     String.cat (Unix.gethostname ()) |> String.cat (Unix.gettimeofday () |> string_of_float) |>
+     Sha256.string |> Sha256.to_hex
+   ".
+
 Set Extraction AccessOpaque.
 
 (* accessing information about a realistic file *)

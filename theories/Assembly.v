@@ -22,7 +22,7 @@ From Coq Require Import NArith.BinNat.
 Open Scope positive_scope.
 Open Scope N_scope.
 
-From LXR Require Import Buffer Conversion.
+From LXR Require Import Buffer Conversion Utilities.
 
 (** constants *)
 Section Constants.
@@ -40,8 +40,6 @@ End Constants.
 Section Data.
 
 (** data structures *)
-
-(* Import BigNMatrix. *)
 
 Definition valid_assembly_size (n : positive) : Prop :=
     n >= assemblyminsz /\ n <= assemblymaxsz.
@@ -149,34 +147,36 @@ Qed. *)
 (* Compute mk_chunk_list 3 42. *)
 
 (** create assembly (count of chunks) *)
-Definition first_assembly (n : positive) : assembly :=
+Definition first_assembly (my_id : N) (n : positive) : assembly :=
     let this_anum := 1
     in
     mkassembly n
-               this_anum ""
+               this_anum
+               (Utilities.rnd256 my_id)
                (valid_assembly_size n)
                N0
                false
                (*mk_chunk_list n this_anum*).
-Definition new_assembly (a : assembly) : assembly :=
+Definition new_assembly (my_id : N) (a : assembly) : assembly :=
     let this_anum := 1 + (anum a) in
     let n := nchunks a in
     mkassembly n
-               this_anum ""
+               this_anum
+               (Utilities.rnd256 my_id)
                (valid_assembly_size n)
                N0
                false
                (*mk_chunk_list n this_anum*).
 
-Lemma valid_assembly_20 : let a1 := first_assembly 20 in valid a1.
+Lemma valid_assembly_20 : let a1 := first_assembly 42%N 20 in valid a1.
 Proof.
     unfold first_assembly. simpl. unfold valid_assembly_size.
     split.
     - unfold assemblyminsz. lia.
     - unfold assemblymaxsz. lia.
 Qed.
-Lemma two_assemblies_20 : let a1 := first_assembly 20 in
-                          let a2 := new_assembly a1 in valid a2
+Lemma two_assemblies_20 : let a1 := first_assembly 42%N 20 in
+                          let a2 := new_assembly 42%N a1 in valid a2
                                                        /\ 1 + anum a1 = anum a2.
                                                        (* /\ length (chunks a1) = 20%nat
                                                        /\ length (chunks a2) = 20%nat. *)

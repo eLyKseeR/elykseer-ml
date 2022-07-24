@@ -23,13 +23,13 @@ let fi2j fi = "{ \"fname\":  \"" ^ fi.fname ^ "\""
 let b2s b = "Block: blockid = " ^ (string_of_int @@ Conversion.p2i @@ b.blockid)
           ^ ", blocksize = " ^ (string_of_int @@ Conversion.n2i @@ b.blocksize)
           ^ ", filepos = " ^ (string_of_int @@ Conversion.n2i @@ b.filepos)
-          ^ ", blockaid = " ^ (string_of_int @@ Conversion.p2i @@ b.blockaid)
+          ^ ", blockanum = " ^ (string_of_int @@ Conversion.p2i @@ b.blockanum)
           ^ ", blockapos = " ^ (string_of_int @@ Conversion.n2i @@ b.blockapos)
 
 let b2j b = "{ \"blockid\": " ^ (string_of_int @@ Conversion.p2i @@ b.blockid)
           ^ ", \"blocksize\": " ^ (string_of_int @@ Conversion.n2i @@ b.blocksize)
           ^ ", \"filepos\": " ^ (string_of_int @@ Conversion.n2i @@ b.filepos)
-          ^ ", \"blockaid\": " ^ (string_of_int @@ Conversion.p2i @@ b.blockaid)
+          ^ ", \"blockanum\": " ^ (string_of_int @@ Conversion.p2i @@ b.blockanum)
           ^ ", \"blockapos\": " ^ (string_of_int @@ Conversion.n2i @@ b.blockapos) ^ " }"
 
 let fibs2s fibs = "\n  " ^ fi2s (bfi fibs)

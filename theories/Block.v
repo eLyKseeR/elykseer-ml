@@ -18,7 +18,7 @@ Record blockinformation : Type :=
         { blockid : positive
         ; blocksize : N
         ; filepos : N
-        ; blockaid : positive
+        ; blockanum : positive
         ; blockapos : N
         }.
 

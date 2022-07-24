@@ -35,7 +35,7 @@ module JsonTr = struct
         { blockid = json |> member "blockid" |> to_int |> Conversion.i2p;
           blocksize = json |> member "blocksize" |> to_int |> Conversion.i2n;
           filepos = json |> member "filepos" |> to_int |> Conversion.i2n;
-          blockaid = json |> member "blockaid" |> to_int |> Conversion.i2p;
+          blockanum = json |> member "blockanum" |> to_int |> Conversion.i2p;
           blockapos = json |> member "blockapos" |> to_int |> Conversion.i2n;
         }
     let rec tr_blocks acc bs =
@@ -87,7 +87,7 @@ let env2assemblies e =
                             let fs = e.files |> List.map (fun fb ->
                                 (* list blocks in this assembly *)
                                 let bs = fb.blocks |> List.filter (fun b ->
-                                    b.blockaid = anum) in
+                                    b.blockanum = anum) in
                                 { bfi = fb.bfi; blocks = bs } ) |>
                                 (* filter out files without blocks in this assembly *)
                                 List.filter (fun fb -> fb.blocks <> []) |>

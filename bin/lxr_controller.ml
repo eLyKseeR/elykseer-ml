@@ -38,8 +38,8 @@ let run abs =
                       if !arg_verbose then print_endline("starting process.") else ();
                       Lwt_process.open_process("", [|"echo"; "calling lxr_encoder"|]) |> Lwt.return) in
     
-    let processor i p =
-      (if !arg_verbose then Lwt_io.printf "  process %d:\n" i else Lwt.return ()) |> ignore;
+    let processor i (_idx,fibs) p =
+      (if !arg_verbose then Lwt_io.printf "  process %d:\n  assembly: %s\n" i (String.concat "; " (List.map Utils.fibs2s fibs)) else Lwt.return ()) |> ignore;
       Lwt_io.read_lines p#stdout |>
       Lwt_stream.iter_s Lwt_io.printl in
     
@@ -50,7 +50,7 @@ let run abs =
 
     mklist (List.length abs) |>
       Lwt_stream.of_list |>
-      Lwt_stream.iter_p (fun i -> Lwt_pool.use pool (processor i))
+      Lwt_stream.iter_p (fun i -> Lwt_pool.use pool (processor i (List.nth abs (i - 1))))
 
 (* main *)
 let main () = Arg.parse argspec anon_args_fun "lxr_controller: vfj";

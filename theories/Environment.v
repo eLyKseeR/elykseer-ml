@@ -35,7 +35,7 @@ Definition setup_environment : N :=
     rndsetup 0%N.
 
 Definition initial_environment (c : configuration) : environment :=
-    let a := first_assembly (num_chunks c) in
+    let a := first_assembly (my_id c) (num_chunks c) in
     {| cur_assembly := a
     ;  count_input_bytes := 0%N
     ;  config := c
