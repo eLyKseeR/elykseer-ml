@@ -42,17 +42,25 @@ let fibs2j fibs = "{ \"fi\": " ^ fi2j fibs.bfi
                 ^ ", \"version\": " ^ (string_of_int @@ Conversion.p2i @@ fibs.fversion)
                 ^ ", \"blocks\": [ " ^ (String.concat ", " (List.map b2j (List.rev fibs.blocks))) ^ " ] }"
 
+let ch2s c = "Chunk:  cid = " ^ (string_of_int @@ Conversion.p2i @@ c.cid)
+           ^ ", in_anum = " ^ (string_of_int @@ Conversion.p2i @@ c.in_anum)
+           ^ ", buffer = " ^ (string_of_int @@ Conversion.n2i @@ Buffer.len c.buffer)
+let ch2j c = "{ \"cid\": " ^ (string_of_int @@ Conversion.p2i @@ c.cid)
+           ^ ", \"in_anum\": " ^ (string_of_int @@ Conversion.p2i @@ c.in_anum) ^ " }"
+
 let as2s a = "Assembly: nchunks = " ^ (string_of_int @@ Conversion.p2i @@ a.nchunks)
            ^ ", anum = " ^ (string_of_int @@ Conversion.p2i @@ a.anum)
            ^ ", aid = " ^ a.aid
            ^ ", apos = " ^ (string_of_int @@ Conversion.n2i @@ a.apos)
            ^ ", encrypted = " ^ (if a.encrypted then "1" else "0")
+           ^ ", chunks = " ^ (string_of_int @@ List.length @@ chunks a) ^ "@[" ^ (String.concat "; " (List.map ch2s (List.rev (chunks a)))) ^ "]"
 
 let as2j a = "{ \"anum\": " ^ (string_of_int @@ Conversion.p2i @@ a.anum)
            ^ ", \"aid\": \"" ^ a.aid ^ "\""
            ^ ", \"nchunks\": " ^ (string_of_int @@ Conversion.p2i @@ a.nchunks)
            ^ ", \"apos\": " ^ (string_of_int @@ Conversion.n2i @@ a.apos)
-           ^ ", \"encrypted\": " ^ (if a.encrypted then "1" else "0") ^ " }"
+           ^ ", \"encrypted\": " ^ (if a.encrypted then "1" else "0")
+           ^ ", \"chunks\": [ " ^ (String.concat ", " (List.map ch2j @@ (chunks a))) ^ " ] }"
 
 let c2s c = "Configuration: num_chunks = " ^ (string_of_int @@ Conversion.p2i @@ c.num_chunks)
           ^ ", path_chunks = " ^ c.path_chunks

@@ -1,4 +1,4 @@
 (library
  (name elykseer)
- (libraries elykseer_base)
+ (libraries elykseer_base mlcpp_filesystem mlcpp_cstdio)
 )

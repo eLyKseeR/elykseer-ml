@@ -45,12 +45,14 @@ module JsonTr = struct
         | [] -> (* List.rev *) acc
         | b :: bs' -> tr_blocks (tr_block b :: acc) bs'
     let tr_assembly json =
-        { anum = json |> member "anum" |> to_int |> Conversion.i2p;
+        let anum = json |> member "anum" |> to_int |> Conversion.i2p in
+        let nchunks = json |> member "nchunks" |> to_int |> Conversion.i2p in
+        { anum = anum;
           aid = json |> member "aid" |> to_string;
-          nchunks = json |> member "nchunks" |> to_int |> Conversion.i2p;
+          nchunks = nchunks;
           apos = json |> member "apos" |> to_int |> Conversion.i2n;
           encrypted = json |> member "encrypted" |> to_int |> (fun x -> if x = 1 then true else false);
-          chunks = [];
+          chunks = mk_chunk_list nchunks anum;
         }
     let rec tr_assemblies acc ass =
         match ass with

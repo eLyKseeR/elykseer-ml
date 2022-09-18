@@ -17,6 +17,7 @@ From LXR Require Import Conversion.
 From LXR Require Import Environment.
 From LXR Require Import Filesupport.
 From LXR Require Import Filetypes.
+From LXR Require Import RestorePlanner.
 From LXR Require Import Utilities.
 
 From Coq Require Import ExtrOcamlBasic.
@@ -113,5 +114,31 @@ Extract Constant get_file_information =>
           Filetypes.fchecksum = Elykseer_base.Fsutils.fchksum fn }
    ".
 
+Extract Constant chunk_identifier =>
+   "  
+    fun config aid cid -> Elykseer_base.Hashing.sha256 @@
+      (string_of_int (Conversion.n2i (Configuration.my_id config))) ^
+      (string_of_int (Conversion.p2i cid)) ^
+      aid
+   ".
+
+Extract Constant load_buffer_from_path =>
+   "  
+    fun config cpath -> Elykseer_base.Chunk.load_from_path (Configuration.path_chunks config ^ ""/"" ^ cpath ^ "".lxr"")
+   ".
+
+Extract Constant buffer_t => "Mlcpp_cstdio.Cstdio.File.Buffer.ta".
+Extract Constant buffer_create =>
+   "
+    fun n -> Mlcpp_cstdio.Cstdio.File.Buffer.create (Conversion.n2i n)
+   ".
+Extract Constant buffer_len =>
+   "
+    fun b -> Conversion.i2n @@ Mlcpp_cstdio.Cstdio.File.Buffer.size b
+   ".
+
+
 (* extract into "lxr.ml" all named modules and definitions, and their dependencies *)
-Extraction "lxr.ml" BackupPlanner Block Configuration Conversion Environment Utilities backup_file.
+Extraction "lxr.ml" Block Conversion Configuration Environment Utilities
+                    BackupPlanner RestorePlanner
+                    backup_file.

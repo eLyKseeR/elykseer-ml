@@ -66,7 +66,7 @@ let anon_args_fun _fn = ()
              ; blockapos = Conversion.i2n apos } in
     Lwt.return [bi] *)
 
-let encode_file fb _buf : fileblocks Lwt.t =
+let encode_fileblocks fb _assembly : fileblocks Lwt.t =
     let%lwt () = Lwt_io.printl (Utils.fibs2s fb) in
     let%lwt _bs = Lwt_io.with_file ~mode:Input fb.bfi.fname
       (fun _ch ->
@@ -90,14 +90,12 @@ let encode_file fb _buf : fileblocks Lwt.t =
     (* { bfi = fb.bfi; blocks = bs } *)
 
 let encode e : fileblocks list Lwt.t =
+    let assembly = List.hd e.assemblies in
     let len =   (Conversion.n2i chunkwidth_N)
               * (Conversion.n2i chunklength_N)
-              * (Conversion.p2i (nchunks (List.hd e.assemblies))) in
+              * (Conversion.p2i (nchunks assembly)) in
     let%lwt () = Lwt_io.printf "assembly size %d bytes\n" len in
-    (* let buf = ref (Lwt_bytes.create len) in *)
-    (* let buf = Bytes.create len in *)
-    let buf = [0] in
-    Lwt_stream.fold_s (fun fb agg -> let%lwt fb' = encode_file fb buf in
+    Lwt_stream.fold_s (fun fb agg -> let%lwt fb' = encode_fileblocks fb assembly in
                                      Lwt.return (fb' :: agg))
                       (Lwt_stream.of_list e.files)
                       []
@@ -113,7 +111,8 @@ let encode_check e : environment Lwt.t =
                     ; config = e.config
                     ; files = fs
                     ; assemblies = e.assemblies }
-    else Lwt.return e
+    else let%lwt () = Lwt_io.printf "error: expected only one assembly, got %d\n" (List.length e.assemblies) in
+         Lwt.return e
 
 (* main *)
 let main () = Arg.parse argspec anon_args_fun "lxr_encoder: vf";

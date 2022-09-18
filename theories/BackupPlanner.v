@@ -46,7 +46,7 @@ Definition prepare_assembly (c : configuration) (e : environment) : environment 
 
 (** 3 backup *)
 Definition read_buffer_from_file (len : N) : Buffer.buffer :=
-    Buffer.new_buffer 1 len.
+    Buffer.new_buffer len.
     (* match len with
     | 0 => Buffer.new_buffer 1 1
     | _ => Buffer.new_buffer 1 (Pos.of_nat(N.to_nat(len)))
@@ -58,7 +58,6 @@ Definition backup_block (idx : positive) (fi : fileinformation) (wrote : N) (c :
     let avsz := assemblysz c - apos0 in
     let rsz := fsize fi - wrote in
     let bsz := N.min avsz rsz in
-    (* let buf := Buffer.new_buffer 1 bsz in     TODO read block from file *)
     let buf := read_buffer_from_file bsz in
     let a1 := Assembly.add_data buf a0 in
     let e2 := env_set_assembly e a1 in
@@ -98,7 +97,7 @@ Eval compute in
     let c := {| num_chunks := 16; path_chunks := "./lxr"; path_meta := "./meta" |} in
     let e0 := (initial_environment c) in
     let a0 := cur_assembly e0 in
-    let buf := Buffer.new_buffer 1 1200 in
+    let buf := Buffer.new_buffer 1200 in
     let a1 := add_data buf a0 in
     let e := {| cur_assembly := a1
               ; count_input_bytes := 1200
@@ -112,7 +111,7 @@ Eval compute in
 Eval compute in 
     let c := {| num_chunks := 16; path_chunks := "./lxr"; path_meta := "./meta"; my_id := 321456 |} in
     let e0 := (initial_environment c) in
-    let buf := Buffer.new_buffer 1 1 in
+    let buf := Buffer.new_buffer 1 in
     let a1 := add_data buf (new_assembly (my_id c) (cur_assembly e0)) in
     let e := {| cur_assembly := a1
               ; count_input_bytes := 4194305
@@ -135,7 +134,7 @@ Definition backup_file (c : configuration) (e : environment) (f : filename) : en
 Eval compute in 
     let c := {| num_chunks := 16; path_chunks := "./lxr"; path_meta := "./meta"; my_id := 789001 |} in
     let e0 := (initial_environment c) in
-    let buf := Buffer.new_buffer 1 1 in
+    let buf := Buffer.new_buffer 1 in
     let a1 := add_data buf (new_assembly (my_id c) (cur_assembly e0)) in
     let e := {| cur_assembly := a1
               ; count_input_bytes := 1

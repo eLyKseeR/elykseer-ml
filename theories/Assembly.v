@@ -20,9 +20,9 @@ From Coq Require Import Strings.String Strings.Byte Lists.List Lia.
 Require Import ZArith NArith PArith.
 From Coq Require Import NArith.BinNat.
 Open Scope positive_scope.
-(* Open Scope N_scope. *)
+Open Scope N_scope.
 
-From LXR Require Import Buffer Conversion Utilities.
+From LXR Require Import Buffer Configuration Conversion Utilities.
 
 (** constants *)
 Section Constants.
@@ -32,6 +32,7 @@ Definition chunkwidth  : positive := 256%positive.
 Definition chunklength : positive := 1024%positive.
 Definition chunkwidth_N  : N := 256%N.
 Definition chunklength_N : N := 1024%N.
+Definition chunksize_N : N := 256%N * 1024%N.
 
 (** assembly size range (count of chunks) *)
 Definition assemblyminsz : positive := 16%positive.
@@ -74,7 +75,7 @@ Record chunk : Type := mkchunk
     }.
 (* Print chunk. *)
 Definition new_chunk (p_cid p_anum : positive) : chunk :=
-    mkchunk p_cid p_anum (mkbuffer chunkwidth_N chunklength_N).
+    mkchunk p_cid p_anum (new_buffer chunksize_N).
 
 Definition equal_chunks (c1 c2 : chunk) : Prop :=
     cid c1 = cid c2 /\ in_anum c1 = in_anum c2.
@@ -150,7 +151,7 @@ Qed. *)
 Fixpoint seq_p (start : positive) (len : nat) {struct len} : list positive :=
     match len with
     | 0%nat => nil
-    | S len => start :: seq_p (Pos.succ start) len
+    | S len' => start :: seq_p (Pos.succ start) len'
     end.
 
 Definition mk_chunk_list (n : positive) (p_aid : positive) : list chunk :=
@@ -205,7 +206,7 @@ Qed. *)
 
 Definition add_data (buf : Buffer.buffer) (a : assembly) : assembly :=
     (* let len := Conversion.pos2N(width buf * height buf) in *)
-    let len := width buf * height buf in
+    let len := len buf in
     {| nchunks := nchunks a; anum := anum a; aid := aid a; (* valid := valid a; *)
        apos := len + apos a; encrypted := encrypted a; chunks := chunks a |}.
 
@@ -218,40 +219,37 @@ Section Access.
 (** NPair = (cid, index) *)
 Definition ChIdx : Type := N * N.
 
-Eval compute in N.modulo 23 16. (* cid *)
+Eval compute in N.modulo 2 16. (* cid *)
 Eval compute in N.div 23 16. (* index *)
-Definition apos_to_chidx (i : N) (n : positive) : ChIdx :=
-  let n_N := N.of_nat (Pos.to_nat n) in
-  let idx_N := (N.div i n_N) in
+Definition apos_to_chidx (n : positive) (i : N) : ChIdx :=
+  let n_N := pos2N n in
   ( N.modulo i n_N   (* the chunk id (0 .. n-1) *)
-  , idx_N ).         (* the index into the chunk (0 .. l-1) *)
-Eval compute in apos_to_chidx 23 16.
-Eval compute in apos_to_chidx 3 16.
-Eval compute in apos_to_chidx 233 16.
-Eval compute in apos_to_chidx 0 16.
-Eval compute in apos_to_chidx 1 16.
-Eval compute in apos_to_chidx 2 16.
-Eval compute in apos_to_chidx 10 16.
+  , N.div i n_N ).   (* the index into the chunk (0 .. l-1) *)
+Eval compute in apos_to_chidx 16 23.
+Eval compute in apos_to_chidx 16 3.
+Eval compute in apos_to_chidx 16 233.
+Eval compute in apos_to_chidx 16 0.
+Eval compute in apos_to_chidx 16 1.
+Eval compute in apos_to_chidx 16 2.
+Eval compute in apos_to_chidx 16 17.
 
 Definition chidx_to_apos (n : positive) (ch : ChIdx) : N :=
-  let n_N := N.of_nat (Pos.to_nat n) in
+  let n_N := pos2N n in
   match ch with
   | (chno, chidx) => (chidx * n_N) + chno
   end.
     
 Eval compute in chidx_to_apos 2 (1%N, 7%N).
+Eval compute in chidx_to_apos 16 (1%N, 1%N).
 Eval compute in chidx_to_apos 16 (1%N, 7%N).
 Eval compute in chidx_to_apos 16 (10%N, 0%N).
-Eval compute in chidx_to_apos 16 (apos_to_chidx 233 16) = 233%N. (* (9%N, 14%N) *)
-Compute 233 mod 16.  (* 9%N *)
-Compute N.div 233%N 16%N. (* 14%N *)
-Compute N.mul 16%N (N.div 233%N 16%N). (* 224%N *)
+Eval compute in chidx_to_apos 16 (apos_to_chidx 16 233) = 233%N. (* (9%N, 14%N) *)
 
 Lemma compute_chidx_refl : forall (n : positive) (i : N),
-    chidx_to_apos n (apos_to_chidx i n) = i.
+    chidx_to_apos n (apos_to_chidx n i) = i.
 Proof.
   unfold apos_to_chidx. unfold chidx_to_apos.
-  intros. set j := N.of_nat (Pos.to_nat n).
+  intros. set j := pos2N n.
   rewrite N.mul_comm.
   rewrite <- N.div_mod'.
   reflexivity.
@@ -260,9 +258,9 @@ Qed.
   
   n : positive
   i : N
-  j := N.of_nat (Pos.to_nat n) : N
+  j := pos2N n : N
   ============================
-  (i / j * j + i mod j)%N = i  *)
+  i / j * j + i mod j = i  *)
   (* the integral division is like "floor" so we need to add the remainder to the product to equal the original numerator again. *)
   (* is there such a theorem? *)
 
@@ -272,11 +270,54 @@ End Access.
 Section Extraction.
 (** Encryption and extraction of chunks to files *)
 
+Axiom chunk_identifier : configuration -> string -> positive -> string.
+
+Axiom store_buffer_to_path : Buffer.buffer_t -> configuration -> string -> bool.
+
+Definition extract_chunk (config : configuration) (aid : string) (c : chunk) : bool :=
+    let cpath := chunk_identifier config aid (cid c) in
+    store_buffer_to_path (buf (buffer c)) config cpath.
+
+Fixpoint extract_chunks (config : configuration) (aid : string) (cs : list chunk) {struct cs} : list bool :=
+    match cs with
+    | nil => nil
+    | c :: rcs =>
+        (extract_chunk config aid c) :: extract_chunks config aid rcs
+    end.
+
+Definition extract (config : configuration) (a : assembly) : bool :=
+    let res := extract_chunks config (aid a) (chunks a) in
+    N.of_nat(List.length (filter (fun r => r) res)) =? pos2N(nchunks a).
 
 End Extraction.
 
 Section Reconstitution.
 (** Reconstituion of chunks from files and their decryption *)
+
+Axiom load_buffer_from_path : configuration -> string -> option Buffer.buffer_t.
+
+Definition restore_chunk (config : configuration) (aid : string) (c : chunk) : option Buffer.buffer_t :=
+    let cpath := chunk_identifier config aid (cid c) in
+    load_buffer_from_path config cpath.
+
+Definition set_buffer (c : chunk) (b : Buffer.buffer_t) : chunk :=
+    {| cid := cid c; in_anum := in_anum c; buffer := init_buffer b |}.
+
+Fixpoint restore_chunks (config : configuration) (a : assembly) (cs : list chunk) {struct cs} : list chunk :=
+    match cs with
+    | nil => nil
+    | c :: rcs =>
+            match (restore_chunk config (aid a) c) with
+            | None => restore_chunks config a rcs
+            | Some b => (set_buffer c b) :: (restore_chunks config a rcs)
+            end
+    end.
+(* Print restore_chunks. *)
+
+Definition restore (config : configuration) (a : assembly) : assembly :=
+    let chunks' := restore_chunks config a (chunks a) in
+    {| nchunks := nchunks a; anum := anum a; aid := aid a; (* valid := valid a; *)
+       apos := 0; encrypted := false; chunks := chunks' |}.
 
 
 End Reconstitution.
