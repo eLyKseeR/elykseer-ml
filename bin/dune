@@ -8,11 +8,13 @@
  (public_name lxr_controller)
  (name lxr_controller)
  (modules lxr_controller)
+ (preprocess (pps lwt_ppx))
  (libraries elykseer elykseer_base elykseer_utils lwt.unix lwt_ppx)
 )
 (executable
  (public_name lxr_encoder)
  (name lxr_encoder)
  (modules lxr_encoder)
+ (preprocess (pps lwt_ppx))
  (libraries elykseer elykseer_base elykseer_utils lwt.unix lwt_ppx)
 )

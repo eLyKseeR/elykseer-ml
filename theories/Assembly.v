@@ -20,7 +20,7 @@ From Coq Require Import Strings.String Strings.Byte Lists.List Lia.
 Require Import ZArith NArith PArith.
 From Coq Require Import NArith.BinNat.
 Open Scope positive_scope.
-Open Scope N_scope.
+(* Open Scope N_scope. *)
 
 From LXR Require Import Buffer Conversion Utilities.
 
@@ -30,10 +30,14 @@ Section Constants.
 (** chunk 2D size *)
 Definition chunkwidth  : positive := 256%positive.
 Definition chunklength : positive := 1024%positive.
+Definition chunkwidth_N  : N := 256%N.
+Definition chunklength_N : N := 1024%N.
 
 (** assembly size range (count of chunks) *)
-Definition assemblyminsz := 16%positive.
-Definition assemblymaxsz := 256%positive.
+Definition assemblyminsz : positive := 16%positive.
+Definition assemblymaxsz : positive := 256%positive.
+Definition assemblyminsz_N : N := 16%N.
+Definition assemblymaxsz_N : N := 256%N.
 
 End Constants.
 
@@ -41,21 +45,24 @@ Section Data.
 
 (** data structures *)
 
-Definition valid_assembly_size (n : positive) : Prop :=
-    n >= assemblyminsz /\ n <= assemblymaxsz.
+(* Definition valid_assembly_size (p : positive) : Prop :=
+    p >= assemblyminsz /\ p <= assemblymaxsz.
 
-Lemma invalid_assembly_low : forall n, n < assemblyminsz /\ valid_assembly_size n -> False.
+Definition valid_assembly_size_N (n : N) : Prop :=
+    n >= assemblyminsz_N /\ n <= assemblymaxsz_N.
+
+Lemma invalid_assembly_low : forall n, n < assemblyminsz_N /\ valid_assembly_size n -> False.
 Proof.
     intros n. unfold valid_assembly_size.
-    unfold assemblyminsz. unfold assemblymaxsz.
+    unfold assemblyminsz_N. unfold assemblymaxsz_N.
     lia.
 Qed.
-Lemma invalid_assembly_hi : forall n, n > assemblymaxsz /\ valid_assembly_size n -> False.
+Lemma invalid_assembly_hi : forall n, n > assemblymaxsz_N /\ valid_assembly_size n -> False.
 Proof.
     intros n. unfold valid_assembly_size.
-    unfold assemblyminsz. unfold assemblymaxsz.
+    unfold assemblyminsz_N. unfold assemblymaxsz_N.
     lia.
-Qed.
+Qed. *)
 
 (** encrypted data can be extracted as chunks 
     a chunk is unique per assembly
@@ -63,12 +70,11 @@ Qed.
 Record chunk : Type := mkchunk
     { cid : positive
     ; in_anum : positive
-    ; buffer : Buffer.buffer (*mkbuffer chunkwidth chunklength*)
+    ; buffer : Buffer.buffer
     }.
-    (* ; buffer : matrix (to_nat chunkwidth) (to_nat chunklength) *)
 (* Print chunk. *)
 Definition new_chunk (p_cid p_anum : positive) : chunk :=
-    mkchunk p_cid p_anum (mkbuffer chunkwidth chunklength).
+    mkchunk p_cid p_anum (mkbuffer chunkwidth_N chunklength_N).
 
 Definition equal_chunks (c1 c2 : chunk) : Prop :=
     cid c1 = cid c2 /\ in_anum c1 = in_anum c2.
@@ -96,10 +102,10 @@ Record assembly (*(n : nat (*| n >= assemblyminsz /\ n <= assemblymaxsz*))*) : T
     { nchunks : positive
     ; anum : positive
     ; aid : string
-    ; valid : Prop
+    (* ; valid : Prop *)
     ; apos : N
     ; encrypted : bool
-    (* ; chunks : list chunk *)
+    ; chunks : list chunk
     }.
 (* Print mkassembly. *)
 (** an experiment to have the size checked on creation.
@@ -141,34 +147,41 @@ Proof.
 Qed. *)
 
 (** create list of chunks *)
-(* Definition mk_chunk_list (n : positive) (p_aid : positive) : list chunk :=
-  map (fun p_cid => new_chunk (Pos.of_nat p_cid) p_aid) (seq 1 (Pos.to_nat n)). *)
+Fixpoint seq_p (start : positive) (len : nat) {struct len} : list positive :=
+    match len with
+    | 0%nat => nil
+    | S len => start :: seq_p (Pos.succ start) len
+    end.
+
+Definition mk_chunk_list (n : positive) (p_aid : positive) : list chunk :=
+  map (fun p_cid => new_chunk p_cid p_aid) (seq_p 1 (Pos.to_nat n)).
 
 (* Compute mk_chunk_list 3 42. *)
 
 (** create assembly (count of chunks) *)
 Definition first_assembly (my_id : N) (n : positive) : assembly :=
-    let this_anum := 1
+    let this_anum := 1%positive
     in
     mkassembly n
                this_anum
                (Utilities.rnd256 my_id)
-               (valid_assembly_size n)
+               (* (valid_assembly_size n) *)
                N0
                false
-               (*mk_chunk_list n this_anum*).
+               (mk_chunk_list n this_anum).
 Definition new_assembly (my_id : N) (a : assembly) : assembly :=
-    let this_anum := 1 + (anum a) in
-    let n := nchunks a in
+    let anum0 := anum a in
+    let this_anum := Pos.succ anum0 in
+    let n : positive := nchunks a in
     mkassembly n
                this_anum
                (Utilities.rnd256 my_id)
-               (valid_assembly_size n)
+               (* (valid_assembly_size n) *)
                N0
                false
-               (*mk_chunk_list n this_anum*).
+               (mk_chunk_list n this_anum).
 
-Lemma valid_assembly_20 : let a1 := first_assembly 42%N 20 in valid a1.
+(* Lemma valid_assembly_20 : let a1 := first_assembly 42%N 20 in valid a1.
 Proof.
     unfold first_assembly. simpl. unfold valid_assembly_size.
     split.
@@ -187,12 +200,14 @@ Proof.
       - unfold assemblyminsz. lia.
       - unfold assemblymaxsz. lia.
     + reflexivity.
-Qed.
+Qed. *)
 
 
-Definition add_data (len : N) (a : assembly) : assembly :=
-    {| nchunks := nchunks a; anum := anum a; aid := aid a; valid := valid a;
-       apos := len + apos a; encrypted := encrypted a; (*chunks := chunks a*) |}.
+Definition add_data (buf : Buffer.buffer) (a : assembly) : assembly :=
+    (* let len := Conversion.pos2N(width buf * height buf) in *)
+    let len := width buf * height buf in
+    {| nchunks := nchunks a; anum := anum a; aid := aid a; (* valid := valid a; *)
+       apos := len + apos a; encrypted := encrypted a; chunks := chunks a |}.
 
 End Data.
 
@@ -208,8 +223,8 @@ Eval compute in N.div 23 16. (* index *)
 Definition apos_to_chidx (i : N) (n : positive) : ChIdx :=
   let n_N := N.of_nat (Pos.to_nat n) in
   let idx_N := (N.div i n_N) in
-  ( N.modulo i n_N   (* the chunk id *)
-  , idx_N ).         (* the index into the chunk *)
+  ( N.modulo i n_N   (* the chunk id (0 .. n-1) *)
+  , idx_N ).         (* the index into the chunk (0 .. l-1) *)
 Eval compute in apos_to_chidx 23 16.
 Eval compute in apos_to_chidx 3 16.
 Eval compute in apos_to_chidx 233 16.
@@ -224,6 +239,7 @@ Definition chidx_to_apos (n : positive) (ch : ChIdx) : N :=
   | (chno, chidx) => (chidx * n_N) + chno
   end.
     
+Eval compute in chidx_to_apos 2 (1%N, 7%N).
 Eval compute in chidx_to_apos 16 (1%N, 7%N).
 Eval compute in chidx_to_apos 16 (10%N, 0%N).
 Eval compute in chidx_to_apos 16 (apos_to_chidx 233 16) = 233%N. (* (9%N, 14%N) *)

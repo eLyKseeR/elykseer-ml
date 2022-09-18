@@ -16,6 +16,7 @@ Open Scope N_scope.
 
 From LXR Require Import Assembly.
 From LXR Require Import Block.
+From LXR Require Import Buffer.
 From LXR Require Import Configuration.
 From LXR Require Import Conversion.
 From LXR Require Import Environment.
@@ -32,7 +33,7 @@ Open Scope string_scope.
 
 (** 2 setup environment *)
 
-Definition assemblysz (c : configuration) : N := pos2N (chunkwidth * chunklength * (num_chunks c)).
+Definition assemblysz (c : configuration) : N := chunkwidth_N * chunklength_N * pos2N(num_chunks c).
 
 Definition prepare_assembly (c : configuration) (e : environment) : environment :=
     let a := cur_assembly e in
@@ -44,6 +45,12 @@ Definition prepare_assembly (c : configuration) (e : environment) : environment 
     end.
 
 (** 3 backup *)
+Definition read_buffer_from_file (len : N) : Buffer.buffer :=
+    Buffer.new_buffer 1 len.
+    (* match len with
+    | 0 => Buffer.new_buffer 1 1
+    | _ => Buffer.new_buffer 1 (Pos.of_nat(N.to_nat(len)))
+    end. *)
 
 Definition backup_block (idx : positive) (fi : fileinformation) (wrote : N) (c : configuration) (e : environment) : (blockinformation * environment) :=
     let a0 := cur_assembly e in
@@ -51,17 +58,20 @@ Definition backup_block (idx : positive) (fi : fileinformation) (wrote : N) (c :
     let avsz := assemblysz c - apos0 in
     let rsz := fsize fi - wrote in
     let bsz := N.min avsz rsz in
-    let a1 := Assembly.add_data bsz a0 in     (** TODO write block to assembly *)
+    (* let buf := Buffer.new_buffer 1 bsz in     TODO read block from file *)
+    let buf := read_buffer_from_file bsz in
+    let a1 := Assembly.add_data buf a0 in
     let e2 := env_set_assembly e a1 in
     let e3 := prepare_assembly c e2 in    (* renew assembly in case full; TODO create aid from anum *)
     let bi := {| blockid := idx; blocksize := bsz;
+                 bchecksum := "1";
                  filepos := wrote;
                  blockanum := anum a1; blockapos := apos0 |} in
     (bi, e3).
 
 Program Fixpoint backup_blocks (idx : nat) (fi : fileinformation) (wrote : N) (bidx : positive) (bis : list blockinformation) (c : configuration) (e : environment) : environment :=
     match idx with
-    | O => env_add_file e {| bfi := fi; blocks := bis |}
+    | O => env_add_file e {| bfi := fi; fversion := 1; blocks := bis |}
     | S p => let (bi, e2) := backup_block bidx fi wrote c e in
              backup_blocks p fi (wrote + blocksize bi) (bidx + 1) (bi :: bis) c e2
     end.
@@ -82,17 +92,19 @@ Eval compute in
     let c := {| num_chunks := nchunks; path_chunks := "./lxr"; path_meta := "./meta" |} in
     calc_num_blocks {| fname := "t1.dat"; fsize := filesize; fowner := "me"; fpermissions := 644; fmodified := "some"; fchecksum := "ABDC" |}
                     c
-                    (initial_environment c) = (* 2 *) filesize / pos2N(nchunks) / pos2N(Assembly.chunkwidth) / pos2N(Assembly.chunklength) .
+                    (initial_environment c) = (* 2 *) filesize / pos2N(nchunks) / Assembly.chunkwidth_N / Assembly.chunklength_N .
 (* already 4M in assembly *)
 Eval compute in 
     let c := {| num_chunks := 16; path_chunks := "./lxr"; path_meta := "./meta" |} in
     let e0 := (initial_environment c) in
     let a0 := cur_assembly e0 in
-    let a1 := add_data 4194304 a0 in
+    let buf := Buffer.new_buffer 1 1200 in
+    let a1 := add_data buf a0 in
     let e := {| cur_assembly := a1
-              ; count_input_bytes := 4194304
-              ; files := {| bfi := {| fname := "t0.dat"; fsize := 4194304; fowner := "me"; fpermissions := 644; fmodified := "some"; fchecksum := "DEFA" |}
-                          ; blocks := {| blockid := 1; blocksize := 4194304; filepos := 0; blockanum := 1; blockapos := 0 |} :: nil |} :: nil |} in
+              ; count_input_bytes := 1200
+              ; files := {| bfi := {| fname := "t0.dat"; fsize := 1200; fowner := "me"; fpermissions := 644; fmodified := "some"; fchecksum := "DEFA" |}
+                          ; fversion := 1
+                          ; blocks := {| blockid := 1; blocksize := 1200; filepos := 0; blockanum := 1; blockapos := 0 |} :: nil |} :: nil |} in
     calc_num_blocks {| fname := "t1.dat"; fsize := 8388608; fowner := "me"; fpermissions := 644; fmodified := "some"; fchecksum := "ABDC" |}
                     c
                     e = 2 .
@@ -100,11 +112,13 @@ Eval compute in
 Eval compute in 
     let c := {| num_chunks := 16; path_chunks := "./lxr"; path_meta := "./meta"; my_id := 321456 |} in
     let e0 := (initial_environment c) in
-    let a1 := add_data 1 (new_assembly (my_id c) (cur_assembly e0)) in
+    let buf := Buffer.new_buffer 1 1 in
+    let a1 := add_data buf (new_assembly (my_id c) (cur_assembly e0)) in
     let e := {| cur_assembly := a1
               ; count_input_bytes := 4194305
               ; config := c
               ; files := {| bfi := {| fname := "t0.dat"; fsize := 4194304; fowner := "me"; fpermissions := 644; fmodified := "some"; fchecksum := "DEFA" |}
+                          ; fversion := 1
                           ; blocks := {| blockid := 1; blocksize := 4194304; filepos := 0; blockanum := anum a1; blockapos := apos a1 |} :: nil |} :: nil |} in
     calc_num_blocks {| fname := "t1.dat"; fsize := 8388608; fowner := "me"; fpermissions := 644; fmodified := "some"; fchecksum := "ABDC" |}
                     c
@@ -121,12 +135,14 @@ Definition backup_file (c : configuration) (e : environment) (f : filename) : en
 Eval compute in 
     let c := {| num_chunks := 16; path_chunks := "./lxr"; path_meta := "./meta"; my_id := 789001 |} in
     let e0 := (initial_environment c) in
-    let a1 := add_data 4194304 (new_assembly (my_id c) (cur_assembly e0)) in
+    let buf := Buffer.new_buffer 1 1 in
+    let a1 := add_data buf (new_assembly (my_id c) (cur_assembly e0)) in
     let e := {| cur_assembly := a1
-              ; count_input_bytes := 4194304
+              ; count_input_bytes := 1
               ; config := c
               ; files := {| bfi := {| fname := "t0.dat"; fsize := 4194304; fowner := "me"; fpermissions := 644; fmodified := "some"; fchecksum := "DEFA" |}
-                          ; blocks := {| blockid := 1; blocksize := 4194304; filepos := 0; blockanum := anum a1; blockapos := apos a1 |} :: nil |} :: nil |} in
+                          ; fversion := 1
+                          ; blocks := {| blockid := 1; blocksize := 1; filepos := 0; blockanum := anum a1; blockapos := apos a1 |} :: nil |} :: nil |} in
     backup_file' c e {| fname := "t1.dat"; fsize := 1048576; fowner := "me"; fpermissions := 644; fmodified := "some"; fchecksum := "ABDC" |} = e0.
 
 

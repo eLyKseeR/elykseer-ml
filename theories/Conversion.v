@@ -11,8 +11,6 @@ Module Export Conversion.
 
 From Coq Require Import Lia.
 From Coq Require Import NArith.BinNat.
-(* Open Scope positive_scope.
-Open Scope N_scope. *)
 
 Definition pos2N (p : positive) : N :=
     Npos p.

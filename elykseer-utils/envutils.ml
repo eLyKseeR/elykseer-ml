@@ -16,6 +16,7 @@ module JsonTr = struct
           nchunks = Conversion.i2p 256;
           apos = Conversion.i2n 0;
           encrypted = false;
+          chunks = [];
         }
     let tr_config json =
         { num_chunks = json |> member "num_chunks" |> to_int |> Conversion.i2p;
@@ -33,6 +34,7 @@ module JsonTr = struct
         }
     let tr_block json =
         { blockid = json |> member "blockid" |> to_int |> Conversion.i2p;
+          bchecksum = json |> member "bchecksum" |> to_string;
           blocksize = json |> member "blocksize" |> to_int |> Conversion.i2n;
           filepos = json |> member "filepos" |> to_int |> Conversion.i2n;
           blockanum = json |> member "blockanum" |> to_int |> Conversion.i2p;
@@ -48,6 +50,7 @@ module JsonTr = struct
           nchunks = json |> member "nchunks" |> to_int |> Conversion.i2p;
           apos = json |> member "apos" |> to_int |> Conversion.i2n;
           encrypted = json |> member "encrypted" |> to_int |> (fun x -> if x = 1 then true else false);
+          chunks = [];
         }
     let rec tr_assemblies acc ass =
         match ass with
@@ -55,6 +58,7 @@ module JsonTr = struct
         | a :: ass' -> tr_assemblies (tr_assembly a :: acc) ass'
     let tr_fileblocks json =
         { bfi = json |> member "fi" |> tr_fi;
+          fversion = json |> member "version" |> to_int |> Conversion.i2p;
           blocks = json |> member "blocks" |> to_list |> tr_blocks [];
         }
     let rec tr_files acc fs =
@@ -83,15 +87,18 @@ let envrestore fn =
 
 let env2assemblies e =
     let anums = List.rev @@ List.map (anum) e.assemblies in
-    let fbs = List.map (fun anum ->
-                            let fs = e.files |> List.map (fun fb ->
+    List.map (fun anum ->
+        let assembly = e.assemblies |> List.filter (fun a -> a.anum = anum) |> List.hd in
+        { cur_assembly = assembly
+        ; count_input_bytes = Conversion.i2n 0
+        ; config = config e
+        ; files = e.files |> List.map (fun fb ->
                                 (* list blocks in this assembly *)
                                 let bs = fb.blocks |> List.filter (fun b ->
                                     b.blockanum = anum) in
-                                { bfi = fb.bfi; blocks = bs } ) |>
+                                { bfi = fb.bfi; fversion = Conversion.i2p 1; blocks = bs } ) |>
                                 (* filter out files without blocks in this assembly *)
-                                List.filter (fun fb -> fb.blocks <> []) |>
-                                List.rev in
-                            (anum, fs)
-                       ) anums in
-    fbs
+                                List.filter (fun fb -> fb.blocks <> [])
+        ; assemblies = [assembly]
+        }
+    ) anums
