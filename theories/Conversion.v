@@ -9,7 +9,6 @@ Module Export Conversion.
  Description: conversion functions
  *)
 
-From Coq Require Import Lia.
 From Coq Require Import NArith.BinNat.
 
 Definition pos2N (p : positive) : N :=
@@ -31,5 +30,14 @@ Axiom i2n : int -> N.
 Axiom n2i : N -> int.
 
 End axioms.
+
+Section Lemmas.
+
+Lemma pos2i2pos_id : forall p, i2p (p2i p) = p.
+Proof.
+    intros. Admitted.
+
+
+End Lemmas.
 
 End Conversion.

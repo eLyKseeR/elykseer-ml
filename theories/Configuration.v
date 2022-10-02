@@ -9,8 +9,7 @@ From Coq Require Import Strings.String.
 
 Record configuration : Type :=
     mkconfiguration
-        { num_chunks : positive
-        ; path_chunks : string
+        { path_chunks : string
         ; path_meta : string
         ; my_id : N
         }.

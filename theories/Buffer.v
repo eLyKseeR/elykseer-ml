@@ -9,36 +9,55 @@ Module Export Buffer.
  Description: data buffer of specified length
  *)
 
-From Coq Require Import ssreflect ssrfun ssrbool.
 Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
-
-From Coq Require Import Lia.
-Require Import ZArith NArith.
-(* Open Scope positive_scope. *)
+ 
+From Coq Require Import Strings.String.
+Require Import NArith.
 Open Scope N_scope.
 
 From LXR Require Import Conversion.
 
+Inductive EncryptionState := Plain | Encrypted.
 
-Axiom buffer_t : Type.
-Axiom buffer_create : N -> buffer_t.
-Axiom buffer_len : buffer_t -> N.
+Module Type BUF.
+  Axiom buffer_t : Type.
+  Axiom buffer_create : N -> buffer_t.
+  Axiom buffer_len : buffer_t -> N.
+  Axiom calc_checksum : buffer_t -> string.
+  Axiom copy_sz_pos : buffer_t -> N -> N -> buffer_t -> N -> N.
 
-Record buffer : Type := mkbuffer
-    { len : N
-    ; buf : buffer_t
-    }.
-Definition new_buffer (len : N) : buffer :=
-    {| len := len; buf := buffer_create len |}.
-Definition init_buffer (buf : buffer_t) : buffer :=
-    {| len := buffer_len buf; buf := buf |}.
+  Parameter state : EncryptionState.
+End BUF.
 
-Definition set (b : buffer) (idx : N) (v : Z) : Prop :=
-    idx < (len b).
+Module Export BufferEncrypted : BUF.
+  Axiom buffer_t : Type.
+  Axiom buffer_create : N -> buffer_t.
+  Axiom buffer_len : buffer_t -> N.
+  Axiom calc_checksum : buffer_t -> string.
+  Axiom copy_sz_pos : buffer_t -> N -> N -> buffer_t -> N -> N.
 
-Definition get (b : buffer) (idx : N) : Prop :=
-    idx < (len b).
+  Definition state := Encrypted.
+End BufferEncrypted.
+(* Print BufferEncrypted. *)
+
+Module Export BufferPlain : BUF.
+  Axiom buffer_t : Type.
+  Axiom buffer_create : N -> buffer_t.
+  Axiom buffer_len : buffer_t -> N.
+  Axiom calc_checksum : buffer_t -> string.
+  Axiom copy_sz_pos : buffer_t -> N -> N -> buffer_t -> N -> N.
+
+  Definition state := Plain.
+End BufferPlain.
+(* Print BufferPlain. *)
+
+Axiom cpp_encrypt_buffer : BufferPlain.buffer_t -> string -> BufferEncrypted.buffer_t.
+Definition encrypt (bin : BufferPlain.buffer_t) (pw : string) : BufferEncrypted.buffer_t :=
+  cpp_encrypt_buffer bin pw.
+Axiom cpp_decrypt_buffer : BufferEncrypted.buffer_t -> string -> BufferPlain.buffer_t.
+Definition decrypt (bin : BufferEncrypted.buffer_t) (pw : string) : BufferPlain.buffer_t :=
+  cpp_decrypt_buffer bin pw.
 
 End Buffer.

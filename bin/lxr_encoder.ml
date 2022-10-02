@@ -7,6 +7,9 @@ open Elykseer__Lxr.Environment
 
 open Elykseer_utils
 
+open Mlcpp_filesystem
+open Mlcpp_cstdio
+
 let arg_verbose = ref false
 let arg_fctrl = ref ""
 
@@ -66,51 +69,72 @@ let anon_args_fun _fn = ()
              ; blockapos = Conversion.i2n apos } in
     Lwt.return [bi] *)
 
-let encode_fileblocks fb _assembly : fileblocks Lwt.t =
-    let%lwt () = Lwt_io.printl (Utils.fibs2s fb) in
-    let%lwt _bs = Lwt_io.with_file ~mode:Input fb.bfi.fname
-      (fun _ch ->
-        Lwt_stream.fold_s (fun b _agg ->
-            (* fseek ch b.filepos *)
-            let _fpos = (Conversion.n2i b.filepos) in
-            let _bsz = (Conversion.n2i b.blocksize) in
-            (* let%lwt () = Lwt_io.set_position ch @@ Int64.of_int fpos in *)
-            (* let fbytes = fread ch b.blocksize in *)
-            (* let%lwt bs = read_file_blocks ch buf (Conversion.n2i b.blockapos) bsz
-                                                  0 fpos b.blockanum  in *)
-            (* let n = List.fold_left (fun agg b -> agg + Conversion.n2i b.blocksize) 0 bs in *)
-            (* let%lwt () = Lwt_io.printf "read %d bytes of %d\n" n bsz in *)
-            (* add_to_buf buf b.blockapos fbytes *)
-            (* Lwt.return (bs @ agg) ) *)
-            Lwt.return [] )
-            (Lwt_stream.of_list fb.blocks)
-            []
-      ) in
-    Lwt.return fb 
-    (* { bfi = fb.bfi; blocks = bs } *)
+let add_data assembly buf apos =
+    let len = Cstdio.File.Buffer.size buf in
+    let nchunks = assembly.nchunks in
+    let rbufin = ref buf in
+    let rchunks = ref assembly.chunks in
+    let rec add_data' rchunks bpos len rbufin apos0 =
+        if bpos < len
+        then
+          let (chnum, chidx) = apos_to_chidx nchunks (Conversion.i2n(bpos + apos0)) in
+          let chunk = List.nth !rchunks (Conversion.n2i chnum) in
+          let c = Cstdio.File.Buffer.get !rbufin bpos in
+          Cstdio.File.Buffer.set chunk.buffer.buf (Conversion.n2i chidx) c;
+          add_data' rchunks (succ bpos) len rbufin apos0
+        else assembly in
+    add_data' rchunks 0 len rbufin apos
 
-let encode e : fileblocks list Lwt.t =
+let update_assembly e assembly =
+    { e with assemblies = [assembly] }
+
+let rec encode_blocks fptr e assembly bs =
+    match bs with
+    | [] -> e
+    | b :: rbs -> let fpos = (Conversion.n2i b.filepos) in
+                  let apos = (Conversion.n2i b.blockapos) in
+                  let bsz = (Conversion.n2i b.blocksize) in
+                  Cstdio.File.fseek fptr fpos |> function
+                  | Ok () -> begin
+                       let buf = Cstdio.File.Buffer.create bsz in
+                       Cstdio.File.fread buf bsz fptr |> function
+                       | Ok nread -> begin
+                            Printf.eprintf "encode_blocks read %d\n" nread;
+                            let a' = add_data assembly buf apos in
+                            let e' = update_assembly e a' in
+                            encode_blocks fptr e' a' rbs
+                        end
+                       | Error (errno,errstr) -> Printf.eprintf "encode_blocks 2 error %d: %s\n" errno errstr; e
+                      end
+                  | Error (errno,errstr) -> Printf.eprintf "encode_blocks 1 error %d: %s\n" errno errstr; e
+
+let rec encode_fileblocks e assembly fb : environment =
+    match fb with
+    | [] -> e
+    | f :: rfs -> let fp = Filesystem.Path.from_string (f.bfi.fname) in
+        if Filesystem.Path.exists fp
+        then
+          Cstdio.File.fopen (Filesystem.Path.to_string fp) "rx" |> function
+          | Ok fptr -> let e' = encode_blocks fptr e assembly (f.blocks) in
+                       Cstdio.File.fclose fptr |> ignore;
+                       encode_fileblocks e' assembly rfs
+          | Error (errno,errstr) -> Printf.eprintf "encode_fileblocks error %d: %s\n" errno errstr; e
+        else
+          e
+
+(*
+
+performance: 4.41s for 16 chunk-wide assembly
+*)
+let encode e : environment Lwt.t =
     let assembly = List.hd e.assemblies in
-    let len =   (Conversion.n2i chunkwidth_N)
-              * (Conversion.n2i chunklength_N)
-              * (Conversion.p2i (nchunks assembly)) in
-    let%lwt () = Lwt_io.printf "assembly size %d bytes\n" len in
-    Lwt_stream.fold_s (fun fb agg -> let%lwt fb' = encode_fileblocks fb assembly in
-                                     Lwt.return (fb' :: agg))
-                      (Lwt_stream.of_list e.files)
-                      []
+    Lwt.return @@ encode_fileblocks e assembly e.files
 
 let encode_check e : environment Lwt.t =
     if List.length e.assemblies = 1
-    then let%lwt fs = encode e in
-         let%lwt () = Lwt_io.printf "encoded %d files" (List.length fs) in
-         (* Lwt.return e *)
-         let cnt = List.fold_left (fun agg f -> agg + List.fold_left (fun agg b -> agg + Conversion.n2i b.blocksize) 0 f.blocks) 0 e.files in
-         Lwt.return { cur_assembly = e.cur_assembly
-                    ; count_input_bytes = Conversion.i2n cnt
-                    ; config = e.config
-                    ; files = fs
-                    ; assemblies = e.assemblies }
+    then let%lwt e' = encode e in
+         let%lwt () = Lwt_io.printf "encoded to %s\n" (Utils.e2s e') in
+         Lwt.return e'
     else let%lwt () = Lwt_io.printf "error: expected only one assembly, got %d\n" (List.length e.assemblies) in
          Lwt.return e
 

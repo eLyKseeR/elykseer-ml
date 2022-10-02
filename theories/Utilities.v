@@ -4,9 +4,21 @@
 
 Module Export Utilities.
 
-Require Import NArith Strings.String.
+Require Import PArith Lists.List Strings.String.
+
+Section make_list.
+
+Definition make_list (n : positive) : list positive :=
+   let natlist := List.seq 1 (Pos.to_nat n) in
+   List.map (fun x => Pos.of_nat x) natlist.
+
+End make_list.
 
 Section axioms.
+
+(* initialise the random number generator
+*)
+Axiom rndsetup : N -> N.
 
 (* returns random number
    (ignores argument)

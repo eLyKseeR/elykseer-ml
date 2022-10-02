@@ -1,15 +1,11 @@
 -R theories LXR
 
-theories/Block.v
 theories/Buffer.v
-theories/Filesupport.v
-theories/Filetypes.v
-theories/ExtractOCaml.v
-theories/Example.v
+theories/Rel.v
+theories/RelationFileAid.v
+theories/RelationAidKey.v
 theories/Assembly.v
-theories/BackupPlanner.v
-theories/Conversion.v
 theories/Configuration.v
-theories/Environment.v
-theories/RestorePlanner.v
+theories/Conversion.v
 theories/Utilities.v
+theories/MakeML.v
