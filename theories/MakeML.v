@@ -9,6 +9,8 @@ From LXR Require Import Assembly.
 From LXR Require Import Buffer.
 From LXR Require Import Configuration.
 From LXR Require Import Conversion.
+From LXR Require Import Filesupport.
+From LXR Require Import Filetypes.
 From LXR Require Import RelationAidKey.
 From LXR Require Import RelationFileAid.
 From LXR Require Import Utilities.
@@ -72,25 +74,25 @@ Extract Constant n2i =>
     | Npos p -> p2i p
    ".
 
-Extract Constant rndsetup =>
+(* Extract Constant rndsetup =>
    "
     function
      _ -> Random.self_init (); Conversion.i2n 0
-   ".
+   ". *)
 
 Extract Constant rnd =>
    "
     function
-     _ -> int_of_float  (2. ** 30. -. 1.) |> Random.int |> Conversion.i2n
+     _ -> Elykseer_crypto.Random.with_rng (fun rng -> Elykseer_crypto.Random.random32 rng) |> Conversion.i2n
    ".
 
 Extract Constant rnd256 =>
    "
    function
-   x -> int_of_float  (2. ** 30. -. 1.) |> Random.int |> string_of_int |>
+   x -> Elykseer_crypto.Random.with_rng (fun rng -> Elykseer_crypto.Random.random32 rng) |> string_of_int |>
      String.cat (Conversion.n2i x |> string_of_int) |>
      String.cat (Unix.gethostname ()) |> String.cat (Unix.gettimeofday () |> string_of_float) |>
-     Sha256.string |> Sha256.to_hex
+     Elykseer_crypto.Sha256.string
    ".
 
 Extract Constant chunk_identifier =>
@@ -112,12 +114,12 @@ Extract Constant chunk_identifier_path =>
 Extract Constant BufferEncrypted.buffer_t => "Mlcpp_cstdio.Cstdio.File.Buffer.ta".
 Extract Constant BufferEncrypted.buffer_create => "fun n -> Mlcpp_cstdio.Cstdio.File.Buffer.create (Conversion.n2i n)".
 Extract Constant BufferEncrypted.buffer_len => "fun b -> Conversion.i2n (Mlcpp_cstdio.Cstdio.File.Buffer.size b)".
-Extract Constant BufferEncrypted.calc_checksum => "fun b -> Sha256.to_hex @@ Elykseer_base.Buffer.sha256 b".
+Extract Constant BufferEncrypted.calc_checksum => "fun b -> Elykseer_base.Buffer.sha256 b".
 
 Extract Constant BufferPlain.buffer_t => "Mlcpp_cstdio.Cstdio.File.Buffer.ta".
 Extract Constant BufferPlain.buffer_create => "fun n -> Mlcpp_cstdio.Cstdio.File.Buffer.create (Conversion.n2i n)".
 Extract Constant BufferPlain.buffer_len => "fun b -> Conversion.i2n (Mlcpp_cstdio.Cstdio.File.Buffer.size b)".
-Extract Constant BufferPlain.calc_checksum => "fun b -> Sha256.to_hex @@ Elykseer_base.Buffer.sha256 b".
+Extract Constant BufferPlain.calc_checksum => "fun b -> Elykseer_base.Buffer.sha256 b".
 
 Extract Constant id_buffer_t_from_enc => "fun b -> Helper.cpp_buffer_id b".
 Extract Constant id_buffer_t_from_full => "fun b -> Helper.cpp_buffer_id b".
@@ -133,26 +135,36 @@ Extract Constant cpp_decrypt_buffer => "fun b _pw -> Helper.cpp_buffer_id b".  (
 Extract Constant BufferEncrypted.copy_sz_pos =>
    "
     fun bsrc npos1 nsz btgt npos2 -> Conversion.i2n @@
-      Mlcpp_cstdio.Cstdio.File.Buffer.copy_sz_pos bsrc (Conversion.n2i npos1) (Conversion.n2i nsz) btgt  (Conversion.n2i npos2)
+      Mlcpp_cstdio.Cstdio.File.Buffer.copy_sz_pos bsrc ~pos1:(Conversion.n2i npos1) ~sz:(Conversion.n2i nsz) btgt ~pos2:(Conversion.n2i npos2)
    ".
 
 Extract Constant BufferPlain.copy_sz_pos =>
    "
     fun bsrc npos1 nsz btgt npos2 -> Conversion.i2n @@
-      Mlcpp_cstdio.Cstdio.File.Buffer.copy_sz_pos bsrc (Conversion.n2i npos1) (Conversion.n2i nsz) btgt  (Conversion.n2i npos2)
+      Mlcpp_cstdio.Cstdio.File.Buffer.copy_sz_pos bsrc ~pos1:(Conversion.n2i npos1) ~sz:(Conversion.n2i nsz) btgt ~pos2:(Conversion.n2i npos2)
    ".
 
-Extract Constant cpp_store_chunk_to_path =>
+Extract Constant ext_store_chunk_to_path =>
    "
     fun fp nsz npos b -> Conversion.i2n @@
       Helper.store_chunk_to_path (Mlcpp_filesystem.Filesystem.Path.from_string fp) (Conversion.n2i nsz) (Conversion.n2i npos) b
    ".
 
-Extract Constant cpp_load_chunk_from_path =>
+Extract Constant ext_load_chunk_from_path =>
    "
     fun fp -> Helper.load_chunk_from_path (Mlcpp_filesystem.Filesystem.Path.from_string fp)
    ".
 
+Extract Constant get_file_information =>
+   "  
+    fun fn ->
+        { Filetypes.fname = fn;
+          Filetypes.fsize = Conversion.i2n (Elykseer_base.Fsutils.fsize fn);
+          Filetypes.fowner = string_of_int (Elykseer_base.Fsutils.fowner fn);
+          Filetypes.fpermissions = Conversion.i2n (Elykseer_base.Fsutils.fperm fn);
+          Filetypes.fmodified = Elykseer_base.Fsutils.fmod fn;
+          Filetypes.fchecksum = Elykseer_base.Fsutils.fchksum fn }
+   ".
 
 (* extract into "lxr.ml" all named modules and definitions, and their dependencies *)
-Extraction "lxr.ml"  Conversion Utilities Configuration Buffer RelationAidKey RelationFileAid Assembly.
+Extraction "lxr.ml"  Conversion Utilities Filetypes Filesupport Configuration Buffer RelationAidKey RelationFileAid Assembly.

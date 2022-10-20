@@ -11,10 +11,11 @@ Module Export RelationAidKey <: REL.
  Description: relates assembly to key
  *)
 
-From Coq Require Import Strings.String NArith PArith FMaps.
+From Coq Require Import Strings.String NArith PArith FMaps FSets.FMapAVL.
 Open Scope string_scope.
 
-Module Import M := FMapList.Make(String_as_OT).
+Module Import M := FMapAVL.Make(String_as_OT).
+(* Module Import M := FMapList.Make(String_as_OT). *)
 (* Print M. *)
 
 Record keyinformation : Type := mkkeyinformation

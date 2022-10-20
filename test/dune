@@ -1,5 +1,5 @@
 (test
  (name test)
  (modules test testAssembly)
- (libraries alcotest elykseer_base mlcpp_cstdio unix)
+ (libraries alcotest elykseer elykseer_base mlcpp_cstdio unix)
 )

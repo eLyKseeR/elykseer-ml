@@ -1,8 +1,6 @@
 (library
  (name elykseer_base)
- ; (foreign_stubs (language cxx) (names assembly) (flags -std=c++17 -fno-exceptions -I/opt/homebrew/include/))
- (foreign_stubs (language cxx) (names assembly buffer) (flags -std=c++17 -fno-exceptions))
- ; (c_library_flags :standard -lstdc++ -L/opt/homebrew/lib -lomp)
- (c_library_flags :standard -lstdc++)
- (libraries unix sha mlcpp_filesystem mlcpp_cstdio)
+ (foreign_stubs (language cxx) (names assembly) (flags -std=c++17 -fno-exceptions))
+ (c_library_flags :standard -std=c++17 -lstdc++)
+ (libraries unix sha mlcpp_filesystem mlcpp_cstdio elykseer_crypto)
 )

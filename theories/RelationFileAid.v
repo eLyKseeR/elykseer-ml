@@ -11,10 +11,11 @@ Module Export RelationFileAid <: REL.
  Description: relates file names to assembly
  *)
 
-From Coq Require Import Strings.String NArith PArith FMaps.
+From Coq Require Import Strings.String NArith PArith FMaps FSets.FMapAVL.
 Open Scope string_scope.
 
-Module Import M := FMapList.Make(String_as_OT).
+Module Import M := FMapAVL.Make(String_as_OT).
+(* Module Import M := FMapList.Make(String_as_OT). *)
 (* Print M. *)
 
 Record blockinformation : Type := mkblockinformation
@@ -47,6 +48,14 @@ Definition add (name : key) (bis : elt) (rel : Map) : Map :=
 Section Tests.
 
 Compute find "test.txt" (add "test.txt" ({| blockid := 1; bchecksum := "chk"; blocksize := 37; filepos := 0; blockaid := "abc97391af"; blockapos := 0 |} :: nil) new).
+
+Example rel1 := (add "test.txt" ({| blockid := 1; bchecksum := "chk1"; blocksize := 37; filepos := 0; blockaid := "abc97391af"; blockapos := 100 |}
+                              :: {| blockid := 2; bchecksum := "chk2"; blocksize := 437; filepos := 37; blockaid := "abc97391af"; blockapos := 137 |}
+                              :: nil)
+                 new).
+Print rel1.
+
+Compute elements rel1.
 
 End Tests.
 

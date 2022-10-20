@@ -1,2 +1,2 @@
 
-let sha256 s = Sha256.to_hex @@ Sha256.string s
+let sha256 s = Elykseer_crypto.Sha256.string s

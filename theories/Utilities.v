@@ -18,7 +18,7 @@ Section axioms.
 
 (* initialise the random number generator
 *)
-Axiom rndsetup : N -> N.
+(* Axiom rndsetup : N -> N. *)
 
 (* returns random number
    (ignores argument)

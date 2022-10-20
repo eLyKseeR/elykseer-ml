@@ -121,13 +121,13 @@ Program Definition decrypt (a : AssemblyEncrypted.H) (b : AssemblyEncrypted.B) (
 Axiom chunk_identifier : configuration -> aid_t -> positive -> string.
 Axiom chunk_identifier_path : configuration -> aid_t -> positive -> string.
 
-Axiom cpp_load_chunk_from_path : string -> option BufferEncrypted.buffer_t.
+Axiom ext_load_chunk_from_path : string -> option BufferEncrypted.buffer_t.
 Fixpoint recall_chunks (nread : N) (c : configuration) (aid : aid_t) (b : BufferEncrypted.buffer_t) (cids : list positive) : N :=
     match cids with
     | nil => nread
     | cid :: rcids =>
         let cpath := chunk_identifier_path c aid cid in
-        match cpp_load_chunk_from_path cpath with
+        match ext_load_chunk_from_path cpath with
         | None => nread
         | Some cb =>
             let apos := chunksize_N * ((Conversion.pos2N cid) - 1) in
@@ -146,14 +146,14 @@ Program Definition recall (c : configuration) (a : AssemblyEncrypted.H) : option
     let b' := id_enc_from_buffer_t b in
     Some (a', b').
 
-Axiom cpp_store_chunk_to_path : string -> N -> N -> BufferEncrypted.buffer_t -> N.
+Axiom ext_store_chunk_to_path : string -> N -> N -> BufferEncrypted.buffer_t -> N.
 Fixpoint extract_chunks (written : N) (c : configuration) (aid : aid_t) (b : BufferEncrypted.buffer_t) (cids : list positive) : N :=
     match cids with
     | nil => written
     | cid :: rcids =>
         let cpath := chunk_identifier_path c aid cid in
         let apos := chunksize_N * ((Conversion.pos2N cid) - 1) in
-        let nwritten := cpp_store_chunk_to_path cpath chunksize_N apos b in
+        let nwritten := ext_store_chunk_to_path cpath chunksize_N apos b in
         extract_chunks (written + nwritten) c aid b rcids
     end.
 

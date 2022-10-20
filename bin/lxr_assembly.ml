@@ -54,17 +54,20 @@ let main () = Arg.parse argspec anon_args_fun "lxr_assembly: vaf";
     let e = Envutils.envrestore !arg_fctrl in
     let%lwt () = Lwt_io.printl (Utils.e2s e) in
     let%lwt a = assembly_check e !arg_aid in *)
+    let%lwt () = Lwt_io.printlf "rnd256 %d" (Conversion.n2i @@ Utilities.rnd @@ Conversion.i2n 0) in
+    let%lwt () = Lwt_io.printlf "rnd256 %d" (Conversion.n2i @@ Utilities.rnd @@ Conversion.i2n 0) in
+    let%lwt () = Lwt_io.printlf "sha256 of /bin/sh %s" (Fsutils.fchksum "/bin/sh") in
     let c : Configuration.configuration = { path_chunks = "./chunks"; path_meta = "./meta"; my_id = Conversion.i2n 16} in
     let (a,b) = AssemblyPlainWritable.create c (Nchunks.from_int 16) in
-    let%lwt () = Lwt_io.printf "assembly %s %d %d" a.aid (Conversion.p2i a.nchunks) (Conversion.n2i a.apos) in
-    let%lwt () = Lwt_io.printf "block size %d" (Conversion.n2i @@ AssemblyPlainWritable.buffer_len b) in
+    let%lwt () = Lwt_io.printlf "assembly %s %d %d" a.aid (Conversion.p2i a.nchunks) (Conversion.n2i a.apos) in
+    let%lwt () = Lwt_io.printlf "block size %d" (Conversion.n2i @@ AssemblyPlainWritable.buffer_len b) in
     let%lwt () = Lwt_io.printl (Utils.as2s a) in
     let%lwt () = Lwt_io.printlf "buffer sha256 = %s" (AssemblyPlainWritable.calc_checksum b) in
     (* let msg = "testing some longer message." in *)
     let content = BufferPlain.buffer_create (Conversion.i2n 1024) in (*  (fun i -> if i < 28 then String.get msg i else '0') in *)
     let relfiles = RelationFileAid.coq_new in
     let (a', _relfiles') = backup a b "test1M" content relfiles in
-    let relkey = (RelationAidKey.add "abc97391af" (aid a') RelationAidKey.coq_new ) in
+    let relkey = (RelationAidKey.add (aid a') "abc97391af" RelationAidKey.coq_new ) in
     let (a'', b') = Elykseer__Lxr.Assembly.finish a' b in
     match Elykseer__Lxr.Assembly.encrypt a'' b' relkey with
     | None -> Lwt_io.printl "failed to encrypt"

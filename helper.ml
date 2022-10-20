@@ -6,7 +6,7 @@ let store_chunk_to_path fp sz pos b =
   if Mlcpp_filesystem.Filesystem.Path.exists fp
   then 0
   else let buf = Mlcpp_cstdio.Cstdio.File.Buffer.create sz in
-       let _n = Mlcpp_cstdio.Cstdio.File.Buffer.copy_sz_pos b pos sz buf 0 in
+       let _n = Mlcpp_cstdio.Cstdio.File.Buffer.copy_sz_pos b ~pos1:pos ~sz:sz buf ~pos2:0 in
        match Mlcpp_cstdio.Cstdio.File.fopen (Mlcpp_filesystem.Filesystem.Path.to_string fp) "wx" with
        | Error _ -> 0
        | Ok fptr -> match Mlcpp_cstdio.Cstdio.File.fwrite buf sz fptr with

@@ -17,7 +17,7 @@ From Coq Require Import NArith.BinNat.
 Open Scope N_scope.
 
 Definition filename := string.
-Definition fptr := nat.
+(* Definition fptr := nat. *)
 Definition filelist := list filename.
 Record fileinformation : Type := mkfileinformation
      { fname : filename

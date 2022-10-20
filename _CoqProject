@@ -4,6 +4,9 @@ theories/Buffer.v
 theories/Rel.v
 theories/RelationFileAid.v
 theories/RelationAidKey.v
+theories/Filetypes.v
+theories/Filesupport.v
+theories/Nchunks.v
 theories/Assembly.v
 theories/Configuration.v
 theories/Conversion.v
