@@ -26,26 +26,6 @@ From LXR Require Import Nchunks Buffer Configuration Conversion Utilities.
 From LXR Require Import RelationFileAid RelationAidKey.
 
 
-Module Export Nchunks.
-    Module Private.
-        Definition t := positive.
-        Definition minimum : t := 16%positive.
-        Definition maximum : t := 256%positive.
-        Definition from_positive : positive -> t := fun n =>
-            Pos.min maximum (Pos.max n minimum).
-        Definition from_int : int -> t := fun i =>
-            from_positive (Conversion.i2p i).
-        Definition to_positive : t -> positive := fun x => x.
-        Definition to_N : t -> N := fun x => Conversion.pos2N x.
-    End Private.
-
-Definition from_positive : positive -> Private.t := Private.from_positive.
-Definition from_int : int -> Private.t := Private.from_int.
-Definition to_positive : Private.t -> positive := Private.to_positive.
-Definition to_N : Private.t -> N := Private.to_N.
-
-End Nchunks.
-
 Definition chunkwidth  : positive := 256%positive.
 Definition chunklength : positive := 1024%positive.
 Definition chunksize   : positive := chunkwidth * chunklength.
@@ -54,17 +34,18 @@ Definition assemblysize (n : Nchunks.Private.t) : N := chunksize_N * (to_N n).
 
 Definition aid_t := string.
 
-Record assemblyinformation : Type := mkassembly
-    { nchunks : Nchunks.Private.t
-    ; aid : aid_t
-    ; apos : N }.
+Record assemblyinformation : Type :=
+    mkassembly
+        { nchunks : Nchunks.Private.t
+        ; aid : aid_t
+        ; apos : N }.
 
 
 Module Type ASS.
     Definition H : Type := assemblyinformation.
     Parameter B : Type.
     (* Parameter assembly : Type. *)
-    Axiom create : configuration -> Nchunks.Private.t -> (H * B).
+    Axiom create : configuration -> (H * B).
     Axiom buffer_len : B -> N.
     Axiom calc_checksum : B -> string.
 End ASS.
@@ -74,9 +55,10 @@ Module AssemblyPlainWritable : ASS.
     Definition B := BufferPlain.buffer_t.
     Definition buffer_len : B -> N := BufferPlain.buffer_len.
     Definition calc_checksum : B -> string := fun _ => "<>".
-    Definition create (c : configuration) (n : Nchunks.Private.t) : H * B :=
-        let b := BufferPlain.buffer_create (chunksize_N * Conversion.pos2N n) in
-        (mkassembly n (Utilities.rnd256 (my_id c)) 0, b).
+    Definition create (c : configuration) : H * B :=
+        let chunks := config_nchunks c in
+        let b := BufferPlain.buffer_create (chunksize_N * Nchunks.to_N chunks) in
+        (mkassembly chunks (Utilities.rnd256 (my_id c)) 0, b).
 End AssemblyPlainWritable.
 
 Module AssemblyEncrypted : ASS.
@@ -84,9 +66,10 @@ Module AssemblyEncrypted : ASS.
     Definition B := BufferEncrypted.buffer_t.
     Definition buffer_len : B -> N := BufferEncrypted.buffer_len.
     Definition calc_checksum : B -> string := BufferEncrypted.calc_checksum.
-    Definition create (c : configuration) (n : Nchunks.Private.t) :=
-        let b := BufferEncrypted.buffer_create (chunksize_N * Conversion.pos2N n) in
-        (mkassembly n (Utilities.rnd256 (my_id c)) 0, b).
+    Definition create (c : configuration) : H * B :=
+        let chunks := config_nchunks c in
+        let b := BufferEncrypted.buffer_create (chunksize_N * Nchunks.to_N chunks) in
+        (mkassembly chunks (Utilities.rnd256 (my_id c)) 0, b).
 End AssemblyEncrypted.
 (* Print AssemblyEncrypted. *)
 
@@ -95,10 +78,11 @@ Module AssemblyPlainFull : ASS.
     Definition B := BufferPlain.buffer_t.
     Definition buffer_len : B -> N := BufferPlain.buffer_len.
     Definition calc_checksum : B -> string := BufferPlain.calc_checksum.
-    Definition create (c : configuration) (n : Nchunks.Private.t) :=
-        let sz := chunksize_N * Conversion.pos2N n in
+    Definition create (c : configuration) :=
+        let chunks := config_nchunks c in
+        let sz := chunksize_N * Nchunks.to_N chunks in
         let b := BufferPlain.buffer_create sz in
-        (mkassembly n (Utilities.rnd256 (my_id c)) sz, b).
+        (mkassembly chunks (Utilities.rnd256 (my_id c)) sz, b).
 End AssemblyPlainFull.
 
 

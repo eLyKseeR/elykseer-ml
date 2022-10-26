@@ -1,6 +1,8 @@
 
 external cpp_buffer_id : 'a -> 'b = "cpp_buffer_id"
 
+external cpp_encrypt_buffer : 'b1 -> string -> 'b2 = "cpp_encrypt_buffer"
+external cpp_decrypt_buffer : 'b1 -> string -> 'b2 = "cpp_decrypt_buffer"
 
 let store_chunk_to_path fp sz pos b =
   if Mlcpp_filesystem.Filesystem.Path.exists fp

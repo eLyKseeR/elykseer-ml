@@ -5,60 +5,60 @@
 Module Export Environment.
 
 Require Import NArith PArith.
-From Coq Require Import NArith.BinNat Lists.List.
+From Coq Require Import NArith.BinNat Lists.List Strings.String.
 
 Open Scope positive_scope.
 Open Scope N_scope.
 
 From LXR Require Import Assembly.
-From LXR Require Import Block.
 From LXR Require Import Configuration.
 From LXR Require Import Filetypes.
+From LXR Require Import RelationAidKey RelationFileAid.
 
-Section axioms.
-
-Axiom rndsetup : N -> N.
-
-End axioms.
 
 Record environment : Type :=
     mkenvironment
-        { cur_assembly : assembly
-        ; count_input_bytes : N
+        { cur_assembly : AssemblyPlainWritable.H
+        ; cur_buffer : AssemblyPlainWritable.B
         ; config : configuration
-        ; files : list fileblocks
-        ; assemblies : list assembly
+        ; files : RelationFileAid.Map
+        ; keys : RelationAidKey.Map
         }.
 
-(** call this function to setup the random number generator to a fresh state *)
-Definition setup_environment : N :=
-    rndsetup 0%N.
-
 Definition initial_environment (c : configuration) : environment :=
-    let a := first_assembly (my_id c) (num_chunks c) in
+    let (a,b) := AssemblyPlainWritable.create c in
     {| cur_assembly := a
-    ;  count_input_bytes := 0%N
+    ;  cur_buffer := b
     ;  config := c
-    ;  files := nil
-    ;  assemblies := nil
+    ;  files := RelationFileAid.new
+    ;  keys := RelationAidKey.new
     |}.
-Definition env_set_assembly (e : environment) (a : assembly) : environment :=
-    let ah := cur_assembly e in
-    let tail := if ((anum a) =? (anum ah))%positive
-                then tl (assemblies e)
-                else assemblies e in
+Definition recreate_assembly (e : environment) : environment :=
+    let (a,b) := AssemblyPlainWritable.create (config e) in
     {| cur_assembly := a
-    ;  count_input_bytes := count_input_bytes e
+    ;  cur_buffer := b
     ;  config := config e
     ;  files := files e
-    ;  assemblies := a :: tail
+    ;  keys := keys e
     |}.
-Definition env_add_file (e : environment) (fibs : fileblocks) : environment :=
+Definition env_add_file_block (e : environment) (fname : string) (bi : blockinformation) : environment :=
+    let entries :=
+        match RelationFileAid.find fname (files e) with
+        | Some bis => bi :: bis
+        | None => bi :: nil
+        end in
     {| cur_assembly := cur_assembly e
-    ;  count_input_bytes := count_input_bytes e + fsize (bfi fibs)
+    ;  cur_buffer := cur_buffer e
     ;  config := config e
-    ;  files := fibs :: files e
-    ;  assemblies := assemblies e
+    ;  files := RelationFileAid.add fname entries (files e)
+    ;  keys := keys e
+    |}.
+Definition env_add_aid_key (e : environment) (aid : string) (ki : keyinformation) : environment :=
+    {| cur_assembly := cur_assembly e
+    ;  cur_buffer := cur_buffer e
+    ;  config := config e
+    ;  files := files e
+    ;  keys := RelationAidKey.add aid ki (keys e)
     |}.
 
 End Environment.

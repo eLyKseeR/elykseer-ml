@@ -57,8 +57,8 @@ let main () = Arg.parse argspec anon_args_fun "lxr_assembly: vaf";
     let%lwt () = Lwt_io.printlf "rnd256 %d" (Conversion.n2i @@ Utilities.rnd @@ Conversion.i2n 0) in
     let%lwt () = Lwt_io.printlf "rnd256 %d" (Conversion.n2i @@ Utilities.rnd @@ Conversion.i2n 0) in
     let%lwt () = Lwt_io.printlf "sha256 of /bin/sh %s" (Fsutils.fchksum "/bin/sh") in
-    let c : Configuration.configuration = { path_chunks = "./chunks"; path_meta = "./meta"; my_id = Conversion.i2n 16} in
-    let (a,b) = AssemblyPlainWritable.create c (Nchunks.from_int 16) in
+    let c : Configuration.configuration = { config_nchunks = (Nchunks.from_int 16); path_chunks = "./chunks"; path_meta = "./meta"; my_id = Conversion.i2n 16} in
+    let (a,b) = AssemblyPlainWritable.create c in
     let%lwt () = Lwt_io.printlf "assembly %s %d %d" a.aid (Conversion.p2i a.nchunks) (Conversion.n2i a.apos) in
     let%lwt () = Lwt_io.printlf "block size %d" (Conversion.n2i @@ AssemblyPlainWritable.buffer_len b) in
     let%lwt () = Lwt_io.printl (Utils.as2s a) in

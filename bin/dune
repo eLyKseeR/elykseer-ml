@@ -1,9 +1,9 @@
-; (executable
-;  (public_name lxr_backup)
-;  (name lxr_backup)
-;  (modules lxr_backup)
-;  (libraries elykseer elykseer_base elykseer_utils)
-; )
+(executable
+ (public_name lxr_backup)
+ (name lxr_backup)
+ (modules lxr_backup)
+ (libraries elykseer elykseer_base elykseer_utils)
+)
 ; (executable
 ;  (public_name lxr_controller)
 ;  (name lxr_controller)

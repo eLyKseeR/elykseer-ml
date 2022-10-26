@@ -9,8 +9,10 @@ From LXR Require Import Assembly.
 From LXR Require Import Buffer.
 From LXR Require Import Configuration.
 From LXR Require Import Conversion.
+From LXR Require Import Environment.
 From LXR Require Import Filesupport.
 From LXR Require Import Filetypes.
+From LXR Require Import Nchunks.
 From LXR Require Import RelationAidKey.
 From LXR Require Import RelationFileAid.
 From LXR Require Import Utilities.
@@ -129,8 +131,8 @@ Extract Constant id_assembly_enc_buffer_t_from_buf => "fun b -> Helper.cpp_buffe
 Extract Constant id_enc_from_buffer_t => "fun b -> Helper.cpp_buffer_id b".
 Extract Constant id_assembly_full_buffer_from_writable => "fun b -> Helper.cpp_buffer_id b".
 
-Extract Constant cpp_encrypt_buffer => "fun b _pw -> Helper.cpp_buffer_id b".  (* TODO *)
-Extract Constant cpp_decrypt_buffer => "fun b _pw -> Helper.cpp_buffer_id b".  (* TODO *)
+Extract Constant cpp_encrypt_buffer => "fun b pw -> Helper.cpp_encrypt_buffer b pw".  (* TODO *)
+Extract Constant cpp_decrypt_buffer => "fun b pw -> Helper.cpp_decrypt_buffer b pw".  (* TODO *)
 
 Extract Constant BufferEncrypted.copy_sz_pos =>
    "
@@ -167,4 +169,4 @@ Extract Constant get_file_information =>
    ".
 
 (* extract into "lxr.ml" all named modules and definitions, and their dependencies *)
-Extraction "lxr.ml"  Conversion Utilities Filetypes Filesupport Configuration Buffer RelationAidKey RelationFileAid Assembly.
+Extraction "lxr.ml"  Conversion Utilities Filetypes Filesupport Nchunks Assembly Configuration Environment Buffer RelationAidKey RelationFileAid.

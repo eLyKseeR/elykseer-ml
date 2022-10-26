@@ -6,6 +6,7 @@ theories/RelationFileAid.v
 theories/RelationAidKey.v
 theories/Filetypes.v
 theories/Filesupport.v
+theories/Environment.v
 theories/Nchunks.v
 theories/Assembly.v
 theories/Configuration.v
