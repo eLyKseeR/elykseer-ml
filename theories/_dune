@@ -1,5 +1,0 @@
-
-(coq.theory
- (name "LXR")
- (package elykseer)
-)

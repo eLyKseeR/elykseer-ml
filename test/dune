@@ -1,2 +1,5 @@
 (test
- (name elykseer))
+ (name test)
+ (modules test testAssembly)
+ (libraries alcotest elykseer elykseer_base mlcpp_cstdio unix)
+)

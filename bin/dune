@@ -1,5 +1,59 @@
 (executable
  (public_name lxr_backup)
  (name lxr_backup)
- (libraries elykseer elykseer_base)
+ (modules lxr_backup)
+ (libraries elykseer elykseer_base elykseer_utils)
 )
+; (executable
+;  (public_name lxr_controller)
+;  (name lxr_controller)
+;  (modules lxr_controller)
+;  (preprocess (pps lwt_ppx))
+;  (libraries elykseer elykseer_base elykseer_utils lwt.unix lwt_ppx)
+; )
+; (executable
+;  (public_name lxr_encoder)
+;  (name lxr_encoder)
+;  (modules lxr_encoder)
+;  (preprocess (pps lwt_ppx))
+;  (libraries elykseer elykseer_base elykseer_utils lwt.unix lwt_ppx)
+; )
+; (executable
+;  (public_name lxr_assembly)
+;  (name lxr_assembly)
+;  (modules lxr_assembly)
+;  (preprocess (pps lwt_ppx))
+;  (libraries elykseer elykseer_base elykseer_utils lwt.unix lwt_ppx)
+; )
+
+(executable
+ (public_name lxr_assembly)
+ (name lxr_assembly)
+ (modules lxr_assembly)
+ (preprocess (pps lwt_ppx))
+ (libraries elykseer elykseer_base elykseer_utils mlcpp_chrono lwt.unix lwt_ppx)
+)
+
+(executable
+ (public_name lxr_relfiles)
+ (name lxr_relfiles)
+ (modules lxr_relfiles)
+ (preprocess (pps lwt_ppx))
+ (libraries elykseer elykseer_base elykseer_utils mlcpp_chrono mlcpp_cstdio lwt.unix lwt_ppx)
+)
+
+(executable
+ (public_name lxr_relkeys)
+ (name lxr_relkeys)
+ (modules lxr_relkeys)
+ (preprocess (pps lwt_ppx))
+ (libraries elykseer elykseer_base elykseer_utils mlcpp_chrono mlcpp_cstdio lwt.unix lwt_ppx)
+)
+
+; (executable
+;  (public_name lxr_restore)
+;  (name lxr_restore)
+;  (modules lxr_restore)
+;  (preprocess (pps lwt_ppx))
+;  (libraries elykseer elykseer_base elykseer_utils mlcpp_chrono lwt.unix lwt_ppx)
+; )

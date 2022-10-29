@@ -2,289 +2,239 @@
       e L y K s e e R
 *)
 
- Module Export Assembly.
+Module Export Assembly.
 
 (**
  Module: Assembly
- Description: an assembly is an ordering of chunks of data,
+ Description: an assemblyinformation is an ordering of chunks of data,
               either plain for reading and writing, 
               or encrypted for longterm storage.
  *)
 
-From Coq Require Import ssreflect ssrfun ssrbool.
 Set Implicit Arguments.
 Unset Strict Implicit.
-Unset Printing Implicit Defensive.
+(* Unset Printing Implicit Defensive. *)
 
-From Coq Require Import Strings.String Strings.Byte Lists.List Lia.
+From Coq Require Import Strings.String .
 Require Import ZArith NArith PArith.
 From Coq Require Import NArith.BinNat.
 Open Scope positive_scope.
 Open Scope N_scope.
+Open Scope list_scope.
 
-From LXR Require Import Buffer Conversion.
+From LXR Require Import Nchunks Buffer Configuration Conversion Utilities.
+From LXR Require Import RelationFileAid RelationAidKey.
 
-(** constants *)
-Section Constants.
 
-(** chunk 2D size *)
 Definition chunkwidth  : positive := 256%positive.
 Definition chunklength : positive := 1024%positive.
+Definition chunksize   : positive := chunkwidth * chunklength.
+Definition chunksize_N : N := Conversion.pos2N chunksize.
+Definition assemblysize (n : Nchunks.Private.t) : N := chunksize_N * (to_N n).
 
-(** assembly size range (count of chunks) *)
-Definition assemblyminsz := 16%positive.
-Definition assemblymaxsz := 256%positive.
+Definition aid_t := string.
 
-End Constants.
+Record assemblyinformation : Type :=
+    mkassembly
+        { nchunks : Nchunks.Private.t
+        ; aid : aid_t
+        ; apos : N }.
 
-Section Data.
 
-(** data structures *)
+Module Type ASS.
+    Definition H : Type := assemblyinformation.
+    Parameter B : Type.
+    (* Parameter assembly : Type. *)
+    Axiom create : configuration -> (H * B).
+    Axiom buffer_len : B -> N.
+    Axiom calc_checksum : B -> string.
+End ASS.
 
-(* Import BigNMatrix. *)
+Module AssemblyPlainWritable : ASS.
+    Definition H : Type := assemblyinformation.
+    Definition B := BufferPlain.buffer_t.
+    Definition buffer_len : B -> N := BufferPlain.buffer_len.
+    Definition calc_checksum : B -> string := fun _ => "<>".
+    Definition create (c : configuration) : H * B :=
+        let chunks := config_nchunks c in
+        let b := BufferPlain.buffer_create (chunksize_N * Nchunks.to_N chunks) in
+        (mkassembly chunks (Utilities.rnd256 (my_id c)) 0, b).
+End AssemblyPlainWritable.
 
-Definition valid_assembly_size (n : positive) : Prop :=
-    n >= assemblyminsz /\ n <= assemblymaxsz.
+Module AssemblyEncrypted : ASS.
+    Definition H : Type := assemblyinformation.
+    Definition B := BufferEncrypted.buffer_t.
+    Definition buffer_len : B -> N := BufferEncrypted.buffer_len.
+    Definition calc_checksum : B -> string := BufferEncrypted.calc_checksum.
+    Definition create (c : configuration) : H * B :=
+        let chunks := config_nchunks c in
+        let b := BufferEncrypted.buffer_create (chunksize_N * Nchunks.to_N chunks) in
+        (mkassembly chunks (Utilities.rnd256 (my_id c)) 0, b).
+End AssemblyEncrypted.
+(* Print AssemblyEncrypted. *)
 
-Lemma invalid_assembly_low : forall n, n < assemblyminsz /\ valid_assembly_size n -> False.
+Module AssemblyPlainFull : ASS.
+    Definition H : Type := assemblyinformation.
+    Definition B := BufferPlain.buffer_t.
+    Definition buffer_len : B -> N := BufferPlain.buffer_len.
+    Definition calc_checksum : B -> string := BufferPlain.calc_checksum.
+    Definition create (c : configuration) :=
+        let chunks := config_nchunks c in
+        let sz := chunksize_N * Nchunks.to_N chunks in
+        let b := BufferPlain.buffer_create sz in
+        (mkassembly chunks (Utilities.rnd256 (my_id c)) sz, b).
+End AssemblyPlainFull.
+
+
+Section Code_Encrypted.
+(** operations on AssemblyEncrypted *)
+
+Axiom id_buffer_t_from_enc : AssemblyEncrypted.B -> BufferEncrypted.buffer_t.
+Axiom id_enc_from_buffer_t : BufferEncrypted.buffer_t -> AssemblyEncrypted.B.
+Axiom id_assembly_plain_buffer_t_from_buf : BufferPlain.buffer_t -> AssemblyPlainWritable.B.
+Program Definition decrypt (a : AssemblyEncrypted.H) (b : AssemblyEncrypted.B) (rel : RelationAidKey.Map) : option (AssemblyPlainWritable.H * AssemblyPlainWritable.B) :=
+    match RelationAidKey.find (aid a) rel with
+    | None => None
+    | Some pw =>
+        let a' := mkassembly (nchunks a) (aid a) 0 in
+        let bdec := Buffer.decrypt (id_buffer_t_from_enc b) (pkey pw) in
+        let b' := id_assembly_plain_buffer_t_from_buf bdec in
+        Some (a', b')
+    end.
+
+Axiom chunk_identifier : configuration -> aid_t -> positive -> string.
+Axiom chunk_identifier_path : configuration -> aid_t -> positive -> string.
+
+Axiom ext_load_chunk_from_path : string -> option BufferEncrypted.buffer_t.
+Fixpoint recall_chunks (nread : N) (c : configuration) (aid : aid_t) (b : BufferEncrypted.buffer_t) (cids : list positive) : N :=
+    match cids with
+    | nil => nread
+    | cid :: rcids =>
+        let cpath := chunk_identifier_path c aid cid in
+        match ext_load_chunk_from_path cpath with
+        | None => nread
+        | Some cb =>
+            let apos := chunksize_N * ((Conversion.pos2N cid) - 1) in
+            if N.ltb (apos + chunksize_N) (BufferEncrypted.buffer_len b)
+            then let nread' := BufferEncrypted.copy_sz_pos cb 0 chunksize_N b apos in
+                recall_chunks (nread + nread') c aid b rcids
+            else nread
+        end
+    end.
+
+Program Definition recall (c : configuration) (a : AssemblyEncrypted.H) : option (AssemblyEncrypted.H * AssemblyEncrypted.B) :=
+    let cidlist := Utilities.make_list (nchunks a) in
+    let b := BufferEncrypted.buffer_create (Conversion.pos2N (nchunks a) * chunksize_N) in
+    let nread := recall_chunks 0 c (aid a) b cidlist in
+    let a' := mkassembly (nchunks a) (aid a) nread in
+    let b' := id_enc_from_buffer_t b in
+    Some (a', b').
+
+Axiom ext_store_chunk_to_path : string -> N -> N -> BufferEncrypted.buffer_t -> N.
+Fixpoint extract_chunks (written : N) (c : configuration) (aid : aid_t) (b : BufferEncrypted.buffer_t) (cids : list positive) : N :=
+    match cids with
+    | nil => written
+    | cid :: rcids =>
+        let cpath := chunk_identifier_path c aid cid in
+        let apos := chunksize_N * ((Conversion.pos2N cid) - 1) in
+        let nwritten := ext_store_chunk_to_path cpath chunksize_N apos b in
+        extract_chunks (written + nwritten) c aid b rcids
+    end.
+
+Program Definition extract (c : configuration) (a : AssemblyEncrypted.H) (b : AssemblyEncrypted.B) : N :=
+    let cidlist := Utilities.make_list (nchunks a) in
+    extract_chunks 0 c (aid a) (id_buffer_t_from_enc b) cidlist.
+
+End Code_Encrypted.
+
+Section Code_Plain.
+(** operations on AssemblyPlain *)
+
+Axiom id_buffer_t_from_full : AssemblyPlainFull.B -> BufferPlain.buffer_t.
+Axiom id_buffer_t_from_writable : AssemblyPlainWritable.B -> BufferPlain.buffer_t.
+Axiom id_assembly_enc_buffer_t_from_buf : BufferEncrypted.buffer_t -> AssemblyEncrypted.B.
+Axiom id_assembly_full_buffer_from_writable : AssemblyPlainWritable.B -> AssemblyPlainFull.B.
+
+Program Definition finish (a : AssemblyPlainWritable.H) (b : AssemblyPlainWritable.B) : (AssemblyPlainFull.H * AssemblyPlainFull.B) :=
+    ( mkassembly (nchunks a) (aid a) (apos a)
+    , id_assembly_full_buffer_from_writable b).
+
+Program Definition encrypt (a : AssemblyPlainFull.H) (b : AssemblyPlainFull.B) (rel : RelationAidKey.Map) : option (AssemblyEncrypted.H * AssemblyEncrypted.B) :=
+    match RelationAidKey.find (aid a) rel with
+    | None => None
+    | Some pw => let a' := mkassembly (nchunks a) (aid a) (assemblysize (nchunks a)) in
+                 let benc  := Buffer.encrypt (id_buffer_t_from_full b) (pkey pw) in
+                 let b' := id_assembly_enc_buffer_t_from_buf benc in
+                 Some (a', b')
+    end.
+
+(** backup: add a buffer to an assembly
+    return updated map *)
+Program Definition backup (a : AssemblyPlainWritable.H) (b : AssemblyPlainWritable.B) (fp : string) (content : BufferPlain.buffer_t) (rel : RelationFileAid.Map) : (AssemblyPlainWritable.H * RelationFileAid.Map) :=
+    let apos := apos a in
+    let bsz := BufferPlain.buffer_len content in
+    let rentries := match RelationFileAid.find fp rel with
+    | None =>  {| blockid   := 1
+                ; bchecksum := BufferPlain.calc_checksum content
+                ; blocksize := bsz
+                ; filepos   := 0  (* beginning *)
+                ; blockaid  := aid a
+                ; blockapos := 0 |} :: nil
+    | Some nil =>
+               {| blockid   := 1
+                ; bchecksum := calc_checksum content
+                ; blocksize := bsz
+                ; filepos   := 0  (* beginning *)
+                ; blockaid  := aid a
+                ; blockapos := 0 |} :: nil
+    | Some (re :: res) =>
+               {| blockid   := 1 + (blockid re)
+                ; bchecksum := calc_checksum content
+                ; blocksize := bsz
+                ; filepos   := (blocksize re) + (filepos re) (* assuming the blocks are sequential *)
+                ; blockaid  := aid a
+                ; blockapos := apos |} :: re :: res
+    end in
+    let nwritten := BufferPlain.copy_sz_pos content 0 bsz (id_buffer_t_from_writable b) apos in
+    let a' := {| nchunks := nchunks a; aid := aid a; apos := apos + bsz |} in
+    let rel' := RelationFileAid.add fp rentries rel in
+    (a', rel').
+
+(** restore: copy buffer from an assembly
+    and return it *)
+Program Definition restore (b : AssemblyPlainFull.B) (name : string) (bid : positive) (rel : RelationFileAid.Map) : option BufferPlain.buffer_t :=
+    match RelationFileAid.find name rel with
+    | None => None
+    | Some bis => match List.filter (fun bi => Pos.eqb (blockid bi) bid) bis with
+                  | nil => None
+                  | bi :: _ => let bsz := blocksize bi in
+                               let b' := BufferPlain.buffer_create bsz in
+                               let _nw := BufferPlain.copy_sz_pos (id_buffer_t_from_full b) (blockapos bi) bsz b' 0 in
+                               Some b'
+                  end
+    end.
+
+End Code_Plain.
+
+(* Section lemmas.
+
+Variable c : configuration.
+Variable a : assemblyinformation.
+
+Fact external_decrypt_of_encrypt_id : forall (b : AssemblyPlainFull.B) (p : string), cpp_decrypt_assembly (cpp_encrypt_assembly b p) p = b.
 Proof.
-    intros n. unfold valid_assembly_size.
-    unfold assemblyminsz. unfold assemblymaxsz.
-    lia.
-Qed.
-Lemma invalid_assembly_hi : forall n, n > assemblymaxsz /\ valid_assembly_size n -> False.
+    intros.
+    Admitted.
+
+Lemma decrypt_of_encrypt_id :
+    forall (b : AssemblyPlainFull.B) (b' : AssemblyEncrypted.B) (b'' : AssemblyPlainFull.B)  (map : RelationAidKey.Map), 
+    encrypt a b map = Some b' /\ decrypt a b' map = Some b'' -> b'' = b.
 Proof.
-    intros n. unfold valid_assembly_size.
-    unfold assemblyminsz. unfold assemblymaxsz.
-    lia.
-Qed.
+    intros.
+    (* unfold decrypt. unfold encrypt. *)
+    (* apply external_decrypt_of_encrypt_id. *)
+    Admitted.
 
-(** encrypted data can be extracted as chunks 
-    a chunk is unique per assembly
-*)
-Record chunk : Type := mkchunk
-    { cid : positive
-    ; in_aid : positive
-    ; buffer : Buffer.buffer (*mkbuffer chunkwidth chunklength*)
-    }.
-    (* ; buffer : matrix (to_nat chunkwidth) (to_nat chunklength) *)
-(* Print chunk. *)
-Definition new_chunk (p_cid p_aid : positive) : chunk :=
-    mkchunk p_cid p_aid (mkbuffer chunkwidth chunklength).
-
-Definition equal_chunks (c1 c2 : chunk) : Prop :=
-    cid c1 = cid c2 /\ in_aid c1 = in_aid c2.
-Lemma eq_chunk_dec : forall (c1 c2 : chunk), { equal_chunks c1 c2 } + { ~ (equal_chunks c1 c2) } -> { cid c1 = cid c2 /\ in_aid c1 = in_aid c2 } + { ~ (cid c1 = cid c2 /\ in_aid c1 = in_aid c2) }.
-    intros c1 c2 H. unfold equal_chunks in H.
-    destruct H.
-    - left. apply a.
-    - right. apply n.
-Defined.
-
-Example check_equal_chunks : let c1 := new_chunk 1 2 in
-                             let c2 := new_chunk 1 2 in equal_chunks c1 c2.
-Proof.
-    simpl. unfold equal_chunks. simpl. lia.
-Qed.
-
-Example uncheck_equal_chunks : let c1 := new_chunk 1 3 in
-                               let c2 := new_chunk 2 3 in ~ equal_chunks c1 c2.
-Proof.
-    simpl. unfold equal_chunks. simpl. lia.
-Qed.
-
-(** the ordered set of chunks is an assembly *)
-Record assembly (*(n : nat (*| n >= assemblyminsz /\ n <= assemblymaxsz*))*) : Type := mkassembly
-    { nchunks : positive
-    ; aid : positive
-    ; valid : Prop
-    ; apos : N
-    ; encrypted : bool
-    (* ; chunks : list chunk *)
-    }.
-(* Print mkassembly. *)
-(** an experiment to have the size checked on creation.
-    there is a problem that the size now needs to be set
-    via a theorem. (see Theorem valid_assembly_size_20)      *)
-
-(* Program Definition create_assembly (n : nat) (a : option assembly) (*_ : valid_assembly_size n*)
-    : assembly :=
-    (* : {a : assembly n | valid_assembly_size n} := *)
-    let this_aid :=
-        match a with
-        | None => 0
-        | Some a0 => S (aid a0) end
-    in
-    mkassembly n
-               this_aid
-               (valid_assembly_size n)
-               0
-               false
-               (Vbuild (fun i (ip : i < n) => new_chunk i this_aid)).
-Print create_assembly.
-
-Fact valid_assembly_size_20 : valid_assembly_size 20.
-Proof. unfold valid_assembly_size. unfold assemblyminsz. unfold assemblymaxsz. lia. Qed.
-Lemma create_assembly_20 : let a := create_assembly None valid_assembly_size_20 in valid a.
-Proof.
-    unfold create_assembly. simpl. unfold valid_assembly_size.
-    split.
-    - unfold assemblyminsz. lia.
-    - unfold assemblymaxsz. lia.
-Qed.
-Lemma create_two_assemblies_20 : let a1 := create_assembly None valid_assembly_size_20 in
-                                 let a2 := create_assembly (Some a1) valid_assembly_size_20 in valid a2.
-Proof.
-    unfold create_assembly. simpl. unfold valid_assembly_size.
-    split.
-    - unfold assemblyminsz. lia.
-    - unfold assemblymaxsz. lia.
-Qed. *)
-
-(** create list of chunks *)
-Definition mk_chunk_list (n : positive) (p_aid : positive) : list chunk :=
-  map (fun p_cid => new_chunk (Pos.of_nat p_cid) p_aid) (seq 1 (Pos.to_nat n)).
-
-(* Compute mk_chunk_list 3 42. *)
-
-(** create assembly (count of chunks) *)
-Definition first_assembly (n : positive) : assembly :=
-    let this_aid := 1
-    in
-    mkassembly n
-               this_aid
-               (valid_assembly_size n)
-               N0
-               false
-               (*mk_chunk_list n this_aid*).
-Definition new_assembly (a : assembly) : assembly :=
-    let this_aid := 1 + (aid a) in
-    let n := nchunks a in
-    mkassembly n
-               this_aid
-               (valid_assembly_size n)
-               N0
-               false
-               (*mk_chunk_list n this_aid*).
-
-Lemma valid_assembly_20 : let a1 := first_assembly 20 in valid a1.
-Proof.
-    unfold first_assembly. simpl. unfold valid_assembly_size.
-    split.
-    - unfold assemblyminsz. lia.
-    - unfold assemblymaxsz. lia.
-Qed.
-Lemma two_assemblies_20 : let a1 := first_assembly 20 in
-                          let a2 := new_assembly a1 in valid a2
-                                                       /\ 1 + aid a1 = aid a2.
-                                                       (* /\ length (chunks a1) = 20%nat
-                                                       /\ length (chunks a2) = 20%nat. *)
-Proof.
-    unfold new_assembly. simpl. unfold valid_assembly_size.
-    split.
-    + split.
-      - unfold assemblyminsz. lia.
-      - unfold assemblymaxsz. lia.
-    + reflexivity.
-Qed.
-
-
-Definition add_data (len : N) (a : assembly) : assembly :=
-    {| nchunks := nchunks a; aid := aid a; valid := valid a;
-       apos := len + apos a; encrypted := encrypted a; (*chunks := chunks a*) |}.
-
-
-End Data.
-
-(** The work is managed as a list of actions.
-    With a smart idea, disjointness of actions, we can split this list into sublists
-    and apply it by a set of threads concurrently. *)
-
-(** Example: read "bunch" of 256 bytes from a file and store in assembly
-             by distributing over its 16 chunks.
-    
-    Fixpoint add_data (d : bunch) (i : nat) (nc : nat): list action :=
-        match d with
-        | [] => []
-        | h :: t => AppendAction (i % nc) h :: add_data t (i + 1) 
-        end.
-    
-    (* create list of pairs of chunk id * position in chunk *)
-    Fixpoint apply_actions (a : list action) : list (cid, idx) :=
-        ...
-
-    (* proof that there are no two equal pairs in the list of actions *)
-    Theorem add_data_disjoint : let d := test_bunch in 
-                                let as := apply_actions(add_data d) in
-                                length as = length(disjoint_pairs as).
-      *)
-Section Access.
-(** Reading from and writing to an assembly
-    and the underlying chunks *)
-
-(** NPair = (cid, index) *)
-Definition ChIdx : Type := N * N.
-
-Eval compute in N.modulo 23 16. (* cid *)
-Eval compute in N.div 23 16. (* index *)
-Definition apos_to_chidx (i : N) (n : positive) : ChIdx :=
-  let n_N := N.of_nat (Pos.to_nat n) in
-  let idx_N := (N.div i n_N) in
-  ( N.modulo i n_N   (* the chunk id *)
-  , idx_N ).         (* the index into the chunk *)
-Eval compute in apos_to_chidx 23 16.
-Eval compute in apos_to_chidx 3 16.
-Eval compute in apos_to_chidx 233 16.
-Eval compute in apos_to_chidx 0 16.
-Eval compute in apos_to_chidx 1 16.
-Eval compute in apos_to_chidx 2 16.
-Eval compute in apos_to_chidx 10 16.
-
-Definition chidx_to_apos (n : positive) (ch : ChIdx) : N :=
-  let n_N := N.of_nat (Pos.to_nat n) in
-  match ch with
-  | (chno, chidx) => (chidx * n_N) + chno
-  end.
-    
-Eval compute in chidx_to_apos 16 (1%N, 7%N).
-Eval compute in chidx_to_apos 16 (10%N, 0%N).
-Eval compute in chidx_to_apos 16 (apos_to_chidx 233 16) = 233%N. (* (9%N, 14%N) *)
-Compute 233 mod 16.  (* 9%N *)
-Compute N.div 233%N 16%N. (* 14%N *)
-Compute N.mul 16%N (N.div 233%N 16%N). (* 224%N *)
-
-Lemma compute_chidx_refl : forall (n : positive) (i : N),
-    chidx_to_apos n (apos_to_chidx i n) = i.
-Proof.
-  unfold apos_to_chidx. unfold chidx_to_apos.
-  intros. set j := N.of_nat (Pos.to_nat n).
-  rewrite N.mul_comm.
-  rewrite <- N.div_mod'.
-  reflexivity.
-Qed.
-(** 1 subgoal (ID 21)
-  
-  n : positive
-  i : N
-  j := N.of_nat (Pos.to_nat n) : N
-  ============================
-  (i / j * j + i mod j)%N = i  *)
-  (* the integral division is like "floor" so we need to add the remainder to the product to equal the original numerator again. *)
-  (* is there such a theorem? *)
-
-
-End Access.
-
-Section Extraction.
-(** Encryption and extraction of chunks to files *)
-
-
-End Extraction.
-
-Section Reconstitution.
-(** Reconstituion of chunks from files and their decryption *)
-
-
-End Reconstitution.
+End lemmas. *)
 
 End Assembly.

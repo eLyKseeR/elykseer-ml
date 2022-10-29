@@ -4,14 +4,17 @@
 
 Module Export Configuration.
 
-Require Import PArith.
+Require Import NArith PArith.
 From Coq Require Import Strings.String.
+
+From LXR Require Import Nchunks.
 
 Record configuration : Type :=
     mkconfiguration
-        { num_chunks : positive
+        { config_nchunks : Nchunks.t
         ; path_chunks : string
         ; path_meta : string
+        ; my_id : N
         }.
 
 End Configuration.

@@ -1,4 +1,6 @@
 (library
  (name elykseer)
- (libraries elykseer_base)
+ (foreign_stubs (language cxx) (names helper) (flags -std=c++17 -fno-exceptions))
+ (c_library_flags :standard -lstdc++)
+ (libraries elykseer_base mlcpp_filesystem mlcpp_cstdio)
 )

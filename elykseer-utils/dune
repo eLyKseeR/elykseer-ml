@@ -1,0 +1,4 @@
+(library
+ (name elykseer_utils)
+ (libraries elykseer yojson mlcpp_cstdio mlcpp_filesystem elykseer_crypto)
+)

@@ -1,4 +1,0 @@
-(library
- (name elykseer_base)
- (libraries unix)
-)

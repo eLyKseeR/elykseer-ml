@@ -13,6 +13,7 @@ Preparations
 # more packages
 `opam repo add coq-released https://coq.inria.fr/opam/released`
 
+opam install yojson lwt_ppx sha
 
 Code generation
 ===============
