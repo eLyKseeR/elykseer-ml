@@ -12,4 +12,5 @@ theories/Assembly.v
 theories/Configuration.v
 theories/Conversion.v
 theories/Utilities.v
+theories/BackupPlanner.v
 theories/MakeML.v

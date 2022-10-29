@@ -1,9 +1,6 @@
 
 (* open Elykseer *)
 open Elykseer__Lxr
-(* open Elykseer__Lxr.BackupPlanner *)
-(* open Elykseer__Lxr.Assembly *)
-(* open Elykseer__Lxr.Buffer *)
 open Elykseer__Lxr.Configuration
 open Elykseer__Lxr.Environment
 
@@ -17,7 +14,7 @@ let arg_metapath = ref "meta"
 let arg_chunkpath = ref "lxr"
 let arg_nchunks = ref 16
 let arg_nproc = ref 1
-let arg_myid = ref def_myid (* "1234567890" *)
+let arg_myid = ref def_myid
 
 let argspec =
   [
@@ -32,7 +29,7 @@ let argspec =
 let anon_args_fun fn = arg_files := fn :: !arg_files
 
 (** the minimum available size in an assembly *)
-let aminsz = 127
+(* let aminsz = 127 *)
 
 (* let finalise_assembly e0 =
   let (a,b) = Assembly.finish (e0.cur_assembly) (e0.cur_buffer) in
@@ -61,66 +58,32 @@ let curr_assembly_sz n = Conversion.n2i (Assembly.assemblysize n)
          finalise_and_recreate_assembly e0)
     else e0 *)
 
-let max_block_size = (128*1024)
-
-(** how many blocks will the backup use?
-    given: the file's size, max block size,
-           number of chunks (i.e. size of an assembly),
-           bytes free in the current assembly,
-           the number of the assembly
-    the output is:
-           the last assembly number, how many bytes free in it,
-           a list of triples: assembly number x file position x block size
-*)
-let rec prepare_blocks (anum,afree,acc) nchunks maxsz fpos fsz =
-  Printf.printf "fsz: %d  afree: %d  maxsz: %d\n" fsz afree maxsz;
-  if fsz <= afree
-  then
-    if fsz >= maxsz
-      then prepare_blocks (anum,(afree - maxsz),(anum, fpos, maxsz) :: acc) nchunks maxsz (fpos + maxsz) (fsz - maxsz)
-      else (* termination *)
-        if fsz > 0 then (anum,afree - fsz, (anum, fpos, fsz) :: acc) else (anum,afree,acc)
-  else (* fsz > afree *)
-    if afree >= maxsz
-    then prepare_blocks (anum,(afree - maxsz),(anum, fpos, maxsz) :: acc) nchunks maxsz (fpos + maxsz) (fsz - maxsz)
-    else (* afree < maxsz *)
-      let asz = curr_assembly_sz nchunks in
-      if afree < aminsz
-        (* continue in fresh assembly *)
-      then prepare_blocks ((anum + 1),asz,acc) nchunks maxsz fpos fsz
-      else prepare_blocks ((anum + 1),asz,(anum, fpos, afree) :: acc) nchunks maxsz (fpos + afree) (fsz - afree)
-
-let analyse_file nchunks afree anum fn =
-  (* Printf.printf "backup %s\n" fn; *)
-  let fi = Filesupport.get_file_information fn in
-  let (anum',afree',bs) = prepare_blocks (anum,afree,[]) nchunks max_block_size 0 (Conversion.n2i fi.fsize) in
-  (anum',afree',List.rev bs)
-
 let rec analyse_files' acc nchunks afree anum fns =
         match fns with
           [] -> acc
-        | fn :: fns' -> let (anum',afree',bs) = analyse_file nchunks afree anum fn in
-                        analyse_files' (bs :: acc) nchunks afree' anum' fns'
+        | fn :: fns' -> let afblocks = BackupPlanner.analyse_file nchunks afree anum fn in
+                        analyse_files' (afblocks.ablocks :: acc) nchunks afblocks.afree afblocks.anum fns'
 let analyse_files e0 fns =
   let a = e0.cur_assembly in
   let afree = curr_assembly_sz a.nchunks - (Conversion.n2i a.apos) in
-  let bs = analyse_files' [] a.nchunks afree 1 fns in
+  let bs = analyse_files' [] a.nchunks (Conversion.i2n afree) (Conversion.i2p 1) fns in
   let bs' = List.rev bs in
   let fbs = Zip.zip fns bs' in
   List.iteri (fun i (fname,fblocks) ->
       Printf.printf "file %d: %s\n" i fname;
-      List.iteri (fun j (n,p,x) -> Printf.printf "   %d: %d -> %d@%d\n" j n x p) fblocks
+      List.iteri (fun j afbs -> Printf.printf "   %d: %d -> %d@%d\n"
+                      j (Conversion.p2i @@ BackupPlanner.fbanum afbs) (Conversion.n2i afbs.fbsz) (Conversion.n2i afbs.fbfpos)) fblocks
     ) fbs |> ignore;
   fbs
 
 let count_files fbs =
   List.map fst fbs |> List.sort_uniq (compare) |> List.length
 let count_assemblies fbs =
-  List.map snd fbs |> List.flatten |> List.map (fun (a,_,_) -> a) |> List.sort_uniq (compare) |> List.length
+  List.map snd fbs |> List.flatten |> List.map (fun afbs -> BackupPlanner.fbanum afbs) |> List.sort_uniq (compare) |> List.length
 (*
 [
-  ("tst1.dat", [ (1, 131072); (1, 131072) ]);
-  ("tst2.dat", [ (1, 131072); (2, 131072) ])
+  ("tst1.dat", [ (1, 131072,      0); (1, 131072, 131072) ]);
+  ("tst2.dat", [ (1, 131072, 917504); (2, 131072,      0) ])
 ]   
 *)
 
@@ -129,31 +92,33 @@ let rec execute_backup e p anum fileblocks =
   | [] -> e
   | (fname,blocks) :: r ->
     Printf.printf "    file: %s\n" fname;
-    List.iteri (fun i (n,fpos,bsz) -> Printf.printf "      %d: anum: %d block: %d @ %d\n" i n bsz fpos) blocks;
+    List.iteri (fun i fb -> Printf.printf "      %d: anum: %d block: %d @ %d\n" i (Conversion.p2i @@ BackupPlanner.fbanum fb) (Conversion.n2i fb.fbsz) (Conversion.n2i fb.fbfpos)) blocks;
     execute_backup e p anum r
 
 let extract_fileblocks anum fileblocks =
-  List.map (fun (fname,bs) -> (fname, List.filter (fun (n,_p,_x) -> n = anum) bs)) fileblocks
+  List.map (fun (fname,bs) -> (fname, List.filter (fun fbs -> BackupPlanner.fbanum fbs = anum) bs)) fileblocks
 
-let rec run_backup e ps anum fileblocks =
-  if anum < 1 then ()
+let rec run_backup e ps anum acount fileblocks =
+  if anum > acount then ()
   else
     match ps with
     | [] -> ()
     | p :: ps' -> 
       Printf.printf "executing backup of assembly %d\n" anum;
-      let fileblocks' = extract_fileblocks anum fileblocks in
-      let e' = execute_backup e p anum fileblocks' in
-      run_backup e' (List.append ps' [p]) (anum - 1) fileblocks
+      let fileblocks' = extract_fileblocks (Conversion.i2p anum) fileblocks in
+      let e' = execute_backup e p (Conversion.i2p anum) fileblocks' in
+      run_backup e' (List.append ps' [p]) (anum + 1) acount fileblocks
 
-let rec start_processes acc n =
-  if n = 0 then List.rev acc else start_processes (n :: acc) (n - 1)
+let start_processes n =
+  let rec start_processes' acc n =
+    if n = 0 then List.rev acc else start_processes' (n :: acc) (n - 1) in
+  start_processes' [] n
 
 let run_distributed_backup e0 nproc acount fileblocks =
   (* start n processes *)
-  let ps = start_processes [] nproc in
+  let ps = start_processes nproc in
   (* distribute work among processes *)
-  run_backup e0 ps acount fileblocks
+  run_backup e0 ps 1 acount fileblocks
 
 (* main *)
 let () = Arg.parse argspec anon_args_fun "lxr_backup: vxonji";
