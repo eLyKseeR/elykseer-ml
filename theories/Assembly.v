@@ -157,7 +157,7 @@ Axiom id_assembly_full_buffer_from_writable : AssemblyPlainWritable.B -> Assembl
 
 Program Definition finish (a : AssemblyPlainWritable.H) (b : AssemblyPlainWritable.B) : (AssemblyPlainFull.H * AssemblyPlainFull.B) :=
     ( mkassembly (nchunks a) (aid a) (apos a)
-    , id_assembly_full_buffer_from_writable b).
+    , id_assembly_full_buffer_from_writable b ).
 
 Program Definition encrypt (a : AssemblyPlainFull.H) (b : AssemblyPlainFull.B) (rel : RelationAidKey.Map) : option (AssemblyEncrypted.H * AssemblyEncrypted.B) :=
     match RelationAidKey.find (aid a) rel with
@@ -170,35 +170,18 @@ Program Definition encrypt (a : AssemblyPlainFull.H) (b : AssemblyPlainFull.B) (
 
 (** backup: add a buffer to an assembly
     return updated map *)
-Program Definition backup (a : AssemblyPlainWritable.H) (b : AssemblyPlainWritable.B) (fp : string) (content : BufferPlain.buffer_t) (rel : RelationFileAid.Map) : (AssemblyPlainWritable.H * RelationFileAid.Map) :=
+Program Definition backup (a : AssemblyPlainWritable.H) (b : AssemblyPlainWritable.B) (fpos : N) (content : BufferPlain.buffer_t) : (AssemblyPlainWritable.H * blockinformation) :=
     let apos := apos a in
     let bsz := BufferPlain.buffer_len content in
-    let rentries := match RelationFileAid.find fp rel with
-    | None =>  {| blockid   := 1
-                ; bchecksum := BufferPlain.calc_checksum content
-                ; blocksize := bsz
-                ; filepos   := 0  (* beginning *)
-                ; blockaid  := aid a
-                ; blockapos := 0 |} :: nil
-    | Some nil =>
-               {| blockid   := 1
-                ; bchecksum := calc_checksum content
-                ; blocksize := bsz
-                ; filepos   := 0  (* beginning *)
-                ; blockaid  := aid a
-                ; blockapos := 0 |} :: nil
-    | Some (re :: res) =>
-               {| blockid   := 1 + (blockid re)
-                ; bchecksum := calc_checksum content
-                ; blocksize := bsz
-                ; filepos   := (blocksize re) + (filepos re) (* assuming the blocks are sequential *)
-                ; blockaid  := aid a
-                ; blockapos := apos |} :: re :: res
-    end in
+    let bi := {| blockid   := 1
+               ; bchecksum := calc_checksum content
+               ; blocksize := bsz
+               ; filepos   := fpos
+               ; blockaid  := aid a
+               ; blockapos := apos |} in
     let nwritten := BufferPlain.copy_sz_pos content 0 bsz (id_buffer_t_from_writable b) apos in
     let a' := {| nchunks := nchunks a; aid := aid a; apos := apos + bsz |} in
-    let rel' := RelationFileAid.add fp rentries rel in
-    (a', rel').
+    (a', bi).
 
 (** restore: copy buffer from an assembly
     and return it *)
