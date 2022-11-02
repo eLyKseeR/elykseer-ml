@@ -140,6 +140,22 @@ Extract Constant id_assembly_full_buffer_from_writable => "fun b -> Helper.cpp_b
 Extract Constant cpp_encrypt_buffer => "fun b pw -> Helper.cpp_encrypt_buffer b pw".  (* TODO *)
 Extract Constant cpp_decrypt_buffer => "fun b pw -> Helper.cpp_decrypt_buffer b pw".  (* TODO *)
 
+Extract Constant assembly_add_content => (* BufferPlain.buffer_t -> N -> N -> AssemblyPlainWritable.B -> N. *)
+   "
+    fun src sz_N pos_N tgt ->
+      let sz = Conversion.n2i sz_N
+      and pos = Conversion.n2i pos_N in
+      Elykseer_base.Assembly.add_content ~src:src ~sz:sz ~pos:pos ~tgt:tgt |> Conversion.i2n
+   ".
+
+Extract Constant assembly_get_content => (* AssemblyPlainWritable.B -> N -> N -> BufferPlain.buffer_t -> N. *)
+   "
+    fun src sz_N pos_N tgt ->
+      let sz = Conversion.n2i sz_N
+      and pos = Conversion.n2i pos_N in
+      Elykseer_base.Assembly.get_content ~src:src ~sz:sz ~pos:pos ~tgt:tgt |> Conversion.i2n
+   ".
+
 Extract Constant BufferEncrypted.copy_sz_pos =>
    "
     fun bsrc npos1 nsz btgt npos2 -> Conversion.i2n @@

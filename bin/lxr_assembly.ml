@@ -33,7 +33,7 @@ let anon_args_fun _fn = ()
 
 let bm_add_content content buffer sz =
     (* let buffer = Cstdio.File.Buffer.create (16*256*1024) in *)
-    Assembly.add_content content sz 0 buffer
+    Assembly.add_content ~src:content ~sz:sz ~pos:0 ~tgt:buffer
 
 let benchmark_add_content =
   let msg = "testing some longer message." in

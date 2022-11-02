@@ -3,7 +3,7 @@ open Elykseer_base
 open Mlcpp_cstdio
 
 module Testing = struct
-  let add_content = fun bsrc sz pos btgt -> Assembly.add_content bsrc sz pos btgt
+  let add_content = fun bsrc sz pos btgt -> Assembly.add_content ~src:bsrc ~sz:sz ~pos:pos ~tgt:btgt
 
 end
 

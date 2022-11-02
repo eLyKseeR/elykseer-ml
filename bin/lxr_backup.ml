@@ -54,13 +54,6 @@ let finalise_and_recreate_assembly e0 =
 
 let curr_assembly_sz n = Conversion.n2i (Assembly.assemblysize n)
 
-(* let check_env e0 =
-  let a = e0.cur_assembly in
-  if (Conversion.n2i a.apos) + aminsz > curr_assembly_sz a.nchunks
-    then (Printf.printf "finalising assembly %s\n" a.aid;
-         finalise_and_recreate_assembly e0)
-    else e0 *)
-
 let rec analyse_files' acc nchunks afree anum fns =
         match fns with
           [] -> acc
@@ -120,7 +113,7 @@ let rec execute_backup_for_assembly e p anum fileblocks =
         in
         let e1 = backup_block e fptr blocks in
         Cstdio.File.fclose fptr |> ignore;
-        e
+        e1
       | Error (errno,errstr) -> 
           Printf.printf "open error no:%d err:%s\n" errno errstr |> ignore; e
     in
@@ -130,10 +123,10 @@ let extract_fileblocks anum fileblocks =
   List.map (fun (fname,bs) -> (fname, List.filter (fun fbs -> BackupPlanner.fbanum fbs = anum) bs)) fileblocks
 
 let rec run_backup_for_assembly e ps anum acount fileblocks =
-  if anum > acount then ()
+  if anum > acount then e
   else
     match ps with
-    | [] -> ()
+    | [] -> e
     | p :: ps' -> 
       Printf.printf "executing backup of assembly %d\n" anum;
       let anum_p = Conversion.i2p anum in
@@ -156,13 +149,18 @@ let run_distributed_backup e0 nproc acount fileblocks =
   (* distribute work among processes *)
   run_backup_for_assembly e0 ps 1 acount fileblocks
 
+let output_relations e =
+  let dt_id = Elykseer_base.Assembly.date_ident () in
+  let meta_p = e.config.path_meta in
+  Relfiles.save_to_file e.files (Mlcpp_filesystem.Filesystem.Path.from_string (meta_p ^ "/" ^ dt_id ^ ".relfiles")) "tester" |> ignore;
+  Relkeys.save_to_file e.keys (Mlcpp_filesystem.Filesystem.Path.from_string (meta_p ^ "/" ^ dt_id ^ ".relkeys")) "tester" |> ignore
+
 (* main *)
 let () = Arg.parse argspec anon_args_fun "lxr_backup: vxonji";
          let nchunks = Nchunks.from_int !arg_nchunks in
          if List.length !arg_files > 0
           && !arg_nproc > 0 && !arg_nproc < 65
          then
-           (* let _setup = setup_environment in *)
            let myid = let id0 = !arg_myid in
                       if id0 >= 0 then id0 else def_myid in
            let conf : configuration = {
@@ -175,5 +173,6 @@ let () = Arg.parse argspec anon_args_fun "lxr_backup: vxonji";
            let fcount = count_files fileblocks in
            let acount = count_assemblies fileblocks in
            Printf.printf "backup of %d files in %d assemblies\n" fcount acount |> ignore;
-           run_distributed_backup e0 !arg_nproc acount fileblocks;
+           let e1 = run_distributed_backup e0 !arg_nproc acount fileblocks in
+           output_relations e1;
            ()

@@ -169,7 +169,8 @@ Program Definition encrypt (a : AssemblyPlainFull.H) (b : AssemblyPlainFull.B) (
     end.
 
 (** backup: add a buffer to an assembly
-    return updated map *)
+    return blockinformation *)
+Axiom assembly_add_content : BufferPlain.buffer_t -> N -> N -> AssemblyPlainWritable.B -> N.
 Program Definition backup (a : AssemblyPlainWritable.H) (b : AssemblyPlainWritable.B) (fpos : N) (content : BufferPlain.buffer_t) : (AssemblyPlainWritable.H * blockinformation) :=
     let apos := apos a in
     let bsz := BufferPlain.buffer_len content in
@@ -179,12 +180,13 @@ Program Definition backup (a : AssemblyPlainWritable.H) (b : AssemblyPlainWritab
                ; filepos   := fpos
                ; blockaid  := aid a
                ; blockapos := apos |} in
-    let nwritten := BufferPlain.copy_sz_pos content 0 bsz (id_buffer_t_from_writable b) apos in
+    let nwritten := assembly_add_content content bsz apos b in
     let a' := {| nchunks := nchunks a; aid := aid a; apos := apos + bsz |} in
     (a', bi).
 
 (** restore: copy buffer from an assembly
     and return it *)
+Axiom assembly_get_content : AssemblyPlainFull.B -> N -> N -> BufferPlain.buffer_t -> N.
 Program Definition restore (b : AssemblyPlainFull.B) (name : string) (bid : positive) (rel : RelationFileAid.Map) : option BufferPlain.buffer_t :=
     match RelationFileAid.find name rel with
     | None => None
@@ -192,7 +194,7 @@ Program Definition restore (b : AssemblyPlainFull.B) (name : string) (bid : posi
                   | nil => None
                   | bi :: _ => let bsz := blocksize bi in
                                let b' := BufferPlain.buffer_create bsz in
-                               let _nw := BufferPlain.copy_sz_pos (id_buffer_t_from_full b) (blockapos bi) bsz b' 0 in
+                               let _nw := assembly_get_content b bsz (blockapos bi) b' in
                                Some b'
                   end
     end.
