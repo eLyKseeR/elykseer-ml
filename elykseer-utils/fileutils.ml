@@ -1,10 +1,12 @@
 open Mlcpp_filesystem
 open Mlcpp_cstdio
 
+(* TODO *)
 let unencrypt bin tgtuser =
   Printf.printf "decrypt for %s\n" tgtuser;
   Some bin
 
+(* TODO *)
 let uncompress bin =
   Printf.printf "uncompress\n";
   bin
@@ -32,15 +34,17 @@ let load_compressed_encrypted_file path tgtuser =
     let b = uncompress bcomp in
     Some b
 
+(* TODO *)
 let compress bin =
   Printf.printf "compress\n";
   bin
 
+(* TODO *)
 let encrypt bin tgtuser =
   Printf.printf "encrypt for %s\n" tgtuser;
   Some bin
 
-let (* rec *) save_file_parts file b =
+let save_file_parts file b =
   Cstdio.File.fwrite b (Cstdio.File.Buffer.size b) file |> function
   | Ok _n -> true
   | Error _ -> false

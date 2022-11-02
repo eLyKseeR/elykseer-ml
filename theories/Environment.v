@@ -11,6 +11,7 @@ Open Scope positive_scope.
 Open Scope N_scope.
 
 From LXR Require Import Assembly.
+From LXR Require Import Buffer.
 From LXR Require Import Configuration.
 From LXR Require Import Filetypes.
 From LXR Require Import RelationAidKey RelationFileAid.
@@ -42,10 +43,19 @@ Definition recreate_assembly (e : environment) : environment :=
     ;  keys := keys e
     |}.
 Definition env_add_file_block (e : environment) (fname : string) (bi : blockinformation) : environment :=
+    let mkbi bi bis :=
+        let newblockid bis :=
+            match bis with
+            | nil => 1%positive
+            | bi :: _ => (1 + blockid bi)%positive
+            end in
+        {| blockid := newblockid bis; bchecksum := bchecksum bi; blocksize := blocksize bi;
+           filepos := filepos bi; blockaid := blockaid bi; blockapos := blockapos bi
+        |} in
     let entries :=
         match RelationFileAid.find fname (files e) with
-        | Some bis => bi :: bis
-        | None => bi :: nil
+        | Some bis => (mkbi bi bis) :: bis
+        | None => (mkbi bi nil) :: nil
         end in
     {| cur_assembly := cur_assembly e
     ;  cur_buffer := cur_buffer e
@@ -59,6 +69,16 @@ Definition env_add_aid_key (e : environment) (aid : string) (ki : keyinformation
     ;  config := config e
     ;  files := files e
     ;  keys := RelationAidKey.add aid ki (keys e)
+    |}.
+
+Program Definition backup (e0 : environment) (fp : string) (fpos : N) (content : BufferPlain.buffer_t) : environment :=
+    let (a', bi) := Assembly.backup (cur_assembly e0) (cur_buffer e0) fpos content in
+    let e1 := env_add_file_block e0 fp bi in
+    {| cur_assembly := a'
+    ;  cur_buffer := cur_buffer e1
+    ;  config := config e1
+    ;  files := files e1
+    ;  keys := keys e1
     |}.
 
 End Environment.

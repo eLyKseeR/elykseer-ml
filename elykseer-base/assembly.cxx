@@ -14,6 +14,7 @@ extern "C" {
 // C++ includes
 #include <cstdio>
 #include <cstring>
+#include <ctime>
 // #include <omp.h>
 
 
@@ -107,5 +108,17 @@ value cpp_b2s(value vbuf, value vsz, value vpos)
     if (len < pos + sz) { return caml_copy_string("E:buf too short"); }
     const char *src = (const char *)Caml_ba_data_val(vbuf);
     CAMLreturn(caml_alloc_initialized_string(sz, src + pos));
+}
+} // extern C
+
+extern "C" {
+value cpp_date_ident(value unit)
+{
+    CAMLparam1(unit);
+    std::time_t now = std::time(nullptr);
+    char buf[64];
+    std::strftime(buf, sizeof(buf), "%F", std::gmtime(&now));
+    std::snprintf(buf+10, sizeof(buf)-10, "_%ld", now);
+    return caml_copy_string(buf);
 }
 } // extern C

@@ -104,25 +104,30 @@ Extract Constant chunk_identifier =>
       (string_of_int (Conversion.n2i (Configuration.my_id config))) ^
       (string_of_int (Conversion.p2i cid)) ^
       aid in
-      Printf.eprintf ""c id: %s\n"" s;
+      (* Printf.eprintf ""c id: %s\n"" s; *)
       Elykseer_base.Hashing.sha256 s
    ".
 
 Extract Constant chunk_identifier_path =>
    "  
     fun config aid cid -> let cident = chunk_identifier config aid cid in
-      (Configuration.path_chunks config ^ ""/"" ^ cident ^ "".lxr"")
+      let subd = Helper.mk_cid_subdir cident in 
+      (Configuration.path_chunks config ^ ""/"" ^ subd ^ ""/"" ^ cident ^ "".lxr"")
    ".
+
+Extract Constant Buffer.cstdio_buffer => "Mlcpp_cstdio.Cstdio.File.Buffer.ta".
 
 Extract Constant BufferEncrypted.buffer_t => "Mlcpp_cstdio.Cstdio.File.Buffer.ta".
 Extract Constant BufferEncrypted.buffer_create => "fun n -> Mlcpp_cstdio.Cstdio.File.Buffer.create (Conversion.n2i n)".
 Extract Constant BufferEncrypted.buffer_len => "fun b -> Conversion.i2n (Mlcpp_cstdio.Cstdio.File.Buffer.size b)".
 Extract Constant BufferEncrypted.calc_checksum => "fun b -> Elykseer_base.Buffer.sha256 b".
+Extract Constant BufferEncrypted.from_buffer => "fun b -> Helper.cpp_buffer_id b".
 
 Extract Constant BufferPlain.buffer_t => "Mlcpp_cstdio.Cstdio.File.Buffer.ta".
 Extract Constant BufferPlain.buffer_create => "fun n -> Mlcpp_cstdio.Cstdio.File.Buffer.create (Conversion.n2i n)".
 Extract Constant BufferPlain.buffer_len => "fun b -> Conversion.i2n (Mlcpp_cstdio.Cstdio.File.Buffer.size b)".
 Extract Constant BufferPlain.calc_checksum => "fun b -> Elykseer_base.Buffer.sha256 b".
+Extract Constant BufferPlain.from_buffer => "fun b -> Helper.cpp_buffer_id b".
 
 Extract Constant id_buffer_t_from_enc => "fun b -> Helper.cpp_buffer_id b".
 Extract Constant id_buffer_t_from_full => "fun b -> Helper.cpp_buffer_id b".
@@ -134,6 +139,22 @@ Extract Constant id_assembly_full_buffer_from_writable => "fun b -> Helper.cpp_b
 
 Extract Constant cpp_encrypt_buffer => "fun b pw -> Helper.cpp_encrypt_buffer b pw".  (* TODO *)
 Extract Constant cpp_decrypt_buffer => "fun b pw -> Helper.cpp_decrypt_buffer b pw".  (* TODO *)
+
+Extract Constant assembly_add_content => (* BufferPlain.buffer_t -> N -> N -> AssemblyPlainWritable.B -> N. *)
+   "
+    fun src sz_N pos_N tgt ->
+      let sz = Conversion.n2i sz_N
+      and pos = Conversion.n2i pos_N in
+      Elykseer_base.Assembly.add_content ~src:src ~sz:sz ~pos:pos ~tgt:tgt |> Conversion.i2n
+   ".
+
+Extract Constant assembly_get_content => (* AssemblyPlainWritable.B -> N -> N -> BufferPlain.buffer_t -> N. *)
+   "
+    fun src sz_N pos_N tgt ->
+      let sz = Conversion.n2i sz_N
+      and pos = Conversion.n2i pos_N in
+      Elykseer_base.Assembly.get_content ~src:src ~sz:sz ~pos:pos ~tgt:tgt |> Conversion.i2n
+   ".
 
 Extract Constant BufferEncrypted.copy_sz_pos =>
    "

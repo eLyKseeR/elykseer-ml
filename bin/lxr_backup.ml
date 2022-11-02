@@ -1,3 +1,4 @@
+[@@@warning "-26-27-32-33-34-35-36-37-38-39-60-66-67"]
 
 (* open Elykseer *)
 open Elykseer__Lxr
@@ -5,6 +6,8 @@ open Elykseer__Lxr.Configuration
 open Elykseer__Lxr.Environment
 
 open Elykseer_utils
+
+open Mlcpp_cstdio
 
 let def_myid = 1234567890
 
@@ -31,11 +34,11 @@ let anon_args_fun fn = arg_files := fn :: !arg_files
 (** the minimum available size in an assembly *)
 (* let aminsz = 127 *)
 
-(* let finalise_assembly e0 =
+let finalise_assembly e0 =
   let (a,b) = Assembly.finish (e0.cur_assembly) (e0.cur_buffer) in
   (* create key *)
   let k = Elykseer_crypto.Key256.mk () in
-  let e1 = Environment.env_add_aid_key e0 a.aid (Elykseer_crypto.Key256.to_bytes k) in
+  let e1 = Environment.env_add_aid_key e0 a.aid (Elykseer_crypto.Key256.to_hex k) in
   (* encrypt *)
   match Assembly.encrypt a b (e1.keys) with
   | None -> Printf.printf "failure on encrypting assembly %s\n" a.aid;
@@ -43,20 +46,13 @@ let anon_args_fun fn = arg_files := fn :: !arg_files
   | Some (a',b') ->
   (* extract to chunks *)
       Assembly.extract e1.config a' b' |> ignore;
-      e1 *)
+      e1
 
-(* let finalise_and_recreate_assembly e0 =
+let finalise_and_recreate_assembly e0 =
   let e1 = finalise_assembly e0 in
-  Environment.recreate_assembly e1 *)
+  Environment.recreate_assembly e1
 
 let curr_assembly_sz n = Conversion.n2i (Assembly.assemblysize n)
-
-(* let check_env e0 =
-  let a = e0.cur_assembly in
-  if (Conversion.n2i a.apos) + aminsz > curr_assembly_sz a.nchunks
-    then (Printf.printf "finalising assembly %s\n" a.aid;
-         finalise_and_recreate_assembly e0)
-    else e0 *)
 
 let rec analyse_files' acc nchunks afree anum fns =
         match fns with
@@ -87,38 +83,77 @@ let count_assemblies fbs =
 ]   
 *)
 
-let rec execute_backup e p anum fileblocks =
+let rec execute_backup_for_assembly e p anum fileblocks =
   match fileblocks with
-  | [] -> e
+  | [] -> finalise_and_recreate_assembly e
   | (fname,blocks) :: r ->
     Printf.printf "    file: %s\n" fname;
     List.iteri (fun i fb -> Printf.printf "      %d: anum: %d block: %d @ %d\n" i (Conversion.p2i @@ BackupPlanner.fbanum fb) (Conversion.n2i fb.fbsz) (Conversion.n2i fb.fbfpos)) blocks;
-    execute_backup e p anum r
+    let e' = Cstdio.File.fopen fname "rx" |> function
+      | Ok fptr ->
+        let rec backup_block e0 fptr blocks =
+          match blocks with
+          | [] -> e0
+          | fb :: rbs ->
+            let fpos = BackupPlanner.fbfpos fb in
+            Cstdio.File.fseek fptr (Conversion.n2i fpos) |> function
+              | Ok _ -> begin
+                let sz = Conversion.n2i fb.fbsz in
+                let buf = Cstdio.File.Buffer.create sz in
+                Cstdio.File.fread buf sz fptr |> function
+                  | Ok _nread ->
+                    let bplain = Buffer.BufferPlain.from_buffer buf in
+                    let e1 = Environment.backup e0 fname fpos bplain in
+                    backup_block e1 fptr rbs
+                  | Error (errno,errstr) -> 
+                      Printf.printf "read error no:%d err:%s\n" errno errstr; e0
+                end
+              | Error (errno,errstr) -> 
+                  Printf.printf "seek error no:%d err:%s\n" errno errstr; e0
+        in
+        let e1 = backup_block e fptr blocks in
+        Cstdio.File.fclose fptr |> ignore;
+        e1
+      | Error (errno,errstr) -> 
+          Printf.printf "open error no:%d err:%s\n" errno errstr |> ignore; e
+    in
+    execute_backup_for_assembly e' p anum r
 
 let extract_fileblocks anum fileblocks =
   List.map (fun (fname,bs) -> (fname, List.filter (fun fbs -> BackupPlanner.fbanum fbs = anum) bs)) fileblocks
 
-let rec run_backup e ps anum acount fileblocks =
-  if anum > acount then ()
+let rec run_backup_for_assembly e ps anum acount fileblocks =
+  if anum > acount then e
   else
     match ps with
-    | [] -> ()
+    | [] -> e
     | p :: ps' -> 
       Printf.printf "executing backup of assembly %d\n" anum;
-      let fileblocks' = extract_fileblocks (Conversion.i2p anum) fileblocks in
-      let e' = execute_backup e p (Conversion.i2p anum) fileblocks' in
-      run_backup e' (List.append ps' [p]) (anum + 1) acount fileblocks
+      let anum_p = Conversion.i2p anum in
+      let fileblocks' = extract_fileblocks anum_p fileblocks in
+      let e' = execute_backup_for_assembly e p anum_p fileblocks' in
+      run_backup_for_assembly e' (List.append ps' [p]) (anum + 1) acount fileblocks
 
 let start_processes n =
   let rec start_processes' acc n =
-    if n = 0 then List.rev acc else start_processes' (n :: acc) (n - 1) in
+    if n = 0
+      then List.rev acc
+      else
+        let proc = n in  (* TODO create external process *)
+        start_processes' (proc :: acc) (n - 1) in
   start_processes' [] n
 
 let run_distributed_backup e0 nproc acount fileblocks =
   (* start n processes *)
   let ps = start_processes nproc in
   (* distribute work among processes *)
-  run_backup e0 ps 1 acount fileblocks
+  run_backup_for_assembly e0 ps 1 acount fileblocks
+
+let output_relations e =
+  let dt_id = Elykseer_base.Assembly.date_ident () in
+  let meta_p = e.config.path_meta in
+  Relfiles.save_to_file e.files (Mlcpp_filesystem.Filesystem.Path.from_string (meta_p ^ "/" ^ dt_id ^ ".relfiles")) "tester" |> ignore;
+  Relkeys.save_to_file e.keys (Mlcpp_filesystem.Filesystem.Path.from_string (meta_p ^ "/" ^ dt_id ^ ".relkeys")) "tester" |> ignore
 
 (* main *)
 let () = Arg.parse argspec anon_args_fun "lxr_backup: vxonji";
@@ -126,7 +161,6 @@ let () = Arg.parse argspec anon_args_fun "lxr_backup: vxonji";
          if List.length !arg_files > 0
           && !arg_nproc > 0 && !arg_nproc < 65
          then
-           (* let _setup = setup_environment in *)
            let myid = let id0 = !arg_myid in
                       if id0 >= 0 then id0 else def_myid in
            let conf : configuration = {
@@ -139,5 +173,6 @@ let () = Arg.parse argspec anon_args_fun "lxr_backup: vxonji";
            let fcount = count_files fileblocks in
            let acount = count_assemblies fileblocks in
            Printf.printf "backup of %d files in %d assemblies\n" fcount acount |> ignore;
-           run_distributed_backup e0 !arg_nproc acount fileblocks;
+           let e1 = run_distributed_backup e0 !arg_nproc acount fileblocks in
+           output_relations e1;
            ()

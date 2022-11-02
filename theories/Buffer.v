@@ -21,12 +21,15 @@ From LXR Require Import Conversion.
 
 Inductive EncryptionState := Plain | Encrypted.
 
+Axiom cstdio_buffer : Type.
+
 Module Type BUF.
   Axiom buffer_t : Type.
   Axiom buffer_create : N -> buffer_t.
   Axiom buffer_len : buffer_t -> N.
   Axiom calc_checksum : buffer_t -> string.
   Axiom copy_sz_pos : buffer_t -> N -> N -> buffer_t -> N -> N.
+  Axiom from_buffer : cstdio_buffer -> buffer_t.
 
   Parameter state : EncryptionState.
 End BUF.
@@ -37,6 +40,7 @@ Module Export BufferEncrypted : BUF.
   Axiom buffer_len : buffer_t -> N.
   Axiom calc_checksum : buffer_t -> string.
   Axiom copy_sz_pos : buffer_t -> N -> N -> buffer_t -> N -> N.
+  Axiom from_buffer : cstdio_buffer -> buffer_t.
 
   Definition state := Encrypted.
 End BufferEncrypted.
@@ -48,6 +52,7 @@ Module Export BufferPlain : BUF.
   Axiom buffer_len : buffer_t -> N.
   Axiom calc_checksum : buffer_t -> string.
   Axiom copy_sz_pos : buffer_t -> N -> N -> buffer_t -> N -> N.
+  Axiom from_buffer : cstdio_buffer -> buffer_t.
 
   Definition state := Plain.
 End BufferPlain.

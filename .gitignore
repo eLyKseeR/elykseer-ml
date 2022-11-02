@@ -22,3 +22,7 @@ Makefile.coq.conf
 elykseer.opam
 /lxr.ml
 /lxr.mli
+
+/meta
+/lxr
+
