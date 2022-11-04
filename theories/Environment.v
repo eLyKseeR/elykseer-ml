@@ -42,7 +42,7 @@ Definition recreate_assembly (e : environment) : environment :=
     ;  files := files e
     ;  keys := keys e
     |}.
-Definition env_add_file_block (e : environment) (fname : string) (bi : blockinformation) : environment :=
+Definition env_add_file_block (fname : string) (e : environment) (bi : blockinformation) : environment :=
     let mkbi bi bis :=
         let newblockid bis :=
             match bis with
@@ -63,7 +63,7 @@ Definition env_add_file_block (e : environment) (fname : string) (bi : blockinfo
     ;  files := RelationFileAid.add fname entries (files e)
     ;  keys := keys e
     |}.
-Definition env_add_aid_key (e : environment) (aid : string) (ki : keyinformation) : environment :=
+Definition env_add_aid_key (aid : string) (e : environment) (ki : keyinformation) : environment :=
     {| cur_assembly := cur_assembly e
     ;  cur_buffer := cur_buffer e
     ;  config := config e
@@ -73,7 +73,7 @@ Definition env_add_aid_key (e : environment) (aid : string) (ki : keyinformation
 
 Program Definition backup (e0 : environment) (fp : string) (fpos : N) (content : BufferPlain.buffer_t) : environment :=
     let (a', bi) := Assembly.backup (cur_assembly e0) (cur_buffer e0) fpos content in
-    let e1 := env_add_file_block e0 fp bi in
+    let e1 := env_add_file_block fp e0 bi in
     {| cur_assembly := a'
     ;  cur_buffer := cur_buffer e1
     ;  config := config e1
