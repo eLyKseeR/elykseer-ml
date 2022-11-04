@@ -38,7 +38,7 @@ let finalise_assembly e0 =
   let (a,b) = Assembly.finish (e0.cur_assembly) (e0.cur_buffer) in
   (* create key *)
   let k = Elykseer_crypto.Key256.mk () in
-  let e1 = Environment.env_add_aid_key e0 a.aid (Elykseer_crypto.Key256.to_hex k) in
+  let e1 = Environment.env_add_aid_key a.aid e0 (Elykseer_crypto.Key256.to_hex k) in
   (* encrypt *)
   match Assembly.encrypt a b (e1.keys) with
   | None -> Printf.printf "failure on encrypting assembly %s\n" a.aid;

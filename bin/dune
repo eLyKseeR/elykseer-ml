@@ -50,10 +50,9 @@
  (libraries elykseer elykseer_base elykseer_utils mlcpp_chrono mlcpp_cstdio lwt.unix lwt_ppx)
 )
 
-; (executable
-;  (public_name lxr_restore)
-;  (name lxr_restore)
-;  (modules lxr_restore)
-;  (preprocess (pps lwt_ppx))
-;  (libraries elykseer elykseer_base elykseer_utils mlcpp_chrono lwt.unix lwt_ppx)
-; )
+(executable
+ (public_name lxr_restore)
+ (name lxr_restore)
+ (modules lxr_restore)
+ (libraries elykseer elykseer_base elykseer_utils)
+)
