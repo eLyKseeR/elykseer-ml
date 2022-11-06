@@ -77,12 +77,9 @@ json (pretty printed):
 *)
 
 let rec encode_relation kvpairs bin bpos =
-  (* Printf.printf "lenght of kvpairs %d\n" (List.length kvpairs);
-  (bpos, bin) *)
   match kvpairs with
   | [] ->
-    let (bpos', b') = Bufferutils.add_string_to_buffer bin (bpos - 1) "]" in
-    (bpos', b')
+    Bufferutils.add_string_to_buffer bin (bpos - 1) "]"
   | el :: r ->
     let (bpos', b') = encode_el el bin bpos in
     encode_relation r b' bpos'
