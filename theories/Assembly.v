@@ -106,44 +106,41 @@ Axiom chunk_identifier : configuration -> aid_t -> positive -> string.
 Axiom chunk_identifier_path : configuration -> aid_t -> positive -> string.
 
 Axiom ext_load_chunk_from_path : string -> option BufferEncrypted.buffer_t.
-Fixpoint recall_chunks (nread : N) (c : configuration) (aid : aid_t) (b : BufferEncrypted.buffer_t) (cids : list positive) : N :=
-    match cids with
-    | nil => nread
-    | cid :: rcids =>
-        let cpath := chunk_identifier_path c aid cid in
-        match ext_load_chunk_from_path cpath with
-        | None => nread
-        | Some cb =>
-            let apos := chunksize_N * ((Conversion.pos2N cid) - 1) in
-            if N.ltb (apos + chunksize_N) (BufferEncrypted.buffer_len b)
-            then let nread' := BufferEncrypted.copy_sz_pos cb 0 chunksize_N b apos in
-                recall_chunks (nread + nread') c aid b rcids
-            else nread
-        end
-    end.
-
 Program Definition recall (c : configuration) (a : AssemblyEncrypted.H) : option (AssemblyEncrypted.H * AssemblyEncrypted.B) :=
     let cidlist := Utilities.make_list (nchunks a) in
     let b := BufferEncrypted.buffer_create (Conversion.pos2N (nchunks a) * chunksize_N) in
-    let nread := recall_chunks 0 c (aid a) b cidlist in
-    let a' := mkassembly (nchunks a) (aid a) nread in
+    let aid := aid a in
+    let blen := BufferEncrypted.buffer_len b in
+    let nread := List.fold_left
+                    (fun nread cid =>
+                        let cpath := chunk_identifier_path c aid cid in
+                        match ext_load_chunk_from_path cpath with
+                        | None => nread
+                        | Some cb =>
+                            let apos := chunksize_N * ((Conversion.pos2N cid) - 1) in
+                            if N.ltb (apos + chunksize_N) blen
+                            then nread + BufferEncrypted.copy_sz_pos cb 0 chunksize_N b apos
+                            else nread
+                        end    
+                    )
+                    cidlist
+                    0 in
+    let a' := mkassembly (nchunks a) aid nread in
     let b' := id_enc_from_buffer_t b in
     Some (a', b').
 
 Axiom ext_store_chunk_to_path : string -> N -> N -> BufferEncrypted.buffer_t -> N.
-Fixpoint extract_chunks (written : N) (c : configuration) (aid : aid_t) (b : BufferEncrypted.buffer_t) (cids : list positive) : N :=
-    match cids with
-    | nil => written
-    | cid :: rcids =>
-        let cpath := chunk_identifier_path c aid cid in
-        let apos := chunksize_N * ((Conversion.pos2N cid) - 1) in
-        let nwritten := ext_store_chunk_to_path cpath chunksize_N apos b in
-        extract_chunks (written + nwritten) c aid b rcids
-    end.
-
 Program Definition extract (c : configuration) (a : AssemblyEncrypted.H) (b : AssemblyEncrypted.B) : N :=
-    let cidlist := Utilities.make_list (nchunks a) in
-    extract_chunks 0 c (aid a) (id_buffer_t_from_enc b) cidlist.
+    let aid := aid a in
+    let buf := id_buffer_t_from_enc b in
+    List.fold_left
+        ( fun nwritten cid =>
+            let cpath := chunk_identifier_path c aid cid in
+            let apos := chunksize_N * ((Conversion.pos2N cid) - 1) in
+            nwritten + ext_store_chunk_to_path cpath chunksize_N apos buf
+        )
+        (Utilities.make_list (nchunks a))
+        0.
 
 End Code_Encrypted.
 

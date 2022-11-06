@@ -18,11 +18,11 @@ let test_add_content () =
 
 let test_relation_aid_key () =
   let aid = "aid101" in
-  let relkey = RelationAidKey.add aid "key101" @@ RelationAidKey.coq_new in
+  let relkey = RelationAidKey.add aid {pkey="key101";localid=Conversion.i2n 4242;localnchunks=Conversion.i2p 16} @@ RelationAidKey.coq_new in
   Alcotest.(check string) "get key for aid"
   "key101" (* == *) (RelationAidKey.find aid relkey |> function
                     | None -> "<nothing>"
-                    | Some k -> k
+                    | Some k -> RelationAidKey.pkey k
                     )
   
 (* Runner *)

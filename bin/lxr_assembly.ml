@@ -71,7 +71,7 @@ let main () = Arg.parse argspec anon_args_fun "lxr_assembly: vaf";
     let (a', bi) = Elykseer__Lxr.Assembly.backup a b (* "test1M" *) (Conversion.i2n 0) content in
     let e1 = Environment.env_add_file_block "test1M" e0 bi in
     (* let relkey = (RelationAidKey.add (aid a') "abc97391af" RelationAidKey.coq_new ) in *)
-    let e2 = Environment.env_add_aid_key (aid a') e1 "abc97391af" in
+    let e2 = Environment.env_add_aid_key (aid a') e1 {pkey="abc97391af";localnchunks=Nchunks.to_positive c.config_nchunks;localid=c.my_id} in
     let relkey = Environment.keys e2 in
     let (a'', b') = Elykseer__Lxr.Assembly.finish a' b in
     match Elykseer__Lxr.Assembly.encrypt a'' b' relkey with

@@ -23,7 +23,9 @@ let anon_args_fun _fn = ()
 
 let mk_rel n rel =
   let aid = Printf.sprintf "aid%06d" n in
-  let keys = "01234567890123456789012345678901" in
+  let keys : RelationAidKey.keyinformation =
+      { pkey="01234567890123456789012345678901"
+      ; localnchunks=Conversion.i2p 16; localid=Conversion.i2n 4242 } in
   RelationAidKey.add aid keys rel
 
 let rec prepare_bm cnt rel =
@@ -68,8 +70,8 @@ let benchmark_run cnt =
 
 let example_output () =
   let rel = RelationAidKey.coq_new in
-  let k1 = "key0001" in
-  let k2 = "key0002" in
+  let k1 : RelationAidKey.keyinformation = {pkey="key0001";localnchunks=Conversion.i2p 16;localid=Conversion.i2n 43424} in
+  let k2 : RelationAidKey.keyinformation = {pkey="key0002";localnchunks=Conversion.i2p 24;localid=Conversion.i2n 62831} in
   let rel' = RelationAidKey.add "aid001" k1 rel |>
              RelationAidKey.add "aid002" k2 in
   Relkeys.save_to_file rel' (Filesystem.Path.from_string "testkeys.json") "testuser" |> ignore;
