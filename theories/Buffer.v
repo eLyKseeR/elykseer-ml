@@ -30,6 +30,7 @@ Module Type BUF.
   Axiom calc_checksum : buffer_t -> string.
   Axiom copy_sz_pos : buffer_t -> N -> N -> buffer_t -> N -> N.
   Axiom from_buffer : cstdio_buffer -> buffer_t.
+  Axiom to_buffer : buffer_t -> cstdio_buffer.
 
   Parameter state : EncryptionState.
 End BUF.
@@ -41,6 +42,7 @@ Module Export BufferEncrypted : BUF.
   Axiom calc_checksum : buffer_t -> string.
   Axiom copy_sz_pos : buffer_t -> N -> N -> buffer_t -> N -> N.
   Axiom from_buffer : cstdio_buffer -> buffer_t.
+  Axiom to_buffer : buffer_t -> cstdio_buffer.
 
   Definition state := Encrypted.
 End BufferEncrypted.
@@ -53,6 +55,7 @@ Module Export BufferPlain : BUF.
   Axiom calc_checksum : buffer_t -> string.
   Axiom copy_sz_pos : buffer_t -> N -> N -> buffer_t -> N -> N.
   Axiom from_buffer : cstdio_buffer -> buffer_t.
+  Axiom to_buffer : buffer_t -> cstdio_buffer.
 
   Definition state := Plain.
 End BufferPlain.

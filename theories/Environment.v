@@ -75,7 +75,7 @@ Program Definition backup (e0 : environment) (fp : string) (fpos : N) (content :
     let (a', bi) := Assembly.backup (cur_assembly e0) (cur_buffer e0) fpos content in
     let e1 := env_add_file_block fp e0 bi in
     {| cur_assembly := a'
-    ;  cur_buffer := cur_buffer e1
+    ;  cur_buffer := cur_buffer e0
     ;  config := config e1
     ;  files := files e1
     ;  keys := keys e1

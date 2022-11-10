@@ -106,6 +106,7 @@ Axiom chunk_identifier : configuration -> aid_t -> positive -> string.
 Axiom chunk_identifier_path : configuration -> aid_t -> positive -> string.
 
 Axiom ext_load_chunk_from_path : string -> option BufferEncrypted.buffer_t.
+
 Program Definition recall (c : configuration) (a : AssemblyEncrypted.H) : option (AssemblyEncrypted.H * AssemblyEncrypted.B) :=
     let cidlist := Utilities.make_list (nchunks a) in
     let b := BufferEncrypted.buffer_create (Conversion.pos2N (nchunks a) * chunksize_N) in
@@ -118,7 +119,7 @@ Program Definition recall (c : configuration) (a : AssemblyEncrypted.H) : option
                         | None => nread
                         | Some cb =>
                             let apos := chunksize_N * ((Conversion.pos2N cid) - 1) in
-                            if N.ltb (apos + chunksize_N) blen
+                            if N.leb (apos + chunksize_N) blen
                             then nread + BufferEncrypted.copy_sz_pos cb 0 chunksize_N b apos
                             else nread
                         end    
@@ -171,14 +172,14 @@ Axiom assembly_add_content : BufferPlain.buffer_t -> N -> N -> AssemblyPlainWrit
 Program Definition backup (a : AssemblyPlainWritable.H) (b : AssemblyPlainWritable.B) (fpos : N) (content : BufferPlain.buffer_t) : (AssemblyPlainWritable.H * blockinformation) :=
     let apos := apos a in
     let bsz := BufferPlain.buffer_len content in
+    let nwritten := assembly_add_content content bsz apos b in
     let bi := {| blockid   := 1
                ; bchecksum := calc_checksum content
-               ; blocksize := bsz
+               ; blocksize := nwritten
                ; filepos   := fpos
                ; blockaid  := aid a
                ; blockapos := apos |} in
-    let nwritten := assembly_add_content content bsz apos b in
-    let a' := {| nchunks := nchunks a; aid := aid a; apos := apos + bsz |} in
+    let a' := {| nchunks := nchunks a; aid := aid a; apos := apos + nwritten |} in
     (a', bi).
 
 (** restore: copy buffer from an assembly
