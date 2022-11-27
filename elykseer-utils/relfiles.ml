@@ -1,144 +1,99 @@
 
 open Elykseer__Lxr
 
-open Mlcpp_cstdio
-open Mlcpp_filesystem
+open Lwt.Syntax
 
-open Yojson.Basic.Util
+module Git_store = Irmin_git_unix.FS.KV(Irmin.Contents.Json_value)
+module Git_info = Irmin_unix.Info(Git_store.Info)
 
-let rec encode_blocks blocks bin bpos =
+type t = Git_store.t
+
+let my_id = ref "unset"
+let my_log = ref "unset (0.0.1)"
+
+let new_map (config : Configuration.configuration) =
+  my_id := Printf.sprintf "%d" (Conversion.n2i config.my_id);
+  my_log := Printf.sprintf "%d (%s)" (Conversion.n2i config.my_id) Version.version;
+  let git_config = Irmin_git.config ~bare:true config.path_db in
+  let* repo = Git_store.Repo.v git_config in
+  Git_store.main repo
+
+let mk_repo_path fhash =
+  let d1 = String.sub fhash 4 2 in
+  [!my_id;d1;fhash]
+
+let version_obj : Git_store.contents =
+  `O[ "major", `String Version.major
+    ; "minor", `String Version.minor
+    ; "build", `String Version.build ]
+
+let block2json_v1 (fb : Assembly.blockinformation) : Git_store.contents =
+  `O [ ("blockid", `String (string_of_int (Conversion.p2i fb.blockid)))
+     ; ("bchecksum", `String fb.bchecksum)
+     ; ("blocksize", `String (string_of_int (Conversion.n2i fb.blocksize)))
+     ; ("filepos", `String (string_of_int (Conversion.n2i fb.filepos)))
+     ; ("blockaid", `String fb.blockaid)
+     ; ("blockapos", `String (string_of_int (Conversion.n2i fb.blockapos))) ]
+let blocks2json_v1 (fblocks : Assembly.blockinformation list) : Git_store.contents =
+  `O [ "version", version_obj
+     ; "blocks", `A (List.fold_left (fun acc fb -> block2json_v1 fb :: acc) [] fblocks) ]
+
+let msg_info msg = Git_info.v ~author:!my_log "%s" msg
+
+(** add: sets fhash -> [blockinformation] *)
+let add fhash fblocks0 db =
+  let msg = Fmt.str "update of %s" fhash in
+  let fblocks = blocks2json_v1 fblocks0 in
+  let%lwt () =
+    try%lwt
+      let fp = mk_repo_path fhash in
+      Git_store.set_exn ~info:(msg_info msg) db fp fblocks
+    with Failure e -> Lwt_io.eprintlf "error : %s" e in
+  Lwt.return db
+
+let json2block_v1 obs : Assembly.blockinformation option =
+  match obs with
+  | `O bs -> Some
+    { blockid = Relutils.get_int "blockid" bs |> Conversion.i2p
+    ; bchecksum = Relutils.get_str "bchecksum" bs
+    ; blocksize = Relutils.get_int "blocksize" bs |> Conversion.i2n
+    ; filepos = Relutils.get_int "filepos" bs |> Conversion.i2n
+    ; blockaid = Relutils.get_str "blockaid" bs
+    ; blockapos = Relutils.get_int "blockapos" bs |> Conversion.i2n
+    }
+  | _ -> None
+let json2blocks_v1 blocks =
   match blocks with
-  | [] ->
-    let footer = "]," in
-    (* bpos - 1 :  to correct for last ',' *)
-    let (bpos', b') = Bufferutils.add_string_to_buffer bin (bpos - 1) footer in
-    (bpos', b')
-  | b :: r ->
-    let s = Printf.sprintf "{\"fpos\":%d,\"sz\":%d,\"apos\":%d,\"chksum\":\"%s\"},"
-              (Conversion.n2i @@ RelationFileAid.filepos b)
-              (Conversion.n2i @@ RelationFileAid.blocksize b)
-              (Conversion.n2i @@ RelationFileAid.blockapos b)
-              (RelationFileAid.bchecksum b) in
-    let (bpos', b') = Bufferutils.add_string_to_buffer bin bpos s in
-    encode_blocks r b' bpos'
+  | [] -> []
+  | bs -> List.fold_left (fun acc b -> match json2block_v1 b with Some e -> e :: acc | None -> acc) [] bs
 
+let json2blocks_versioned vmajor varr =
+  match vmajor with
+  | 0
+  | 1 -> begin
+    match varr with
+    | [] -> None
+    | blocks -> Some (json2blocks_v1 blocks)
+    end
+  | _ -> None
 
-let rec encode_by_assembly assemblies blocks bin bpos =
-  match assemblies with
-  | [] -> (bpos, bin)
-  | a :: r ->
-    let ablocks = List.filter (fun b -> RelationFileAid.blockaid b == a) blocks in
-    let header = Printf.sprintf "{\"aid\":\"%s\",\"blocks\":[" a in
-    let (bpos', b') = Bufferutils.add_string_to_buffer bin bpos header in
-    let (bpos'', b'') = encode_blocks ablocks b' bpos' in
-    let footer = "}," in
-    let (bpos''', b''') = Bufferutils.add_string_to_buffer b'' (bpos'' - 1) footer in
-    encode_by_assembly r blocks b''' bpos'''
+let json2blocks_opt (el : (string * Git_store.contents) list) =
+  match el with
+  | [] -> None
+  | rs ->
+    let vobj = Relutils.get_obj "version" rs in
+    let vmajor = Relutils.get_int "major" vobj in
+    let varr = Relutils.get_arr "blocks" rs in
+    json2blocks_versioned vmajor varr
 
+(** find: gets fhash -> [blockinformation] option *)
+let find fhash db =
+  let fp = mk_repo_path fhash in
+  let%lwt res = Git_store.get db fp in
+  Lwt.return @@ match res with
+  (* unversioned case *)
+  | `A bs -> Some (json2blocks_v1 bs)
+  | `O el -> json2blocks_opt el
+  | _ -> None
 
-let encode_el (fpath,blocks) bin bpos =
-  let header = Printf.sprintf "{\"path\":\"%s\",\"assemblies\":[" fpath in
-  let footer = "]}," in
-  let assemblies = List.map (fun b -> RelationFileAid.blockaid b) blocks |> List.sort_uniq (compare) in
-  let (bpos', b') = Bufferutils.add_string_to_buffer bin bpos header in
-  let (bpos'', b'') = encode_by_assembly assemblies blocks b' bpos' in
-  Bufferutils.add_string_to_buffer b'' (bpos'' - 1) footer
-
-(** 
-type blockinformation_out = { blockid : positive; bchecksum : string;
-                              blocksize : n; filepos : n; blockaid : string;
-                              blockapos : n }
-
-type assemblyinformation = { aid : string; blocks : blockinformation2 list }
-type blockinformation = { bchecksum : string; blocksize : int; filepos : int; blockapos : int }
-
-json (pretty printed):
-  { "files": [
-      { "path": "fname1",
-        "assemblies": [
-          { "aid": "aid00001",
-            "blocks": [
-              { "fpos": 0,
-                "sz": 1303,
-                "apos": 0,
-                "chksum": "9459ab301ffeda0123456789"
-              },
-              { "fpos": 1303,
-                "sz": 457,
-                "apos": 1303,
-                "chksum": "f7698e10adf104323ba95495"
-              }
-            ]
-          }
-        ]
-      }
-    ]
-  }
-*)
-
-let rec encode_relation kvpairs bin bpos =
-  match kvpairs with
-  | [] ->
-    Bufferutils.add_string_to_buffer bin (bpos - 1) "]"
-  | el :: r ->
-    let (bpos', b') = encode_el el bin bpos in
-    encode_relation r b' bpos'
-
-let output_to_buffer rel =
-  let b0 = Cstdio.File.Buffer.create (64*1024) in
-  let (bpos', b') = Bufferutils.add_string_to_buffer b0 0 "[" in
-  encode_relation (RelationFileAid.M.elements rel) b' bpos'
-
-let save_to_file rel path tgtuser =
-  let (_bpos', b') = output_to_buffer rel in
-  Fileutils.save_compressed_encrypted_file b' path tgtuser
-
-let rec parse_blocks bid aid acc j =
-  match j with
-  | [] -> acc
-  | json :: r ->
-    let b : RelationFileAid.blockinformation =
-      { blockid = Conversion.i2p bid
-      ; filepos = json |> member "fpos" |> to_int |> Conversion.i2n
-      ; bchecksum = json |> member "chksum" |> to_string
-      ; blocksize = json |> member "sz" |> to_int |> Conversion.i2n
-      ; blockapos = json |> member "apos" |> to_int |> Conversion.i2n
-      ; blockaid = aid
-      } in
-    parse_blocks (bid + 1) aid (b :: acc) r
-let rec parse_assemblies acc j =
-  match j with
-  | [] -> List.concat acc
-  | json :: r ->
-    let aid = json |> member "aid" |> to_string in
-    let bs = json |> member "blocks" |> to_list |> parse_blocks 1 aid [] in
-    parse_assemblies (bs :: acc) r
-
-let rec parse_files rel j =
-  match j with
-  | [] -> rel
-  | json :: r ->
-    let fp = json |> member "path" |> to_string in
-    let _as = json |> member "assemblies" |> to_list |> parse_assemblies [] in
-    let rel' = RelationFileAid.add fp _as rel in
-    parse_files rel' r
-
-let parse_buffer b =
-  let j = Cstdio.File.Buffer.to_string b in
-  let idx0 = String.index j '\000' in
-  let j' = String.sub j 0 (idx0) in
-  let rel = RelationFileAid.coq_new in
-  let rel' = Yojson.Basic.from_string j' |> to_list |> parse_files rel in
-  Some rel'
-
-let load_from_file path tgtuser =
-  let path' = Filesystem.Path.to_string path in
-  if Filesystem.Path.exists path
-    then begin
-      Fileutils.load_compressed_encrypted_file path tgtuser |> function
-      | None -> Printf.printf "failed to load from file %s\n" path'; None
-      | Some b -> parse_buffer b
-      end
-    else begin
-      Printf.printf "relation file %s not found!" path'; None
-      end
+let close_map db = Git_store.Repo.close (Git_store.repo db)

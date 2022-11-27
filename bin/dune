@@ -2,29 +2,9 @@
  (public_name lxr_backup)
  (name lxr_backup)
  (modules lxr_backup)
- (libraries elykseer elykseer_base elykseer_utils)
+ (preprocess (pps lwt_ppx))
+ (libraries elykseer elykseer_base elykseer_utils lwt.unix lwt_ppx)
 )
-; (executable
-;  (public_name lxr_controller)
-;  (name lxr_controller)
-;  (modules lxr_controller)
-;  (preprocess (pps lwt_ppx))
-;  (libraries elykseer elykseer_base elykseer_utils lwt.unix lwt_ppx)
-; )
-; (executable
-;  (public_name lxr_encoder)
-;  (name lxr_encoder)
-;  (modules lxr_encoder)
-;  (preprocess (pps lwt_ppx))
-;  (libraries elykseer elykseer_base elykseer_utils lwt.unix lwt_ppx)
-; )
-; (executable
-;  (public_name lxr_assembly)
-;  (name lxr_assembly)
-;  (modules lxr_assembly)
-;  (preprocess (pps lwt_ppx))
-;  (libraries elykseer elykseer_base elykseer_utils lwt.unix lwt_ppx)
-; )
 
 (executable
  (public_name lxr_assembly)
@@ -54,7 +34,8 @@
  (public_name lxr_restore)
  (name lxr_restore)
  (modules lxr_restore)
- (libraries elykseer elykseer_base elykseer_utils)
+ (preprocess (pps lwt_ppx))
+ (libraries elykseer elykseer_base elykseer_utils lwt.unix lwt_ppx)
 )
 
 (executable
@@ -62,4 +43,12 @@
  (name lxr_chunks)
  (modules lxr_chunks)
  (libraries elykseer elykseer_base elykseer_utils)
+)
+
+(executable
+ (public_name lxr_filehash)
+ (name lxr_filehash)
+ (modules lxr_filehash)
+ (preprocess (pps lwt_ppx))
+ (libraries elykseer elykseer_base lwt.unix lwt_ppx)
 )

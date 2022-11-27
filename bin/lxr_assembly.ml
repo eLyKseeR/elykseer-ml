@@ -5,7 +5,6 @@ open Elykseer__Lxr.Buffer
 open Elykseer__Lxr.Assembly
 open Elykseer__Lxr.Configuration
 (* open Elykseer__Lxr.Conversion *)
-(* open Elykseer__Lxr.Block *)
 (* open Elykseer__Lxr.Environment *)
 
 open Elykseer_utils
@@ -28,11 +27,7 @@ let argspec =
 
 let anon_args_fun _fn = ()
 
-(* let assembly_check e p_aid : assembly option Lwt.t =
-    Lwt.return @@ List.find_opt (fun a -> aid a = p_aid) e.assemblies *)
-
 let bm_add_content content buffer sz =
-    (* let buffer = Cstdio.File.Buffer.create (16*256*1024) in *)
     Assembly.add_content ~src:content ~sz:sz ~pos:0 ~tgt:buffer
 
 let benchmark_add_content =
@@ -50,15 +45,11 @@ let benchmark_add_content =
 
 (* main *)
 let main () = Arg.parse argspec anon_args_fun "lxr_assembly: vaf";
-    (* let e = Envutils.envrestore !arg_fctrl in
-    let%lwt () = Lwt_io.printl (Utils.e2s e) in
-    let%lwt a = assembly_check e !arg_aid in *)
     let%lwt () = Lwt_io.printlf "rnd256 %d" (Conversion.n2i @@ Utilities.rnd @@ Conversion.i2n 0) in
     let%lwt () = Lwt_io.printlf "rnd256 %d" (Conversion.n2i @@ Utilities.rnd @@ Conversion.i2n 0) in
     let%lwt () = Lwt_io.printlf "sha256 of /bin/sh %s" (Fsutils.fchksum "/bin/sh") in
-    let c : Configuration.configuration = { config_nchunks = (Nchunks.from_int 16); path_chunks = "./chunks"; path_meta = "./meta"; my_id = Conversion.i2n 16} in
+    let c : Configuration.configuration = { config_nchunks = (Nchunks.from_int 16); path_chunks = "./chunks"; path_meta = "./meta"; path_db = "/tmp/db"; my_id = Conversion.i2n 16} in
     let e0 = Environment.initial_environment c in
-    (* let (a,b) = AssemblyPlainWritable.create c in *)
     let a = Environment.cur_assembly e0 in
     let b = Environment.cur_buffer e0 in
     let%lwt () = Lwt_io.printlf "assembly %s %d %d" a.aid (Conversion.p2i a.nchunks) (Conversion.n2i a.apos) in
@@ -67,12 +58,11 @@ let main () = Arg.parse argspec anon_args_fun "lxr_assembly: vaf";
     let%lwt () = Lwt_io.printlf "buffer sha256 = %s" (AssemblyPlainWritable.calc_checksum b) in
     (* let msg = "testing some longer message." in *)
     let content = BufferPlain.buffer_create (Conversion.i2n 1024) in (*  (fun i -> if i < 28 then String.get msg i else '0') in *)
-    (* let relfiles = RelationFileAid.coq_new in *)
     let (a', bi) = Elykseer__Lxr.Assembly.backup a b (* "test1M" *) (Conversion.i2n 0) content in
     let e1 = Environment.env_add_file_block "test1M" e0 bi in
-    (* let relkey = (RelationAidKey.add (aid a') "abc97391af" RelationAidKey.coq_new ) in *)
     let e2 = Environment.env_add_aid_key (aid a') e1 {pkey="abc97391af";localnchunks=Nchunks.to_positive c.config_nchunks;localid=c.my_id} in
-    let relkey = Environment.keys e2 in
+    let relkeys = Environment.keys e2 in
+    let relkey = List.assoc (aid a') relkeys in
     let (a'', b') = Elykseer__Lxr.Assembly.finish a' b in
     match Elykseer__Lxr.Assembly.encrypt a'' b' relkey with
     | None -> Lwt_io.printl "failed to encrypt"

@@ -80,10 +80,11 @@ Section analyse_file.
 Variable nchunks : positive.
 Definition max_block_size : N := 131072.
 
-Definition analyse_file (* (nchunks : positive) *) (afree_p : N) (anum_p : positive) (fn : string) : afblocks :=
+Definition analyse_file (afree_p : N) (anum_p : positive) (fn : string) : afblocks :=
   (* Printf.printf "backup %s\n" fn; *)
   let fi := Filesupport.get_file_information fn in
-  let fuel : nat := N.to_nat (((fsize fi) / max_block_size) + 2) in   (* maybe +1 would be enough *)
+  let nblocks := (fsize fi) / max_block_size in
+  let fuel : nat := N.to_nat (nblocks + (nblocks / Conversion.pos2N nchunks) + 1) in
   let afbs := prepare_blocks nchunks max_block_size fuel {|anum:=anum_p;afree:=afree_p;ablocks:=nil|} 0 (fsize fi) in
   {| anum := anum afbs; afree := afree afbs; ablocks := List.rev (ablocks afbs) |}.
 

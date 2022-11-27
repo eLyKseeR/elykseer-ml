@@ -36,18 +36,13 @@ let load_compressed_encrypted_file path tgtuser =
 
 (* TODO *)
 let compress bin =
-  Printf.printf "compress\n";
+  Printf.printf "compress sz in = %d\n" (Cstdio.File.Buffer.size bin);
   bin
 
 (* TODO *)
 let encrypt bin tgtuser =
   Printf.printf "encrypt for %s\n" tgtuser;
   Some bin
-
-let save_file_parts file b =
-  Cstdio.File.fwrite b (Cstdio.File.Buffer.size b) file |> function
-  | Ok _n -> true
-  | Error _ -> false
 
 let save_compressed_encrypted_file bin path tgtuser =
   let bcomp = compress bin in
@@ -58,4 +53,9 @@ let save_compressed_encrypted_file bin path tgtuser =
     Cstdio.File.fopen path' "wx" |> function
     | Error (ec,es) -> Printf.eprintf "error %d: %s\n" ec es; false
     | Ok file ->
-      save_file_parts file benc
+      let res = Cstdio.File.fwrite benc (Cstdio.File.Buffer.size benc) file |> function
+        | Ok _n -> true
+        | Error _ -> false
+      in
+      Cstdio.File.fflush file |> ignore;
+      Cstdio.File.fclose file |> ignore; res

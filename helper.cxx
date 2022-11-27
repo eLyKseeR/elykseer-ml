@@ -69,7 +69,7 @@ value cpp_encrypt_buffer(value vbuf, value vpw)
 
     CPP_CSTDIO_BUFFER(res) = t;
 
-    return res;
+    CAMLreturn(res);
 }
 } // extern C
 
@@ -90,6 +90,6 @@ value cpp_decrypt_buffer(value vbuf, value vpw)
 
     CPP_CSTDIO_BUFFER(res) = t;
 
-    return res;
+    CAMLreturn(res);
 }
 } // extern C

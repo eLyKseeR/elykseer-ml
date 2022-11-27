@@ -14,6 +14,7 @@ Record configuration : Type :=
         { config_nchunks : Nchunks.t
         ; path_chunks : string
         ; path_meta : string
+        ; path_db : string
         ; my_id : N
         }.
 

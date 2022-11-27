@@ -1,69 +1,84 @@
 
 open Elykseer__Lxr
 
-open Mlcpp_cstdio
-open Mlcpp_filesystem
+open Lwt.Syntax
 
-open Yojson.Basic.Util
+module Git_store = Irmin_git_unix.FS.KV(Irmin.Contents.Json_value)
+module Git_info = Irmin_unix.Info(Git_store.Info)
 
-let encode_el (aid,ki) bin bpos =
-  let header = Printf.sprintf "{\"aid\":\"%s\",\"keys\":{" aid in
-  let footer = "}}," in
-  (* currently only one string: pkey *)
-  let ks = Printf.sprintf "\"pkey\":\"%s\",\"localid\":%d,\"localnchunks\":%d"
-     (RelationAidKey.pkey ki)
-     (Conversion.n2i @@ RelationAidKey.localid ki)
-     (Conversion.p2i @@ RelationAidKey.localnchunks ki) in
-  Bufferutils.add_string_to_buffer bin bpos (header ^ ks ^ footer)
+type t = Git_store.t
 
-let rec encode_relation kvpairs bin bpos =
-  match kvpairs with
-  | [] ->
-    Bufferutils.add_string_to_buffer bin (bpos - 1) "]"
-  | el :: r ->
-    let (bpos', b') = encode_el el bin bpos in
-    encode_relation r b' bpos'
+let my_id = ref "unset"
+let my_log = ref "unset (0.0.1)"
 
-let output_to_buffer rel =
-  let b0 = Cstdio.File.Buffer.create (64*1024) in
-  let (bpos', b') = Bufferutils.add_string_to_buffer b0 0 "[" in
-  encode_relation (RelationAidKey.M.elements rel) b' bpos'
+let new_map (config : Configuration.configuration) =
+  my_id := Printf.sprintf "%d" (Conversion.n2i config.my_id);
+  my_log := Printf.sprintf "%d (%s)" (Conversion.n2i config.my_id) Version.version;
+  let git_config = Irmin_git.config ~bare:true config.path_db in
+  let* repo = Git_store.Repo.v git_config in
+  Git_store.main repo
 
-let save_to_file rel path tgtuser =
-  let (_bpos', b') = output_to_buffer rel in
-  Fileutils.save_compressed_encrypted_file b' path tgtuser
 
-let parse_keyrecord json : RelationAidKey.keyinformation =
-  { pkey = json |> member "pkey" |> to_string
-  ; localnchunks = json |> member "localnchunks" |> to_int |> Conversion.i2p
-  ; localid = json |> member "localid" |> to_int |> Conversion.i2n
-  }
+let mk_repo_path aid =
+  let d1 = String.sub aid 0 4 in
+  [!my_id;d1;aid]
 
-let rec parse_keys rel j =
-  match j with
-  | [] -> rel
-  | json :: r ->
-    let aid = json |> member "aid" |> to_string in
-    let ki = json |> member "keys" |> parse_keyrecord in
-    let rel' = RelationAidKey.add aid ki rel in
-    parse_keys rel' r
+let version_obj : Git_store.contents =
+  `O [ "major", `String Version.major
+      ; "minor", `String Version.minor
+      ; "build", `String Version.build ]
 
-let parse_buffer b =
-  let j = Cstdio.File.Buffer.to_string b in
-  let idx0 = String.index j '\000' in
-  let j' = String.sub j 0 (idx0) in
-  let rel = RelationAidKey.coq_new in
-  let rel' = Yojson.Basic.from_string j' |> to_list |> parse_keys rel in
-  Some rel'
+let key2json_v1 (k : Assembly.keyinformation) : Git_store.contents =
+  `O [ ("pkey", `String k.pkey)
+     ; ("localid", `String (string_of_int (Conversion.n2i k.localid)))
+     ; ("localnchunks", `String (string_of_int (Conversion.p2i k.localnchunks))) ]
+let keys2json_v1 (keys : Assembly.keyinformation) : Git_store.contents =
+  `O [ "version", version_obj
+      ; "keys", key2json_v1 keys ]
 
-let load_from_file path tgtuser =
-  let path' = Filesystem.Path.to_string path in
-  if Filesystem.Path.exists path
-    then begin
-      Fileutils.load_compressed_encrypted_file path tgtuser |> function
-      | None -> Printf.printf "failed to load from file %s\n" path'; None
-      | Some b -> parse_buffer b
-      end
-    else begin
-      Printf.printf "relation file %s not found!" path'; None
-      end
+let msg_info msg = Git_info.v ~author:!my_log "%s" msg
+
+(** add: sets aid -> keyinfornation *)
+let add aid keys0 db =
+  let msg = Fmt.str "update of %s" aid in
+  let keys = keys2json_v1 keys0 in
+  let%lwt () =
+    try%lwt
+      let fp = mk_repo_path aid in
+      Git_store.set_exn ~info:(msg_info msg) db fp keys
+    with Failure e -> Lwt_io.eprintlf "error : %s" e in
+  Lwt.return db
+
+let json2keys_v1 obs : Assembly.keyinformation option =
+  match obs with
+  | [] -> None
+  | bs -> Some
+    { pkey = Relutils.get_str "pkey" bs
+    ; localid = Relutils.get_int "localid" bs |> Conversion.i2n
+    ; localnchunks = Relutils.get_int "localnchunks" bs |> Conversion.i2p
+    }
+
+let json2keys_versioned vmajor vkeys =
+  match vmajor with
+  | 0
+  | 1 -> json2keys_v1 vkeys
+  | _ -> None
+
+let json2keys_opt (el (* : (string * Git_store.contents) list *)) =
+  match el with
+  | [] -> None
+  | rs ->
+    let vobj = Relutils.get_obj "version" rs in
+    let vmajor = Relutils.get_int "major" vobj in
+    let vkeys = Relutils.get_obj "keys" rs in
+    json2keys_versioned vmajor vkeys
+
+(** find: gets aid -> keyinformation option *)
+let find aid db =
+  let fp = mk_repo_path aid in
+  let%lwt res = Git_store.get db fp in
+  Lwt.return @@ match res with
+  | `O el -> json2keys_opt el
+  | _ -> None
+
+let close_map db = Git_store.Repo.close (Git_store.repo db)

@@ -1,12 +1,9 @@
 
 open Elykseer__Lxr
-(* open Elykseer__Lxr.RelationAidKey *)
 
 open Elykseer_utils
 
 open Mlcpp_chrono
-open Mlcpp_cstdio
-open Mlcpp_filesystem
 
 let arg_verbose = ref false
 let arg_bm = ref false
@@ -23,83 +20,75 @@ let anon_args_fun _fn = ()
 
 let mk_rel n rel =
   let aid = Printf.sprintf "aid%06d" n in
-  let keys : RelationAidKey.keyinformation =
-      { pkey="01234567890123456789012345678901"
+  let keys : Assembly.keyinformation =
+      { pkey = string_of_int (12345678901234567 + n)
       ; localnchunks=Conversion.i2p 16; localid=Conversion.i2n 4242 } in
-  RelationAidKey.add aid keys rel
+  Relkeys.add aid keys rel
 
 let rec prepare_bm cnt rel =
   match cnt with
-  | 0 -> rel
-  | n -> let rel' = mk_rel n  rel in
-         prepare_bm (n - 1) rel'
+  | 0 -> Lwt.return rel
+  | n -> let%lwt _rel' = mk_rel n rel in
+         prepare_bm (n - 1) rel
 
-let run_bm i rel =
+let check_bm i rel =
   let aid = Printf.sprintf "aid%06d" i in
-  let ks = RelationAidKey.find aid rel in
+  let%lwt ks = Relkeys.find aid rel in
   match ks with
-  | None -> 0
-  | Some _k -> 1
+  | None -> Lwt.return 0
+  | Some _k -> Lwt.return 1
 
 let benchmark_run cnt =
   let%lwt () = Lwt_io.printlf "benchmarking %d repetitions" cnt in
-  let rel = RelationAidKey.coq_new in
+  let config : Configuration.configuration =
+    { config_nchunks = Nchunks.from_int 16
+    ; path_chunks = "lxr"
+    ; path_meta = "/tmp/meta"
+    ; path_db = "/tmp/db"
+    ; my_id = Conversion.i2n 4242 } in
+  let%lwt rel = Relkeys.new_map config in
   let clock0 = Chrono.Clock.System.now () in
   (* bm1 *)
-  let rel' = prepare_bm cnt rel in
+  let%lwt rel' = prepare_bm cnt rel in
   let clock1 = Chrono.Clock.System.now () in
   (* bm2 *)
-  Relkeys.save_to_file rel' (Filesystem.Path.from_string "./meta/bm_keys.json") "tester" |> ignore;
-  let clock2 = Chrono.Clock.System.now () in
-  (* bm3 *)
-  for i = 1 to cnt do
-    let bm = run_bm i rel' in
+  let%lwt () = for%lwt i = 1 to cnt do
+    let%lwt nbm = check_bm i rel' in
     if !arg_verbose then 
-      if bm > 0 then print_string "√" else print_string "x"
-     else ()
-  done;
-  let clock3 = Chrono.Clock.System.now () in
+      if nbm > 0 then Lwt_io.print "√" else Lwt_io.print "x"
+    else Lwt.return ()
+  done in
+  let clock2 = Chrono.Clock.System.now () in
   let tdiff1 = Chrono.Clock.System.diff clock1 clock0 in
   let tdiff2 = Chrono.Clock.System.diff clock2 clock1 in
-  let tdiff3 = Chrono.Clock.System.diff clock3 clock2 in
   let%lwt () = Lwt_io.printlf "preparation time:  %s" (Chrono.Duration.to_string @@ Chrono.Duration.cast_ms tdiff1) in
-  let%lwt () = Lwt_io.printlf "JSON store time: %s" (Chrono.Duration.to_string @@ Chrono.Duration.cast_ms tdiff2) in
-  let%lwt () = Lwt_io.printlf "bechmark run time: %s" (Chrono.Duration.to_string @@ Chrono.Duration.cast_ms tdiff3) in
+  let%lwt () = Lwt_io.printlf "verification time: %s" (Chrono.Duration.to_string @@ Chrono.Duration.cast_ms tdiff2) in
   Gc.print_stat stdout;
   Lwt.return ()
 
 let example_output () =
-  let rel = RelationAidKey.coq_new in
-  let k1 : RelationAidKey.keyinformation = {pkey="key0001";localnchunks=Conversion.i2p 16;localid=Conversion.i2n 43424} in
-  let k2 : RelationAidKey.keyinformation = {pkey="key0002";localnchunks=Conversion.i2p 24;localid=Conversion.i2n 62831} in
-  let rel' = RelationAidKey.add "aid001" k1 rel |>
-             RelationAidKey.add "aid002" k2 in
-  Relkeys.save_to_file rel' (Filesystem.Path.from_string "testkeys.json") "testuser" |> ignore;
-  let (_bsz, b) = Relkeys.output_to_buffer rel' in
-  Lwt_io.printlf "%s" (Cstdio.File.Buffer.to_string b)
-
-let example_input () =
-  let t0 = Chrono.Clock.System.now () in
-  Relkeys.load_from_file (Filesystem.Path.from_string "./meta/testkeys.json") "testuser" |> function
-  | None -> Lwt_io.printl "could not load relation"
-  | Some rel -> let l = RelationAidKey.M.elements rel in
-    let t1 = Chrono.Clock.System.now () in
-    let tdiff = Chrono.Clock.System.diff t1 t0 in
-    Lwt_io.printlf "loaded %d entries in %s"
-      (List.length l) (Chrono.Duration.to_string @@ Chrono.Duration.cast_ms tdiff)
-(* result: 
-loaded 10000 entries in 216 ms   *)
+  let config : Configuration.configuration =
+    { config_nchunks = Nchunks.from_int 16
+    ; path_chunks = "lxr"
+    ; path_meta = "/tmp/meta"
+    ; path_db = "/tmp/db"
+    ; my_id = Conversion.i2n 4242 } in
+  let%lwt rel = Relkeys.new_map config in
+  let k1 : Assembly.keyinformation = {pkey="key0001";localnchunks=Conversion.i2p 16;localid=Conversion.i2n 43424} in
+  let k2 : Assembly.keyinformation = {pkey="key0002";localnchunks=Conversion.i2p 24;localid=Conversion.i2n 62831} in
+  let%lwt _ = Relkeys.add "aid001" k1 rel in
+  let%lwt _ = Relkeys.add "aid002" k2 rel in
+  Lwt_io.printl "done."
 
 (* main *)
 let main () = Arg.parse argspec anon_args_fun "lxr_relkeys: vbf";
   let%lwt () = if !arg_bm
   then
-    let%lwt () = benchmark_run 10000 in
+    let%lwt () = benchmark_run 1000 in
     Lwt.return ()
   else if !arg_verbose
     then
       let%lwt () = example_output () in
-      let%lwt () = example_input () in
       Lwt.return ()
     else Lwt.return ()
   in

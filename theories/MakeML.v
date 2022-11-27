@@ -14,9 +14,8 @@ From LXR Require Import Environment.
 From LXR Require Import Filesupport.
 From LXR Require Import Filetypes.
 From LXR Require Import Nchunks.
-From LXR Require Import RelationAidKey.
-From LXR Require Import RelationFileAid.
 From LXR Require Import Utilities.
+From LXR Require Import Version.
 
 From Coq Require Import ExtrOcamlBasic.
 From Coq Require Import ExtrOcamlNativeString.
@@ -193,4 +192,4 @@ Extract Constant get_file_information =>
    ".
 
 (* extract into "lxr.ml" all named modules and definitions, and their dependencies *)
-Extraction "lxr.ml"  Conversion Utilities Filetypes Filesupport Nchunks Assembly Configuration Environment Buffer RelationAidKey RelationFileAid BackupPlanner.
+Extraction "lxr.ml"  Version Conversion Utilities Filetypes Filesupport Nchunks Assembly Configuration Environment Buffer BackupPlanner.

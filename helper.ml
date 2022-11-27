@@ -18,9 +18,14 @@ let store_chunk_to_path fp sz pos b =
        | Error _ -> 0
        | Ok fptr -> let buf = Mlcpp_cstdio.Cstdio.File.Buffer.create sz in
                     let _n = Mlcpp_cstdio.Cstdio.File.Buffer.copy_sz_pos b ~pos1:pos ~sz:sz buf ~pos2:0 in
-                    match Mlcpp_cstdio.Cstdio.File.fwrite buf sz fptr with
-                    | Error _ -> 0
-                    | Ok cnt -> Mlcpp_cstdio.Cstdio.File.fclose fptr |> ignore; cnt
+                    let res = match Mlcpp_cstdio.Cstdio.File.fwrite buf sz fptr with
+                              | Error _ -> 0
+                              | Ok cnt -> cnt
+                    in
+                    Mlcpp_cstdio.Cstdio.File.fflush fptr |> ignore;
+                    Mlcpp_cstdio.Cstdio.File.fclose fptr |> ignore;
+                    Mlcpp_cstdio.Cstdio.File.Buffer.release buf |> ignore;
+                    res
 
 let load_chunk_from_path fp =
   let b = Mlcpp_cstdio.Cstdio.File.Buffer.create (256*1024) in

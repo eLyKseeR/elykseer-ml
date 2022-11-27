@@ -1,9 +1,6 @@
 -R theories LXR
 
 theories/Buffer.v
-theories/Rel.v
-theories/RelationFileAid.v
-theories/RelationAidKey.v
 theories/Filetypes.v
 theories/Filesupport.v
 theories/Environment.v
@@ -14,3 +11,4 @@ theories/Conversion.v
 theories/Utilities.v
 theories/BackupPlanner.v
 theories/MakeML.v
+theories/Version.v

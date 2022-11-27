@@ -21,9 +21,9 @@ From Coq Require Import NArith.BinNat.
 Open Scope positive_scope.
 Open Scope N_scope.
 Open Scope list_scope.
+Open Scope string_scope.
 
 From LXR Require Import Nchunks Buffer Configuration Conversion Utilities.
-From LXR Require Import RelationFileAid RelationAidKey.
 
 
 Definition chunkwidth  : positive := 256%positive.
@@ -39,6 +39,13 @@ Record assemblyinformation : Type :=
         { nchunks : Nchunks.Private.t
         ; aid : aid_t
         ; apos : N }.
+
+Record keyinformation : Type :=
+    mkkeyinformation
+        { pkey : string
+        ; localid : N
+        ; localnchunks : positive
+        }.
 
 
 Module Type ASS.
@@ -92,15 +99,11 @@ Section Code_Encrypted.
 Axiom id_buffer_t_from_enc : AssemblyEncrypted.B -> BufferEncrypted.buffer_t.
 Axiom id_enc_from_buffer_t : BufferEncrypted.buffer_t -> AssemblyEncrypted.B.
 Axiom id_assembly_plain_buffer_t_from_buf : BufferPlain.buffer_t -> AssemblyPlainWritable.B.
-Program Definition decrypt (a : AssemblyEncrypted.H) (b : AssemblyEncrypted.B) (rel : RelationAidKey.Map) : option (AssemblyPlainWritable.H * AssemblyPlainWritable.B) :=
-    match RelationAidKey.find (aid a) rel with
-    | None => None
-    | Some pw =>
-        let a' := mkassembly (nchunks a) (aid a) 0 in
-        let bdec := Buffer.decrypt (id_buffer_t_from_enc b) (pkey pw) in
-        let b' := id_assembly_plain_buffer_t_from_buf bdec in
-        Some (a', b')
-    end.
+Program Definition decrypt (a : AssemblyEncrypted.H) (b : AssemblyEncrypted.B) (ki : keyinformation) : option (AssemblyPlainWritable.H * AssemblyPlainWritable.B) :=
+    let a' := mkassembly (nchunks a) (aid a) 0 in
+    let bdec := Buffer.decrypt (id_buffer_t_from_enc b) (pkey ki) in
+    let b' := id_assembly_plain_buffer_t_from_buf bdec in
+    Some (a', b').
 
 Axiom chunk_identifier : configuration -> aid_t -> positive -> string.
 Axiom chunk_identifier_path : configuration -> aid_t -> positive -> string.
@@ -157,45 +160,47 @@ Program Definition finish (a : AssemblyPlainWritable.H) (b : AssemblyPlainWritab
     ( mkassembly (nchunks a) (aid a) (apos a)
     , id_assembly_full_buffer_from_writable b ).
 
-Program Definition encrypt (a : AssemblyPlainFull.H) (b : AssemblyPlainFull.B) (rel : RelationAidKey.Map) : option (AssemblyEncrypted.H * AssemblyEncrypted.B) :=
-    match RelationAidKey.find (aid a) rel with
-    | None => None
-    | Some pw => let a' := mkassembly (nchunks a) (aid a) (assemblysize (nchunks a)) in
-                 let benc  := Buffer.encrypt (id_buffer_t_from_full b) (pkey pw) in
-                 let b' := id_assembly_enc_buffer_t_from_buf benc in
-                 Some (a', b')
-    end.
+Program Definition encrypt (a : AssemblyPlainFull.H) (b : AssemblyPlainFull.B) (ki : keyinformation) : option (AssemblyEncrypted.H * AssemblyEncrypted.B) :=
+    let a' := mkassembly (nchunks a) (aid a) (assemblysize (nchunks a)) in
+    let benc  := Buffer.encrypt (id_buffer_t_from_full b) (pkey ki) in
+    let b' := id_assembly_enc_buffer_t_from_buf benc in
+    Some (a', b').
 
 (** backup: add a buffer to an assembly
     return blockinformation *)
+
+Record blockinformation : Type := mkblockinformation
+    { blockid : positive
+    ; bchecksum : string
+    ; blocksize : N
+    ; filepos : N
+    ; blockaid : string
+    ; blockapos : N
+    }.
+
 Axiom assembly_add_content : BufferPlain.buffer_t -> N -> N -> AssemblyPlainWritable.B -> N.
 Program Definition backup (a : AssemblyPlainWritable.H) (b : AssemblyPlainWritable.B) (fpos : N) (content : BufferPlain.buffer_t) : (AssemblyPlainWritable.H * blockinformation) :=
-    let apos := apos a in
+    let apos_n := apos a in
     let bsz := BufferPlain.buffer_len content in
-    let nwritten := assembly_add_content content bsz apos b in
+    let chksum := calc_checksum content in
+    let nwritten := assembly_add_content content bsz apos_n b in
     let bi := {| blockid   := 1
-               ; bchecksum := calc_checksum content
+               ; bchecksum := chksum
                ; blocksize := nwritten
                ; filepos   := fpos
                ; blockaid  := aid a
-               ; blockapos := apos |} in
-    let a' := {| nchunks := nchunks a; aid := aid a; apos := apos + nwritten |} in
+               ; blockapos := apos_n |} in
+    let a' := {| nchunks := nchunks a; aid := aid a; apos := apos_n + nwritten |} in
     (a', bi).
 
 (** restore: copy buffer from an assembly
     and return it *)
 Axiom assembly_get_content : AssemblyPlainFull.B -> N -> N -> BufferPlain.buffer_t -> N.
-Program Definition restore (b : AssemblyPlainFull.B) (name : string) (bid : positive) (rel : RelationFileAid.Map) : option BufferPlain.buffer_t :=
-    match RelationFileAid.find name rel with
-    | None => None
-    | Some bis => match List.filter (fun bi => Pos.eqb (blockid bi) bid) bis with
-                  | nil => None
-                  | bi :: _ => let bsz := blocksize bi in
-                               let b' := BufferPlain.buffer_create bsz in
-                               let _nw := assembly_get_content b bsz (blockapos bi) b' in
-                               Some b'
-                  end
-    end.
+Program Definition restore (b : AssemblyPlainFull.B) (bi : blockinformation) : option BufferPlain.buffer_t :=
+    let bsz := blocksize bi in
+    let b' := BufferPlain.buffer_create bsz in
+    let nw := assembly_get_content b bsz (blockapos bi) b' in
+    if N.eqb nw bsz then Some b' else None.
 
 End Code_Plain.
 

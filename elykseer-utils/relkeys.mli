@@ -1,7 +1,8 @@
 open Elykseer__Lxr
-open Mlcpp_filesystem
-open Mlcpp_cstdio
 
-val output_to_buffer : RelationAidKey.coq_Map -> int * Cstdio.File.Buffer.ta
-val save_to_file : RelationAidKey.coq_Map -> Filesystem.path -> string -> bool
-val load_from_file : Filesystem.path -> string -> RelationAidKey.coq_Map option
+type t
+
+val new_map : Configuration.configuration -> t Lwt.t
+val add : string -> Assembly.keyinformation -> t -> t Lwt.t
+val find : string -> t -> Assembly.keyinformation option Lwt.t
+val close_map : t -> unit Lwt.t
