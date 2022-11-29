@@ -5,7 +5,8 @@ external cpp_encrypt_buffer : 'b1 -> string -> 'b2 = "cpp_encrypt_buffer"
 external cpp_decrypt_buffer : 'b1 -> string -> 'b2 = "cpp_decrypt_buffer"
 
 (** the chunk will be stored in a subdirectory
-    which is the last two chars of the cid
+    which is the last two chars of the cid (cid[-2], cid[-1]),
+    in a subdirectory (cid[-4], cid[-3])
 *)
 external mk_cid_subdir : string -> string = "cpp_mk_cid_subdir"
 

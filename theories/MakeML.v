@@ -103,7 +103,6 @@ Extract Constant chunk_identifier =>
       (string_of_int (Conversion.n2i (Configuration.my_id config))) ^
       (string_of_int (Conversion.p2i cid)) ^
       aid in
-      (* Printf.eprintf ""c id: %s\n"" s; *)
       Elykseer_base.Hashing.sha256 s
    ".
 

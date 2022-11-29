@@ -26,11 +26,14 @@ value cpp_mk_cid_subdir(value vcid)
     CAMLparam1(vcid);
     const char *cid = String_val(vcid);
     int len = caml_string_length(vcid);
-    char subdir[3];
+    char subdir[6];
     subdir[0]=cid[len-2];
     subdir[1]=cid[len-1];
-    subdir[2]='\0';
-    CAMLreturn(caml_alloc_initialized_string(2, subdir));
+    subdir[2]='/';
+    subdir[3]=cid[len-4];
+    subdir[4]=cid[len-3];
+    subdir[5]='\0';
+    CAMLreturn(caml_alloc_initialized_string(5, subdir));
 }
 } // extern C
 
