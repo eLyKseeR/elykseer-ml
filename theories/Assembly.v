@@ -42,7 +42,8 @@ Record assemblyinformation : Type :=
 
 Record keyinformation : Type :=
     mkkeyinformation
-        { pkey : string
+        { ivec : string
+        ; pkey : string
         ; localid : N
         ; localnchunks : positive
         }.
@@ -101,7 +102,7 @@ Axiom id_enc_from_buffer_t : BufferEncrypted.buffer_t -> AssemblyEncrypted.B.
 Axiom id_assembly_plain_buffer_t_from_buf : BufferPlain.buffer_t -> AssemblyPlainWritable.B.
 Program Definition decrypt (a : AssemblyEncrypted.H) (b : AssemblyEncrypted.B) (ki : keyinformation) : option (AssemblyPlainWritable.H * AssemblyPlainWritable.B) :=
     let a' := mkassembly (nchunks a) (aid a) 0 in
-    let bdec := Buffer.decrypt (id_buffer_t_from_enc b) (pkey ki) in
+    let bdec := Buffer.decrypt (id_buffer_t_from_enc b) (ivec ki) (pkey ki) in
     let b' := id_assembly_plain_buffer_t_from_buf bdec in
     Some (a', b').
 
@@ -162,7 +163,7 @@ Program Definition finish (a : AssemblyPlainWritable.H) (b : AssemblyPlainWritab
 
 Program Definition encrypt (a : AssemblyPlainFull.H) (b : AssemblyPlainFull.B) (ki : keyinformation) : option (AssemblyEncrypted.H * AssemblyEncrypted.B) :=
     let a' := mkassembly (nchunks a) (aid a) (assemblysize (nchunks a)) in
-    let benc  := Buffer.encrypt (id_buffer_t_from_full b) (pkey ki) in
+    let benc  := Buffer.encrypt (id_buffer_t_from_full b) (ivec ki) (pkey ki) in
     let b' := id_assembly_enc_buffer_t_from_buf benc in
     Some (a', b').
 

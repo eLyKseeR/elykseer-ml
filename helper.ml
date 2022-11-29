@@ -1,9 +1,19 @@
+open Elykseer_crypto
 
 external cpp_buffer_id : 'a -> 'b = "cpp_buffer_id"
 
-external cpp_encrypt_buffer : 'b1 -> string -> 'b2 = "cpp_encrypt_buffer"
-external cpp_decrypt_buffer : 'b1 -> string -> 'b2 = "cpp_decrypt_buffer"
+external cpp_encrypt_aes256 : Key128.t -> Key256.t -> 'b1 -> 'b2 = "cpp_encrypt_aes256"
+let cpp_encrypt_buffer b siv spk =
+  let iv = Key128.from_hex siv in
+  let pk = Key256.from_hex spk in
+  cpp_encrypt_aes256 iv pk b
 
+external cpp_decrypt_aes256 : Key128.t -> Key256.t -> 'b1 -> 'b2 = "cpp_decrypt_aes256"
+let cpp_decrypt_buffer b siv spk =
+  let iv = Key128.from_hex siv in
+  let pk = Key256.from_hex spk in
+  cpp_decrypt_aes256 iv pk b
+  
 (** the chunk will be stored in a subdirectory
     which is the last two chars of the cid (cid[-2], cid[-1]),
     in a subdirectory (cid[-4], cid[-3])

@@ -61,11 +61,11 @@ Module Export BufferPlain : BUF.
 End BufferPlain.
 (* Print BufferPlain. *)
 
-Axiom cpp_encrypt_buffer : BufferPlain.buffer_t -> string -> BufferEncrypted.buffer_t.
-Definition encrypt (bin : BufferPlain.buffer_t) (pw : string) : BufferEncrypted.buffer_t :=
-  cpp_encrypt_buffer bin pw.
-Axiom cpp_decrypt_buffer : BufferEncrypted.buffer_t -> string -> BufferPlain.buffer_t.
-Definition decrypt (bin : BufferEncrypted.buffer_t) (pw : string) : BufferPlain.buffer_t :=
-  cpp_decrypt_buffer bin pw.
+Axiom cpp_encrypt_buffer : BufferPlain.buffer_t -> string -> string -> BufferEncrypted.buffer_t.
+Definition encrypt (bin : BufferPlain.buffer_t) (iv : string) (pw : string) : BufferEncrypted.buffer_t :=
+  cpp_encrypt_buffer bin iv pw.
+Axiom cpp_decrypt_buffer : BufferEncrypted.buffer_t -> string -> string -> BufferPlain.buffer_t.
+Definition decrypt (bin : BufferEncrypted.buffer_t) (iv : string) (pw : string) : BufferPlain.buffer_t :=
+  cpp_decrypt_buffer bin iv pw.
 
 End Buffer.

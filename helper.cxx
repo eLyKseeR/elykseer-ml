@@ -56,43 +56,9 @@ static struct custom_operations cpp_cstdio_buffer_ops = {
 };
 
 extern "C" {
-value cpp_encrypt_buffer(value vbuf, value vpw)
-{
-    CAMLparam2(vbuf, vpw);
-    CAMLlocal1(res);
-    res = caml_alloc_custom(&cpp_cstdio_buffer_ops,
-                            sizeof(_cpp_cstdio_buffer*), 1, 10000);
-    const struct _cpp_cstdio_buffer *s = CPP_CSTDIO_BUFFER(vbuf);
-    struct _cpp_cstdio_buffer *t = new _cpp_cstdio_buffer;
-    t->_buf = (char*)calloc(s->_len, 1);
-    t->_len = s->_len;
-
-    // TODO: encrypt buffer
-    std::memcpy(t->_buf, s->_buf, t->_len);
-
-    CPP_CSTDIO_BUFFER(res) = t;
-
-    CAMLreturn(res);
-}
+extern value cpp_encrypt_aes256(value viv, value vk, value varr);
 } // extern C
 
 extern "C" {
-value cpp_decrypt_buffer(value vbuf, value vpw)
-{
-    CAMLparam2(vbuf, vpw);
-    CAMLlocal1(res);
-    res = caml_alloc_custom(&cpp_cstdio_buffer_ops,
-                            sizeof(_cpp_cstdio_buffer*), 1, 10000);
-    const struct _cpp_cstdio_buffer *s = CPP_CSTDIO_BUFFER(vbuf);
-    struct _cpp_cstdio_buffer *t = new _cpp_cstdio_buffer;
-    t->_buf = (char*)calloc(s->_len, 1);
-    t->_len = s->_len;
-
-    // TODO: decrypt buffer
-    std::memcpy(t->_buf, s->_buf, t->_len);
-
-    CPP_CSTDIO_BUFFER(res) = t;
-
-    CAMLreturn(res);
-}
+extern value cpp_decrypt_aes256(value viv, value vk, value varr);
 } // extern C

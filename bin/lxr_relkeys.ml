@@ -22,6 +22,7 @@ let mk_rel n rel =
   let aid = Printf.sprintf "aid%06d" n in
   let keys : Assembly.keyinformation =
       { pkey = string_of_int (12345678901234567 + n)
+      ; ivec = "9876543210123456"
       ; localnchunks=Conversion.i2p 16; localid=Conversion.i2n 4242 } in
   Relkeys.add aid keys rel
 
@@ -74,8 +75,8 @@ let example_output () =
     ; path_db = "/tmp/db"
     ; my_id = Conversion.i2n 4242 } in
   let%lwt rel = Relkeys.new_map config in
-  let k1 : Assembly.keyinformation = {pkey="key0001";localnchunks=Conversion.i2p 16;localid=Conversion.i2n 43424} in
-  let k2 : Assembly.keyinformation = {pkey="key0002";localnchunks=Conversion.i2p 24;localid=Conversion.i2n 62831} in
+  let k1 : Assembly.keyinformation = {pkey="key0001";ivec="12";localnchunks=Conversion.i2p 16;localid=Conversion.i2n 43424} in
+  let k2 : Assembly.keyinformation = {pkey="key0002";ivec="12";localnchunks=Conversion.i2p 24;localid=Conversion.i2n 62831} in
   let%lwt _ = Relkeys.add "aid001" k1 rel in
   let%lwt _ = Relkeys.add "aid002" k2 rel in
   Lwt_io.printl "done."

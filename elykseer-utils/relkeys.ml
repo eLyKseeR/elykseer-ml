@@ -29,7 +29,8 @@ let version_obj : Git_store.contents =
       ; "build", `String Version.build ]
 
 let key2json_v1 (k : Assembly.keyinformation) : Git_store.contents =
-  `O [ ("pkey", `String k.pkey)
+  `O [ ("ivec", `String k.ivec)
+     ; ("pkey", `String k.pkey)
      ; ("localid", `String (string_of_int (Conversion.n2i k.localid)))
      ; ("localnchunks", `String (string_of_int (Conversion.p2i k.localnchunks))) ]
 let keys2json_v1 (keys : Assembly.keyinformation) : Git_store.contents =
@@ -53,7 +54,8 @@ let json2keys_v1 obs : Assembly.keyinformation option =
   match obs with
   | [] -> None
   | bs -> Some
-    { pkey = Relutils.get_str "pkey" bs
+    { ivec = Relutils.get_str "ivec" bs
+    ; pkey = Relutils.get_str "pkey" bs
     ; localid = Relutils.get_int "localid" bs |> Conversion.i2n
     ; localnchunks = Relutils.get_int "localnchunks" bs |> Conversion.i2p
     }
