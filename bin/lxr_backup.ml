@@ -83,12 +83,7 @@ let count_files fbs =
   List.map fst fbs |> List.sort_uniq (compare) |> List.length
 let count_assemblies fbs =
   List.map snd fbs |> List.flatten |> List.map (fun afbs -> BackupPlanner.fbanum afbs) |> List.sort_uniq (compare) |> List.length
-(*
-[
-  ("tst1.dat", [ (1, 131072,      0); (1, 131072, 131072) ]);
-  ("tst2.dat", [ (1, 131072, 917504); (2, 131072,      0) ])
-]   
-*)
+
 let execute_backup_fileblock e _anum (fname,blocks) =
   (* Printf.printf "    file: %s\n" fname; *)
   (* List.iteri (fun i fb -> Printf.printf "      %d: anum: %d block: %d @ %d\n" i (Conversion.p2i @@ BackupPlanner.fbanum fb) (Conversion.n2i fb.fbsz) (Conversion.n2i fb.fbfpos)) blocks; *)
@@ -145,10 +140,25 @@ let run_distributed_backup e0 nproc acount fileblocks =
   (* distribute work among processes *)
   run_backup_for_assembly e0 ps 1 acount fileblocks
 
+let validate_fileblocks fname fhash bis =
+    if !arg_verbose then
+      let list_sum = List.fold_left (+) 0 in
+      let nb = List.length bis in
+      let na = List.map (fun (e : Assembly.blockinformation) -> e.blockaid) bis |> List.sort_uniq compare |> List.length in
+      let sumbsz = List.map (fun (e : Assembly.blockinformation) -> Conversion.n2i e.blocksize) bis |> list_sum in
+      let lbsz = List.map (fun (e : Assembly.blockinformation) -> (Conversion.n2i e.filepos, Conversion.n2i e.blocksize)) bis |>
+                 List.sort (fun e1 e2 -> compare (fst e1) (fst e2)) in
+      (* let%lwt () = Lwt_list.iteri_s (fun i (a,b) -> Lwt_io.printlf "    %d: %d + %d" i a b) lbsz in *)
+      let sumdelta = Zip.zip (lbsz) (List.tl lbsz) |> List.map (fun ((a,b),(a',_b')) -> (a' - a) - b) |> list_sum in
+      let (res,res') = if 0 = sumdelta then ("+","✅") else ("-","❌") in
+      Lwt_io.printlf "%s%s '%s' (%s) in %d assemblies with %d blocks, %d bytes in total (control=%d)" res res' fname fhash na nb sumbsz sumdelta
+    else Lwt.return ()
+
 let output_rel_files e =
   let%lwt rel = Relfiles.new_map e.config in
   let fbis = Env.consolidate_files e.fblocks in
   let%lwt () = Lwt_list.iter_s (fun (fname, bis) -> let fhash = sha256 fname in
+                                let%lwt () = validate_fileblocks fname fhash bis in
                                 let%lwt _rel' = Relfiles.add fhash bis rel in Lwt.return ()) fbis in
   Relfiles.close_map rel
   

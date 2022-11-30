@@ -60,26 +60,26 @@ let ensure_assembly e relk aid =
       | None -> Lwt.return @@ Error "failed to decrypt"
       | Some (a',b') -> Lwt.return @@ Ok (a',b')
 
-let restore_file_block e0 relk fptr (fb : Assembly.blockinformation) =
+let restore_file_blocks e0 relk fptr (fb : Assembly.blockinformation) =
   match%lwt ensure_assembly e0 relk fb.blockaid with
   | Error errstr -> let%lwt () = Lwt_io.printlf "  failed to recall assembly %s with '%s'" fb.blockaid errstr in
-                    Lwt.return e0
+                    Lwt.return (0,e0)
   | Ok (a,b) ->
       let (_a'', b'') = Assembly.finish a b in
       let sz = Conversion.n2i fb.blocksize in
       let fbuf = Cstdio.File.Buffer.create sz in
       let abuf = Buffer.BufferPlain.to_buffer @@ Assembly.id_buffer_t_from_full b'' in
-      let _nread = Elykseer_base.Assembly.get_content ~src:abuf ~sz:sz ~pos:(Conversion.n2i fb.blockapos) ~tgt:fbuf in
+      let nread = Elykseer_base.Assembly.get_content ~src:abuf ~sz:sz ~pos:(Conversion.n2i fb.blockapos) ~tgt:fbuf in
       Cstdio.File.fseek fptr (Conversion.n2i fb.filepos) |> function
-        | Error _ -> let%lwt () = Lwt_io.printlf "  failed to 'fseek'\n" in Lwt.return e0
+        | Error _ -> let%lwt () = Lwt_io.printlf "  failed to 'fseek'\n" in Lwt.return (0,e0)
         | Ok _ -> Cstdio.File.fwrite fbuf sz fptr |> function
-          | Error _ -> let%lwt () = Lwt_io.printlf "  failed to 'fwrite'\n" in Lwt.return e0
-          | Ok _nwritten -> Lwt.return { e0 with cur_assembly=a; cur_buffer=b }
+          | Error _ -> let%lwt () = Lwt_io.printlf "  failed to 'fwrite'\n" in Lwt.return (0,e0)
+          | Ok _nwritten -> Lwt.return (nread,{ e0 with cur_assembly=a; cur_buffer=b })
 
 let restore_file e0 relf relk fname =
   let%lwt ofbs = Relfiles.find (sha256 fname) relf in
   match ofbs with
-  | None -> let%lwt () = Lwt_io.printlf "  cannot restore file '%s'" fname in Lwt.return e0
+  | None -> let%lwt () = Lwt_io.printlf "  cannot restore file '%s'" fname in Lwt.return (0,e0)
   | Some fbs ->
       let%lwt () = if !arg_verbose then
         Lwt_io.printlf "  restoring file '%s' from %d blocks" fname (List.length fbs)
@@ -87,17 +87,20 @@ let restore_file e0 relf relk fname =
       let fout_path = mk_path fname in
       let dir_path = Filesystem.Path.from_string fout_path |> Filesystem.Path.parent in
       let%lwt () = if not (Filesystem.Path.exists dir_path) then
-        Filesystem.create_directories dir_path |> function
-        | false -> let%lwt () = Lwt_io.printlf "failed to create directories: %s" fout_path in
-          Lwt.return ()
-        | true -> Lwt.return ()
-      else Lwt.return () in
+          Filesystem.create_directories dir_path |> function
+          | false -> let%lwt () = Lwt_io.printlf "failed to create directories: %s" fout_path in
+            Lwt.return ()
+          | true -> Lwt.return ()
+        else Lwt.return () in
       Cstdio.File.fopen fout_path "wx" |> function
-        | Error (errno,errstr) -> let%lwt () = Lwt_io.printf "  fopen returned: %d/%s\n    (filepath '%s')" errno errstr fout_path in Lwt.return e0
+        | Error (errno,errstr) -> let%lwt () = Lwt_io.printf "  fopen returned: %d/%s\n    (filepath '%s')" errno errstr fout_path in Lwt.return (0,e0)
         | Ok fptr ->
-            let%lwt e1 = Lwt_list.fold_left_s (fun env fb -> restore_file_block env relk fptr fb) e0 fbs in
+            let%lwt (cnt,e1) = Lwt_list.fold_left_s (fun (cnt,env) fb -> let%lwt (c',e') = restore_file_blocks env relk fptr fb in Lwt.return(cnt + c',e')) (0,e0) fbs in
             let () = Cstdio.File.fclose fptr |> ignore in
-            Lwt.return e1
+            let%lwt () = if !arg_verbose then
+              Lwt_io.printlf "    restored file '%s' with %d bytes in total" fname cnt
+              else Lwt.return () in
+            Lwt.return (cnt,e1)
 
 let ensure_all_available (e : Environment.environment) fns =
   let%lwt rel = Relfiles.new_map e.config in
@@ -109,7 +112,11 @@ let restore_files e0 relf relk fns =
     match fns with
     | [] -> Lwt.return ()
     | _ -> if%lwt ensure_all_available e0 fns then
-              let%lwt _e = Lwt_list.fold_left_s (fun e fn -> restore_file e relf relk fn) e0 fns in
+              let nf = List.length fns in
+              let%lwt (cnt,_e) = Lwt_list.fold_left_s (fun (c,e) fn -> let%lwt (c',e') = restore_file e relf relk fn in Lwt.return(c + c',e')) (0,e0) fns in
+              let%lwt () = if !arg_verbose then
+                Lwt_io.printlf "  restored %d files with %d bytes in total" nf cnt
+                else Lwt.return () in
               Lwt.return ()
            else Lwt_io.printf "information on some files not found!"
 
