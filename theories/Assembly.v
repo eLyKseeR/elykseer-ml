@@ -201,7 +201,13 @@ Program Definition restore (b : AssemblyPlainFull.B) (bi : blockinformation) : o
     let bsz := blocksize bi in
     let b' := BufferPlain.buffer_create bsz in
     let nw := assembly_get_content b bsz (blockapos bi) b' in
-    if N.eqb nw bsz then Some b' else None.
+    if N.eqb nw bsz then
+        let bcksum := calc_checksum b' in
+        if String.eqb bcksum (bchecksum bi) then
+            Some b'
+        else
+            None
+    else None.
 
 End Code_Plain.
 
