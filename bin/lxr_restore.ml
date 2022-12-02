@@ -2,6 +2,7 @@
 open Elykseer__Lxr
 open Elykseer__Lxr.Configuration
 
+open Elykseer_base.Fsutils
 open Elykseer_base.Hashing
 open Elykseer_utils
 
@@ -80,9 +81,9 @@ let restore_file e0 relf relk fname =
   let%lwt ofbs = Relfiles.find (sha256 fname) relf in
   match ofbs with
   | None -> let%lwt () = Lwt_io.printlf "  cannot restore file '%s'" fname in Lwt.return (0,e0)
-  | Some fbs ->
+  | Some rfbs ->
       let%lwt () = if !arg_verbose then
-        Lwt_io.printlf "  restoring file '%s' from %d blocks" fname (List.length fbs)
+        Lwt_io.printlf "  restoring %d bytes in file '%s' from %d blocks" (Conversion.n2i rfbs.rfi.fsize) fname (List.length rfbs.rfbs)
         else Lwt.return () in
       let fout_path = mk_path fname in
       let dir_path = Filesystem.Path.from_string fout_path |> Filesystem.Path.parent in
@@ -95,11 +96,15 @@ let restore_file e0 relf relk fname =
       Cstdio.File.fopen fout_path "wx" |> function
         | Error (errno,errstr) -> let%lwt () = Lwt_io.printf "  fopen returned: %d/%s\n    (filepath '%s')" errno errstr fout_path in Lwt.return (0,e0)
         | Ok fptr ->
-            let%lwt (cnt,e1) = Lwt_list.fold_left_s (fun (cnt,env) fb -> let%lwt (c',e') = restore_file_blocks env relk fptr fb in Lwt.return(cnt + c',e')) (0,e0) fbs in
+            let%lwt (cnt,e1) = Lwt_list.fold_left_s (fun (cnt,env) fb -> let%lwt (c',e') = restore_file_blocks env relk fptr fb in Lwt.return(cnt + c',e')) (0,e0) rfbs.rfbs in
             let () = Cstdio.File.fclose fptr |> ignore in
+            let (res,res') = if rfbs.rfi.fchecksum = fchksum fout_path then ("+","✅") else ("-","❌") in
+            let%lwt () = Lwt_io.printf "%s%s '%s'" res res' fname in
             let%lwt () = if !arg_verbose then
-              Lwt_io.printlf "    restored file '%s' with %d bytes in total" fname cnt
-              else Lwt.return () in
+                Lwt_io.printlf "    restored with %d bytes in total" cnt
+              else
+                Lwt_io.printl ""
+              in
             Lwt.return (cnt,e1)
 
 let ensure_all_available (e : Environment.environment) fns =
