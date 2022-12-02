@@ -8,6 +8,10 @@ module Git_info = Irmin_unix.Info(Git_store.Info)
 
 type t = Git_store.t
 
+type relation = {
+  rfi : Filetypes.fileinformation;
+  rfbs : Assembly.blockinformation list
+}
 let my_id = ref "unset"
 let my_log = ref "unset (0.0.1)"
 
@@ -27,29 +31,48 @@ let version_obj : Git_store.contents =
     ; "minor", `String Version.minor
     ; "build", `String Version.build ]
 
+let fi2json_v1 (fi : Filetypes.fileinformation) : Git_store.contents =
+  `O [ "fname", `String fi.fname
+     ; "fsize", `String (string_of_int (Conversion.n2i fi.fsize))
+     ; "fowner", `String fi.fowner
+     ; "fpermissions", `String (string_of_int (Conversion.n2i fi.fpermissions))
+     ; "fmodified", `String fi.fmodified
+     ; "fchecksum", `String fi.fchecksum
+  ]
+
 let block2json_v1 (fb : Assembly.blockinformation) : Git_store.contents =
-  `O [ ("blockid", `String (string_of_int (Conversion.p2i fb.blockid)))
-     ; ("bchecksum", `String fb.bchecksum)
-     ; ("blocksize", `String (string_of_int (Conversion.n2i fb.blocksize)))
-     ; ("filepos", `String (string_of_int (Conversion.n2i fb.filepos)))
-     ; ("blockaid", `String fb.blockaid)
-     ; ("blockapos", `String (string_of_int (Conversion.n2i fb.blockapos))) ]
-let blocks2json_v1 (fblocks : Assembly.blockinformation list) : Git_store.contents =
+  `O [ "blockid", `String (string_of_int (Conversion.p2i fb.blockid))
+     ; "bchecksum", `String fb.bchecksum
+     ; "blocksize", `String (string_of_int (Conversion.n2i fb.blocksize))
+     ; "filepos", `String (string_of_int (Conversion.n2i fb.filepos))
+     ; "blockaid", `String fb.blockaid
+     ; "blockapos", `String (string_of_int (Conversion.n2i fb.blockapos)) ]
+let rel2json_v1 (rel : relation) : Git_store.contents =
   `O [ "version", version_obj
-     ; "blocks", `A (List.fold_left (fun acc fb -> block2json_v1 fb :: acc) [] fblocks) ]
+     ; "fileinformation", fi2json_v1 rel.rfi
+     ; "blocks", `A (List.fold_left (fun acc fb -> block2json_v1 fb :: acc) [] (rel.rfbs)) ]
 
 let msg_info msg = Git_info.v ~author:!my_log "%s" msg
 
-(** add: sets fhash -> [blockinformation] *)
-let add fhash fblocks0 db =
+(** add: sets fhash -> relation *)
+let add fhash relation db =
   let msg = Fmt.str "update of %s" fhash in
-  let fblocks = blocks2json_v1 fblocks0 in
+  let reljson = rel2json_v1 relation in
   let%lwt () =
     try%lwt
       let fp = mk_repo_path fhash in
-      Git_store.set_exn ~info:(msg_info msg) db fp fblocks
+      Git_store.set_exn ~info:(msg_info msg) db fp reljson
     with Failure e -> Lwt_io.eprintlf "error : %s" e in
   Lwt.return db
+
+let json2fi_v1 fi : Filetypes.fileinformation =
+    { fname = Relutils.get_str "fname" fi
+    ; fsize = Relutils.get_int "fsize" fi |> Conversion.i2n
+    ; fowner = Relutils.get_str "fowner" fi
+    ; fpermissions = Relutils.get_int "fpermissions" fi |> Conversion.i2n
+    ; fmodified = Relutils.get_str "fmodified" fi
+    ; fchecksum = Relutils.get_str "fchecksum" fi
+    }
 
 let json2block_v1 obs : Assembly.blockinformation option =
   match obs with
@@ -67,14 +90,12 @@ let json2blocks_v1 blocks =
   | [] -> []
   | bs -> List.fold_left (fun acc b -> match json2block_v1 b with Some e -> e :: acc | None -> acc) [] bs
 
-let json2blocks_versioned vmajor varr =
+let json2relation_versioned vmajor vfi varr =
   match vmajor with
   | 0
-  | 1 -> begin
-    match varr with
-    | [] -> None
-    | blocks -> Some (json2blocks_v1 blocks)
-    end
+  | 1 -> let bs = json2blocks_v1 varr in
+         let fi = json2fi_v1 vfi in
+         Some { rfi = fi; rfbs = bs }
   | _ -> None
 
 let json2blocks_opt (el : (string * Git_store.contents) list) =
@@ -83,16 +104,15 @@ let json2blocks_opt (el : (string * Git_store.contents) list) =
   | rs ->
     let vobj = Relutils.get_obj "version" rs in
     let vmajor = Relutils.get_int "major" vobj in
+    let vfi = Relutils.get_obj "fileinformation" rs in
     let varr = Relutils.get_arr "blocks" rs in
-    json2blocks_versioned vmajor varr
+    json2relation_versioned vmajor vfi varr
 
-(** find: gets fhash -> [blockinformation] option *)
+(** find: gets fhash -> relation option *)
 let find fhash db =
   let fp = mk_repo_path fhash in
   let%lwt res = Git_store.get db fp in
   Lwt.return @@ match res with
-  (* unversioned case *)
-  | `A bs -> Some (json2blocks_v1 bs)
   | `O el -> json2blocks_opt el
   | _ -> None
 
