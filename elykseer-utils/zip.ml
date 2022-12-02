@@ -6,8 +6,8 @@
 (* Define the unfold function.*)
 let rec unfold p g b1 b2 =
   if p b1 b2 then [] else
-    (match g b1 b2 with (a, (b1prime, b2prime)) ->
-       a :: unfold p g b1prime b2prime)
+    (match g b1 b2 with (a, (b1', b2')) ->
+       a :: unfold p g b1' b2')
 
 (* Define the zip function.*)
 let zip _as _bs = unfold

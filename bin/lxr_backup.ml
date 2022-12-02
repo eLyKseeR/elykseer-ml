@@ -67,28 +67,25 @@ let analyse_files e0 fns =
   let a = e0.cur_assembly in
   let afree = curr_assembly_sz a.nchunks - (Conversion.n2i a.apos) in
   let (_anum', _afree', bs) = List.fold_left (fun (anum,afree,acc) fn ->
-                                                let afblocks = BackupPlanner.analyse_file a.nchunks afree anum fn in
-                                                (afblocks.anum, afblocks.afree, afblocks.ablocks :: acc)
+                                                let ((anum',afree'),fbs) = BackupPlanner.analyse_file a.nchunks afree anum fn in
+                                                (anum', afree', fbs :: acc)
                                              ) (Conversion.i2p 1, Conversion.i2n afree, []) fns in
   let bs' = List.rev bs in
   let fbs = Zip.zip fns bs' in
+  fbs
   (* List.iteri (fun i (fname,fblocks) ->
       Printf.printf "file %d: %s\n" i fname;
       List.iteri (fun j afbs -> Printf.printf "   %d: %d -> %d@%d\n"
                       j (Conversion.p2i @@ BackupPlanner.fbanum afbs) (Conversion.n2i afbs.fbsz) (Conversion.n2i afbs.fbfpos)) fblocks
     ) fbs |> ignore; *)
-  fbs
+  (* fbs *)
 
 let count_files fbs =
   List.map fst fbs |> List.sort_uniq (compare) |> List.length
 let count_assemblies fbs =
-  List.map snd fbs |> List.flatten |> List.map (fun afbs -> BackupPlanner.fbanum afbs) |> List.sort_uniq (compare) |> List.length
-(*
-[
-  ("tst1.dat", [ (1, 131072,      0); (1, 131072, 131072) ]);
-  ("tst2.dat", [ (1, 131072, 917504); (2, 131072,      0) ])
-]   
-*)
+  List.map snd fbs |> List.map (fun afbs -> BackupPlanner.fbifblocks afbs |> List.map BackupPlanner.fbanum) |>
+  List.flatten |> List.sort_uniq (compare) |> List.length
+
 let execute_backup_fileblock e _anum (fname,blocks) =
   (* Printf.printf "    file: %s\n" fname; *)
   (* List.iteri (fun i fb -> Printf.printf "      %d: anum: %d block: %d @ %d\n" i (Conversion.p2i @@ BackupPlanner.fbanum fb) (Conversion.n2i fb.fbsz) (Conversion.n2i fb.fbfpos)) blocks; *)
@@ -117,7 +114,7 @@ let execute_backup_fileblock e _anum (fname,blocks) =
         Printf.printf "open error no:%d err:%s\n" errno errstr |> ignore; e
 
 let extract_fileblocks anum fileblocks =
-  List.map (fun (fname,bs) -> (fname, List.filter (fun fbs -> BackupPlanner.fbanum fbs = anum) bs)) fileblocks
+  List.map (fun (fname,bs) -> (fname, List.filter (fun fbs -> BackupPlanner.fbanum fbs = anum) (BackupPlanner.fbifblocks bs))) fileblocks
 
 let rec run_backup_for_assembly e0 pid anum acount fileblocks =
   if anum > acount then e0
@@ -145,11 +142,27 @@ let run_distributed_backup e0 nproc acount fileblocks =
   (* distribute work among processes *)
   run_backup_for_assembly e0 ps 1 acount fileblocks
 
-let output_rel_files e =
+let validate_fileblocks fname fhash bis =
+    if !arg_verbose then
+      let list_sum = List.fold_left (+) 0 in
+      let nb = List.length bis in
+      let na = List.map (fun (e : Assembly.blockinformation) -> e.blockaid) bis |> List.sort_uniq compare |> List.length in
+      let sumbsz = List.map (fun (e : Assembly.blockinformation) -> Conversion.n2i e.blocksize) bis |> list_sum in
+      let lbsz = List.map (fun (e : Assembly.blockinformation) -> (Conversion.n2i e.filepos, Conversion.n2i e.blocksize)) bis |>
+                 List.sort (fun e1 e2 -> compare (fst e1) (fst e2)) in
+      (* let%lwt () = Lwt_list.iteri_s (fun i (a,b) -> Lwt_io.printlf "    %d: %d + %d" i a b) lbsz in *)
+      let sumdelta = Zip.zip (lbsz) (List.tl lbsz) |> List.map (fun ((a,b),(a',_b')) -> (a' - a) - b) |> list_sum in
+      let (res,res') = if 0 = sumdelta then ("+","✅") else ("-","❌") in
+      Lwt_io.printlf "%s%s '%s' (%s) in %d assemblies with %d blocks, %d bytes in total (control=%d)" res res' fname fhash na nb sumbsz sumdelta
+    else Lwt.return ()
+
+let output_rel_files e fileblocks =
   let%lwt rel = Relfiles.new_map e.config in
   let fbis = Env.consolidate_files e.fblocks in
   let%lwt () = Lwt_list.iter_s (fun (fname, bis) -> let fhash = sha256 fname in
-                                let%lwt _rel' = Relfiles.add fhash bis rel in Lwt.return ()) fbis in
+                                let%lwt () = validate_fileblocks fname fhash bis in
+                                let fbfi = List.assoc fname fileblocks |> BackupPlanner.fbifi in
+                                let%lwt _rel' = Relfiles.add fhash {rfi=fbfi; rfbs=bis} rel in Lwt.return ()) fbis in
   Relfiles.close_map rel
   
 let output_rel_keys e =
@@ -158,9 +171,9 @@ let output_rel_keys e =
                                 let%lwt _ = Relkeys.add aid ki rel in Lwt.return ()) e.keys in
   Relkeys.close_map rel
 
-let output_relations e =
+let output_relations e fileblocks =
   let%lwt () = output_rel_keys e in
-  output_rel_files e
+  output_rel_files e fileblocks
 
 
 let main () = Arg.parse argspec anon_args_fun "lxr_backup: vxodnji";
@@ -189,7 +202,7 @@ let main () = Arg.parse argspec anon_args_fun "lxr_backup: vxodnji";
     let acount = count_assemblies fileblocks in
     let%lwt () = Lwt_io.printlf "backup of %d files in %d assemblies" fcount acount in
     let e1 = run_distributed_backup e0 !arg_nproc acount fileblocks in
-    let%lwt () = output_relations e1 in
+    let%lwt () = output_relations e1 fileblocks in
     let%lwt () = Lwt_io.printl "done." in
     Lwt.return ()
   else

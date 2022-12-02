@@ -9,16 +9,11 @@
 
 Module Export Filetypes.
 
-From Coq Require Import Strings.String Strings.Byte.
-Open Scope string_scope.
-
+From Coq Require Import Strings.String.
 Require Import NArith.
-From Coq Require Import NArith.BinNat.
-Open Scope N_scope.
 
 Definition filename := string.
-(* Definition fptr := nat. *)
-Definition filelist := list filename.
+
 Record fileinformation : Type := mkfileinformation
      { fname : filename
      ; fsize : N

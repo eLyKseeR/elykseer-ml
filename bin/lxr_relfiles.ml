@@ -37,11 +37,14 @@ let rec mk_blocks i aid apos fpos =
     block :: mk_blocks (n - 1) aid (apos + blen) (fpos + blen)
 let mk_rel n aid rel =
   let rnd = Elykseer_crypto.Random.with_rng (fun rng -> Elykseer_crypto.Random.r32_range rng 1 12) in
-  let blocks = mk_blocks rnd aid 1200 0 in
+  let blocks : Assembly.blockinformation list = mk_blocks rnd aid 1200 0 in
   let fname = Printf.sprintf "test_%04d.dat" n in
+  let fi : Filetypes.fileinformation = {fname = fname
+           ;fsize = Conversion.i2n @@ List.fold_left (fun acc (e : Assembly.blockinformation) -> (Conversion.n2i e.blocksize) + acc) 0 blocks
+           ;fowner = ""; fpermissions = Conversion.i2n 644; fmodified = ""; fchecksum = ""} in
   let fhash = sha256 fname in
   (* let%lwt () = Lwt_io.printlf "   %s <- %s" fhash fname in *)
-  let%lwt _ = Relfiles.add fhash blocks rel in
+  let%lwt _ = Relfiles.add fhash {rfi=fi; rfbs=blocks} rel in
   Lwt.return rel
 
 let rec prepare_bm cnt rel =
@@ -55,9 +58,9 @@ let check_bm i rel =
   let%lwt blocksopt = Relfiles.find fhash rel in
   match blocksopt with
   | None -> Lwt.return 0
-  | Some blocks ->
+  | Some rel ->
     Lwt.return 
-    (List.fold_left (fun acc b -> Conversion.n2i(Assembly.blocksize b) + acc) 0 blocks)
+    (List.fold_left (fun acc b -> Conversion.n2i(Assembly.blocksize b) + acc) 0 rel.rfbs)
 
 let benchmark_run cnt =
   let%lwt () = Lwt_io.printlf "benchmarking %d repetitions" cnt in
@@ -115,8 +118,12 @@ let example_output () =
                     filepos = Conversion.i2n (1200+860); blocksize = Conversion.i2n 323;
                     bchecksum = "check3"; blockapos = Conversion.i2n 0
                   } ] in
-  let%lwt _ = Relfiles.add (sha256 "testfile01.data") blocks1 rel in
-  let%lwt _ = Relfiles.add (sha256 "testfile02.data") blocks2 rel in
+  let rel1 : Relfiles.relation = { rfi={fname="testfile01.data";fsize=Conversion.i2n 173;fowner="";fpermissions=Conversion.i2n 644;fmodified="";fchecksum=""}
+             ; rfbs=blocks1 } in
+  let rel2 : Relfiles.relation = { rfi={fname="testfile02.data";fsize=Conversion.i2n 324;fowner="";fpermissions=Conversion.i2n 644;fmodified="";fchecksum=""}
+             ; rfbs=blocks2 } in
+  let%lwt _ = Relfiles.add (sha256 "testfile01.data") rel1 rel in
+  let%lwt _ = Relfiles.add (sha256 "testfile02.data") rel2 rel in
   Lwt_io.printl "done."
 
 

@@ -31,11 +31,10 @@ Record fileblock : Type :=
         ; fbsz : N
         }.
 
-Record afblocks : Type :=
-    mkafblocks
-        { anum : positive
-        ; afree : N
-        ; ablocks : list fileblock
+Record fileblockinformation : Type :=
+    mkfbinfo
+        { fbifi : fileinformation
+        ; fbifblocks : list fileblock
         }.
 
 Section prepare_blocks.
@@ -44,33 +43,34 @@ Variable nchunks : positive.
 Variable maxsz : N.
 Definition aminsz : N := 64.
 
-Fixpoint prepare_blocks (fuel : nat) (afb : afblocks) (fpos : N) (fsz : N) : afblocks :=
+Fixpoint prepare_blocks (fuel : nat) (anum_p : positive) (afree_p : N) (fbs_p : list fileblock) (fpos : N) (fsz : N) : list fileblock * (positive * N) :=
   (* Printf.printf "fsz: %d  afree: %d  maxsz: %d\n" fsz afree maxsz; *)
   match fuel with
-  | O => afb
+  | O => (fbs_p, (anum_p, afree_p))
   | S f' =>
-    if (fsz <=? afree afb)%N
+    if (fsz <=? afree_p)%N
     then
         if (maxsz <=? fsz)%N (* fsz >= maxsz *)
-        then let newblock := {| fbanum := anum afb; fbfpos := fpos; fbsz := maxsz |} in
-             prepare_blocks f' {| anum := anum afb; afree := afree afb - maxsz; ablocks := newblock :: ablocks afb |}
+        then let newblock := {| fbanum := anum_p; fbfpos := fpos; fbsz := maxsz |} in
+             prepare_blocks f' anum_p (afree_p - maxsz) (newblock :: fbs_p)
                             (fpos + maxsz) (fsz - maxsz)
         else (* termination *)
-            if (0 <? fsz)%N (* fsz > 0 *) then {| anum := anum afb; afree := afree afb - fsz; ablocks := {| fbanum := anum afb; fbfpos := fpos; fbsz := fsz |} :: ablocks afb |}
-            else afb
+            if (0 <? fsz)%N (* fsz > 0 *) then ({| fbanum := anum_p; fbfpos := fpos; fbsz := fsz |} :: fbs_p
+                                               , (anum_p, afree_p - fsz))
+            else (fbs_p, (anum_p, afree_p))
     else (* when fsz > afree *)
-        if (maxsz <=? afree afb)%N (* afree >= maxsz *)
-        then let newblock := {| fbanum := anum afb; fbfpos := fpos; fbsz := maxsz |} in
-             prepare_blocks f' {| anum := anum afb; afree := afree afb - maxsz; ablocks := newblock :: ablocks afb |}
+        if (maxsz <=? afree_p)%N (* afree >= maxsz *)
+        then let newblock := {| fbanum := anum_p; fbfpos := fpos; fbsz := maxsz |} in
+             prepare_blocks f' anum_p (afree_p - maxsz) (newblock :: fbs_p)
                             (fpos + maxsz) (fsz - maxsz)
         else (* afree < maxsz *)
         let asz := Assembly.assemblysize nchunks in
-        if (afree afb <? aminsz)%N
+        if (afree_p <? aminsz)%N
             (* continue in fresh assembly *)
-        then prepare_blocks f' {| anum := anum afb + 1; afree := asz; ablocks := ablocks afb |} fpos fsz
-        else let newblock := {| fbanum := anum afb; fbfpos := fpos; fbsz := afree afb |} in
-             prepare_blocks f' {| anum := anum afb + 1; afree := asz; ablocks := newblock :: ablocks afb |}
-                            (fpos + (afree afb)) (fsz - (afree afb))
+        then prepare_blocks f' (anum_p + 1) asz fbs_p fpos fsz
+        else let newblock := {| fbanum := anum_p; fbfpos := fpos; fbsz := afree_p |} in
+             prepare_blocks f' (anum_p + 1) asz (newblock :: fbs_p)
+                            (fpos + afree_p) (fsz - afree_p)
   end.
 
 End prepare_blocks.
@@ -80,13 +80,13 @@ Section analyse_file.
 Variable nchunks : positive.
 Definition max_block_size : N := 131072.
 
-Definition analyse_file (afree_p : N) (anum_p : positive) (fn : string) : afblocks :=
+Definition analyse_file (afree_p : N) (anum_p : positive) (fn : string) : (positive * N) * fileblockinformation :=
   (* Printf.printf "backup %s\n" fn; *)
   let fi := Filesupport.get_file_information fn in
   let nblocks := (fsize fi) / max_block_size in
   let fuel : nat := N.to_nat (nblocks + (nblocks / Conversion.pos2N nchunks) + 1) in
-  let afbs := prepare_blocks nchunks max_block_size fuel {|anum:=anum_p;afree:=afree_p;ablocks:=nil|} 0 (fsize fi) in
-  {| anum := anum afbs; afree := afree afbs; ablocks := List.rev (ablocks afbs) |}.
+  let (afbs, ares) := prepare_blocks nchunks max_block_size fuel anum_p afree_p nil 0 (fsize fi) in
+  (ares, {| fbifi := fi; fbifblocks := List.rev afbs |}).
 
 End analyse_file.
 
