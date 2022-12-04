@@ -4,15 +4,15 @@
 *)
 
 (* Define the unfold function.*)
-let rec unfold p g b1 b2 =
-  if p b1 b2 then [] else
-    (match g b1 b2 with (a, (b1', b2')) ->
-       a :: unfold p g b1' b2')
+let rec unfold pred gen b1 b2 =
+  if pred b1 b2 then [] else
+    (match gen b1 b2 with (a, (b1', b2')) ->
+       a :: unfold pred gen b1' b2')
 
 (* Define the zip function.*)
 let zip _as _bs = unfold
-  (* Define p.*)
+  (* Define pred *)
   (fun x y -> ((List.length x = 0) || (List.length y = 0))) 
-  (* Define g.*)
+  (* Define gen *)
   (fun x y -> ( (List.hd x, List.hd y), (List.tl x, List.tl y)))
   _as _bs

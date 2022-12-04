@@ -2,7 +2,9 @@ open Elykseer__Lxr
 
 type t
 
+type aid = string
+
 val new_map : Configuration.configuration -> t Lwt.t
-val add : string -> Assembly.keyinformation -> t -> t Lwt.t
-val find : string -> t -> Assembly.keyinformation option Lwt.t
+val add : aid -> Assembly.keyinformation -> t -> t Lwt.t
+val find : aid -> t -> Assembly.keyinformation option Lwt.t
 val close_map : t -> unit Lwt.t
