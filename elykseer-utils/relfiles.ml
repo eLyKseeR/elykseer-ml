@@ -12,6 +12,9 @@ type relation = {
   rfi : Filetypes.fileinformation;
   rfbs : Assembly.blockinformation list
 }
+
+type filehash = string
+
 let my_id = ref "unset"
 let my_log = ref "unset (0.0.1)"
 
@@ -22,9 +25,9 @@ let new_map (config : Configuration.configuration) =
   let* repo = Git_store.Repo.v git_config in
   Git_store.main repo
 
-let mk_repo_path fhash =
+let repo_path fhash =
   let d1 = String.sub fhash 4 2 in
-  [!my_id;d1;fhash]
+  [!my_id;"relfiles";d1;fhash]
 
 let version_obj : Git_store.contents =
   `O[ "major", `String Version.major
@@ -60,7 +63,7 @@ let add fhash relation db =
   let reljson = rel2json_v1 relation in
   let%lwt () =
     try%lwt
-      let fp = mk_repo_path fhash in
+      let fp = repo_path fhash in
       Git_store.set_exn ~info:(msg_info msg) db fp reljson
     with Failure e -> Lwt_io.eprintlf "error : %s" e in
   Lwt.return db
@@ -110,7 +113,7 @@ let json2blocks_opt (el : (string * Git_store.contents) list) =
 
 (** find: gets fhash -> relation option *)
 let find fhash db =
-  let fp = mk_repo_path fhash in
+  let fp = repo_path fhash in
   let%lwt res = Git_store.get db fp in
   Lwt.return @@ match res with
   | `O el -> json2blocks_opt el

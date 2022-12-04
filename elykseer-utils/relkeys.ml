@@ -8,6 +8,8 @@ module Git_info = Irmin_unix.Info(Git_store.Info)
 
 type t = Git_store.t
 
+type aid = string
+
 let my_id = ref "unset"
 let my_log = ref "unset (0.0.1)"
 
@@ -19,14 +21,14 @@ let new_map (config : Configuration.configuration) =
   Git_store.main repo
 
 
-let mk_repo_path aid =
-  let d1 = String.sub aid 0 4 in
-  [!my_id;d1;aid]
+let repo_path aid =
+  let d1 = String.sub aid 4 2 in
+  [!my_id;"relkeys";d1;aid]
 
 let version_obj : Git_store.contents =
   `O [ "major", `String Version.major
-      ; "minor", `String Version.minor
-      ; "build", `String Version.build ]
+     ; "minor", `String Version.minor
+     ; "build", `String Version.build ]
 
 let key2json_v1 (k : Assembly.keyinformation) : Git_store.contents =
   `O [ ("ivec", `String k.ivec)
@@ -35,7 +37,7 @@ let key2json_v1 (k : Assembly.keyinformation) : Git_store.contents =
      ; ("localnchunks", `String (string_of_int (Conversion.p2i k.localnchunks))) ]
 let keys2json_v1 (keys : Assembly.keyinformation) : Git_store.contents =
   `O [ "version", version_obj
-      ; "keys", key2json_v1 keys ]
+     ; "keys", key2json_v1 keys ]
 
 let msg_info msg = Git_info.v ~author:!my_log "%s" msg
 
@@ -45,7 +47,7 @@ let add aid keys0 db =
   let keys = keys2json_v1 keys0 in
   let%lwt () =
     try%lwt
-      let fp = mk_repo_path aid in
+      let fp = repo_path aid in
       Git_store.set_exn ~info:(msg_info msg) db fp keys
     with Failure e -> Lwt_io.eprintlf "error : %s" e in
   Lwt.return db
@@ -77,7 +79,7 @@ let json2keys_opt (el (* : (string * Git_store.contents) list *)) =
 
 (** find: gets aid -> keyinformation option *)
 let find aid db =
-  let fp = mk_repo_path aid in
+  let fp = repo_path aid in
   let%lwt res = Git_store.get db fp in
   Lwt.return @@ match res with
   | `O el -> json2keys_opt el
