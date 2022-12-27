@@ -52,3 +52,11 @@
  (preprocess (pps lwt_ppx))
  (libraries elykseer elykseer_base lwt.unix lwt_ppx)
 )
+
+(executable
+ (public_name lxr_compare)
+ (name lxr_compare)
+ (modules lxr_compare)
+ (preprocess (pps lwt_ppx))
+ (libraries elykseer elykseer_base elykseer_utils lwt.unix lwt_ppx)
+)
