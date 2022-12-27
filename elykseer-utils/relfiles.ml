@@ -114,9 +114,11 @@ let json2blocks_opt (el : (string * Git_store.contents) list) =
 (** find: gets fhash -> relation option *)
 let find fhash db =
   let fp = repo_path fhash in
-  let%lwt res = Git_store.get db fp in
+  let%lwt res = try%lwt 
+                  let%lwt res = Git_store.get db fp in Lwt.return (Some res)
+                with _ -> Lwt.return None in
   Lwt.return @@ match res with
-  | `O el -> json2blocks_opt el
+  | Some (`O el) -> json2blocks_opt el
   | _ -> None
 
 let close_map db = Git_store.Repo.close (Git_store.repo db)

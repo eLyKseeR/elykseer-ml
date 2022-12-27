@@ -37,7 +37,6 @@ let () = Arg.parse argspec anon_args_fun "lxr_chunks: vxni";
          let conf : configuration = {
                          config_nchunks = nchunks;
                          path_chunks = !arg_chunkpath;
-                         path_meta   = "/tmp/lxr";
                          path_db   = "/tmp/db";
                          my_id       = Conversion.i2n myid } in
          List.iter (fun cid -> Assembly.chunk_identifier_path conf !arg_aid cid |> Printf.printf "%03d %s\n" (Conversion.p2i cid))

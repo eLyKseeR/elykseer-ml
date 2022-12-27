@@ -13,15 +13,11 @@ let def_myid = 1234567890
 
 let arg_verbose = ref false
 let arg_files = ref []
-let arg_metapath = ref "meta"
 let arg_dbpath = ref "/tmp/db"
 let arg_chunkpath = ref "lxr"
 let arg_outpath = ref "/tmp/"
 let arg_nchunks = ref 16
 let arg_nproc = ref 1
-let arg_ref1 = ref ""
-let arg_ref2 = ref ""
-let arg_ref3 = ref ""
 let arg_myid = ref def_myid
 
 let argspec =
@@ -30,12 +26,8 @@ let argspec =
     ("-x", Arg.Set_string arg_chunkpath, "sets path for encrypted chunks");
     ("-o", Arg.Set_string arg_outpath, "sets output path for restored files");
     ("-d", Arg.Set_string arg_dbpath, "sets database path");
-    ("-f", Arg.Set_string arg_metapath, "sets path for meta data");
     ("-n", Arg.Set_int arg_nchunks, "sets number of chunks (16-256) per assembly");
     ("-j", Arg.Set_int arg_nproc, "sets number of parallel processes");
-    ("-r1", Arg.Set_string arg_ref1, "adds reference files .relkeys and .relfiles");
-    ("-r2", Arg.Set_string arg_ref2, "adds reference files .relkeys and .relfiles");
-    ("-r3", Arg.Set_string arg_ref3, "adds reference files .relkeys and .relfiles");
     ("-i", Arg.Set_int arg_myid, "sets own identifier (positive number)");
   ]
 
@@ -52,7 +44,7 @@ let ensure_assembly e relk aid =
   | None -> Lwt.return @@ Error "no key found"
   | Some ki ->
     let config : Configuration.configuration = { config_nchunks = ki.localnchunks;
-                   path_chunks = e.config.path_chunks; path_meta = e.config.path_meta; path_db = e.config.path_db;
+                   path_chunks = e.config.path_chunks; path_db = e.config.path_db;
                    my_id = ki.localid } in
     let ai : Assembly.assemblyinformation = { nchunks = ki.localnchunks; aid = aid; apos = Conversion.i2n 0 } in
     match Assembly.recall config ai with
@@ -134,7 +126,7 @@ let exists_output_dir d =
       false
     end
 
-let main () = Arg.parse argspec anon_args_fun "lxr_restore: vxodfnji";
+let main () = Arg.parse argspec anon_args_fun "lxr_restore: vxodnji";
     let nchunks = Nchunks.from_int !arg_nchunks in
     if List.length !arg_files > 0
     && !arg_nproc > 0 && !arg_nproc < 65
@@ -145,7 +137,6 @@ let main () = Arg.parse argspec anon_args_fun "lxr_restore: vxodfnji";
       let conf : configuration = {
                     config_nchunks = nchunks;
                     path_chunks = !arg_chunkpath;
-                    path_meta   = !arg_metapath;
                     path_db     = !arg_dbpath;
                     my_id       = Conversion.i2n myid } in
       let e0 = Environment.initial_environment conf in
