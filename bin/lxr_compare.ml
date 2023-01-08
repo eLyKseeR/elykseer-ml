@@ -48,7 +48,7 @@ let verify_file fname (fblocks : Assembly.blockinformation list) =
                     let () = Lwt_io.printlf " %s%s block %d@%d=%d" res res' (Conversion.p2i fb.blockid) (Conversion.n2i fb.filepos) (Conversion.n2i fb.blocksize) |> ignore in chk
                   else chk
                 | Error (errno,errstr) -> 
-                  Printf.printf "read error no:%d err:%s\n" errno errstr; false
+                  Printf.printf " -❌ block %d@%d=%d read error no:%d err:%s \n" (Conversion.p2i fb.blockid) (Conversion.n2i fb.filepos) (Conversion.n2i fb.blocksize) errno errstr; false
               end
             | Error (errno,errstr) -> 
                 Printf.printf "seek error no:%d err:%s\n" errno errstr; false

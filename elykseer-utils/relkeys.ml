@@ -43,7 +43,7 @@ let msg_info msg = Git_info.v ~author:!my_log "%s" msg
 
 (** add: sets aid -> keyinfornation *)
 let add aid keys0 db =
-  let msg = Fmt.str "update of %s" aid in
+  let msg = Fmt.str "update for %s" aid in
   let keys = keys2json_v1 keys0 in
   let%lwt () =
     try%lwt

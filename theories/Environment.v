@@ -7,13 +7,14 @@ Module Export Environment.
 Require Import NArith PArith.
 From Coq Require Import NArith.BinNat Lists.List Strings.String.
 
-Open Scope positive_scope.
+(* Open Scope positive_scope. *)
 Open Scope N_scope.
 
 From LXR Require Import Assembly.
 From LXR Require Import Buffer.
 From LXR Require Import Configuration.
 From LXR Require Import Filetypes.
+From LXR Require Import Nchunks.
 
 
 Record environment : Type :=
@@ -58,13 +59,44 @@ Definition env_add_aid_key (aid : string) (e : environment) (ki : keyinformation
     ;  keys := (aid,ki) :: keys e
     |}.
 
+Axiom cpp_mk_key256 : unit -> string.
+Axiom cpp_mk_key128 : unit -> string.
+Definition finalise_assembly (e0 : environment) : environment :=
+    let a0 := cur_assembly e0 in
+    let apos := apos a0 in
+    if N.leb 1 apos then
+        let (a,b) := Assembly.finish a0 (cur_buffer e0) in
+        let ki := {| pkey := cpp_mk_key256 tt
+                   ; ivec := cpp_mk_key128 tt
+                   ; localnchunks := (Configuration.config_nchunks (config e0))
+                   ; localid := (Configuration.my_id (config e0)) |} in
+        let e1 := env_add_aid_key (aid a) e0 ki in
+        match Assembly.encrypt a b ki with
+        | None => e0
+        | Some (a',b') =>
+            let n := Assembly.extract (config e1) a' b' in
+            if N.eqb n (Assembly.assemblysize (Configuration.config_nchunks (config e0)))
+            then e1
+            else e0
+        end
+    else e0.
+  
+Definition finalise_and_recreate_assembly (e0 : environment) : environment :=
+    let e1 := finalise_assembly e0 in
+    recreate_assembly e1.
+  
 Program Definition backup (e0 : environment) (fp : string) (fpos : N) (content : BufferPlain.buffer_t) : environment :=
-    let (a', bi) := Assembly.backup (cur_assembly e0) (cur_buffer e0) fpos content in
+    let afree := N.sub (Assembly.assemblysize (Configuration.config_nchunks (config e0))) (apos (cur_assembly e0)) in
+    let blen := BufferPlain.buffer_len content in
+    let e1 := if N.ltb afree blen then
+                finalise_and_recreate_assembly e0
+              else e0 in
+    let (a', bi) := Assembly.backup (cur_assembly e1) (cur_buffer e1) fpos content in
     {| cur_assembly := a'
-    ;  cur_buffer := cur_buffer e0
-    ;  config := config e0
-    ;  fblocks := (fp,bi) :: fblocks e0
-    ;  keys := keys e0
+    ;  cur_buffer := cur_buffer e1
+    ;  config := config e1
+    ;  fblocks := (fp,bi) :: fblocks e1
+    ;  keys := keys e1
     |}.
 
 End Environment.

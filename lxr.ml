@@ -965,7 +965,8 @@ module Assembly =
          | None -> nread)) cidlist N0
     in
     let a' = { nchunks = a.nchunks; aid = aid0; apos = nread } in
-    let b' = id_enc_from_buffer_t b in Some (a', b')
+    let b' = id_enc_from_buffer_t b in
+    if N.eqb nread blen then Some (a', b') else None
 
   (** val ext_store_chunk_to_path :
       string -> n -> n -> Buffer.BufferEncrypted.buffer_t -> n **)
@@ -1216,14 +1217,60 @@ module Environment =
     { cur_assembly = e.cur_assembly; cur_buffer = e.cur_buffer; config =
       e.config; fblocks = e.fblocks; keys = ((aid0, ki) :: e.keys) }
 
+  (** val cpp_mk_key256 : unit -> string **)
+
+  let cpp_mk_key256 = fun () -> Helper.cpp_mk_key256 ()
+
+  (** val cpp_mk_key128 : unit -> string **)
+
+  let cpp_mk_key128 = fun () -> Helper.cpp_mk_key128 ()
+
+  (** val finalise_assembly : environment -> environment **)
+
+  let finalise_assembly e0 =
+    let a0 = e0.cur_assembly in
+    let apos0 = a0.Assembly.apos in
+    if N.leb (Npos XH) apos0
+    then let (a, b) = Assembly.finish a0 e0.cur_buffer in
+         let ki = { Assembly.ivec = (cpp_mk_key128 ()); Assembly.pkey =
+           (cpp_mk_key256 ()); Assembly.localid =
+           e0.config.Configuration.my_id; Assembly.localnchunks =
+           e0.config.Configuration.config_nchunks }
+         in
+         let e1 = env_add_aid_key a.Assembly.aid e0 ki in
+         (match Assembly.encrypt a b ki with
+          | Some p ->
+            let (a', b') = p in
+            let n0 = Assembly.extract e1.config a' b' in
+            if N.eqb n0
+                 (Assembly.assemblysize
+                   e0.config.Configuration.config_nchunks)
+            then e1
+            else e0
+          | None -> e0)
+    else e0
+
+  (** val finalise_and_recreate_assembly : environment -> environment **)
+
+  let finalise_and_recreate_assembly e0 =
+    let e1 = finalise_assembly e0 in recreate_assembly e1
+
   (** val backup :
       environment -> string -> n -> Buffer.BufferPlain.buffer_t -> environment **)
 
   let backup e0 fp fpos content =
-    let (a', bi) = Assembly.backup e0.cur_assembly e0.cur_buffer fpos content
+    let afree =
+      N.sub (Assembly.assemblysize e0.config.Configuration.config_nchunks)
+        e0.cur_assembly.Assembly.apos
     in
-    { cur_assembly = a'; cur_buffer = e0.cur_buffer; config = e0.config;
-    fblocks = ((fp, bi) :: e0.fblocks); keys = e0.keys }
+    let blen = Buffer.BufferPlain.buffer_len content in
+    let e1 =
+      if N.ltb afree blen then finalise_and_recreate_assembly e0 else e0
+    in
+    let (a', bi) = Assembly.backup e1.cur_assembly e1.cur_buffer fpos content
+    in
+    { cur_assembly = a'; cur_buffer = e1.cur_buffer; config = e1.config;
+    fblocks = ((fp, bi) :: e1.fblocks); keys = e1.keys }
  end
 
 module Filesupport =

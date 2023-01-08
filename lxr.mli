@@ -433,6 +433,14 @@ module Environment :
   val env_add_aid_key :
     string -> environment -> Assembly.keyinformation -> environment
 
+  val cpp_mk_key256 : unit -> string
+
+  val cpp_mk_key128 : unit -> string
+
+  val finalise_assembly : environment -> environment
+
+  val finalise_and_recreate_assembly : environment -> environment
+
   val backup :
     environment -> string -> n -> Buffer.BufferPlain.buffer_t -> environment
  end

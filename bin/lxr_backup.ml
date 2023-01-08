@@ -36,30 +36,6 @@ let anon_args_fun fn = arg_files := fn :: !arg_files
 (** the minimum available size in an assembly *)
 (* let aminsz = 127 *)
 
-let finalise_assembly e0 =
-  let (a,b) = Assembly.finish (e0.cur_assembly) (e0.cur_buffer) in
-  (* create key *)
-  let k = Elykseer_crypto.Key256.mk () |> Elykseer_crypto.Key256.to_hex in
-  let iv = Elykseer_crypto.Key128.mk () |> Elykseer_crypto.Key128.to_hex in
-  let ki : Assembly.keyinformation =
-    { pkey = k
-    ; ivec = iv
-    ; localnchunks = Conversion.i2p @@ !arg_nchunks
-    ; localid = Conversion.i2n @@ !arg_myid } in
-  let e1 = Environment.env_add_aid_key a.aid e0 ki in
-  (* encrypt *)
-  match Assembly.encrypt a b ki with
-  | None -> Printf.printf "failure on encrypting assembly %s\n" a.aid;
-            e0
-  | Some (a',b') ->
-  (* extract to chunks *)
-      Assembly.extract e1.config a' b' |> ignore;
-      e1
-
-let finalise_and_recreate_assembly e0 =
-  let e1 = if !arg_dryrun then e0 else finalise_assembly e0 in
-  Environment.recreate_assembly e1
-
 let curr_assembly_sz n = Conversion.n2i (Assembly.assemblysize n)
 
 (* data structure of a backup plan *)
@@ -125,7 +101,7 @@ let rec run_backup_for_assembly e0 pid anum acount (bp : backup_plan) =
       let anum_p = Conversion.i2p anum in
       let fileblocks' = extract_fileblocks anum_p bp in
       let e1 = List.fold_left (fun env fb -> execute_backup_fileblock env anum fb) e0 fileblocks' in
-      let e2 = finalise_and_recreate_assembly e1 in
+      let e2 = Environment.finalise_and_recreate_assembly e1 in
       run_backup_for_assembly e2 pid (anum + 1) acount bp
   end
 
@@ -214,7 +190,8 @@ let main () = Arg.parse argspec anon_args_fun "lxr_backup: vyxdnji";
                               List.flatten |> List.sort_uniq (compare) |> List.length in
                  Lwt_io.printlf "reference contains %d %s" rcount (Utils.pluralise2 "assembly" "assemblies" rcount) in
     let e1 = run_distributed_backup e0 !arg_nproc acount backup_plan in
-    let%lwt () = output_relations e1 backup_plan in
+    let e2 = Environment.finalise_assembly e1 in
+    let%lwt () = output_relations e2 backup_plan in
     let%lwt () = Lwt_io.printl "done." in
     Lwt.return ()
   else
