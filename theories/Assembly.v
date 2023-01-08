@@ -132,7 +132,9 @@ Program Definition recall (c : configuration) (a : AssemblyEncrypted.H) : option
                     0 in
     let a' := mkassembly (nchunks a) aid nread in
     let b' := id_enc_from_buffer_t b in
-    Some (a', b').
+    if N.eqb nread blen
+    then Some (a', b')
+    else None.
 
 Axiom ext_store_chunk_to_path : string -> N -> N -> BufferEncrypted.buffer_t -> N.
 Program Definition extract (c : configuration) (a : AssemblyEncrypted.H) (b : AssemblyEncrypted.B) : N :=
