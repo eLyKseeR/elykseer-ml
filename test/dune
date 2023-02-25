@@ -1,5 +1,6 @@
 (test
  (name test)
- (modules test testAssembly)
- (libraries alcotest elykseer elykseer_base mlcpp_cstdio unix)
+ (modules test testAssembly testRelkeys)
+ (preprocess (pps lwt_ppx))
+ (libraries alcotest alcotest-lwt elykseer elykseer_base elykseer_utils mlcpp_cstdio mlcpp_chrono unix)
 )

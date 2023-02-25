@@ -52,33 +52,45 @@ let add aid keys0 db =
     with Failure e -> Lwt_io.eprintlf "error : %s" e in
   Lwt.return db
 
-let json2keys_v1 obs : Assembly.keyinformation option =
+let json2keys_v1 version obs : (string * Assembly.keyinformation) option =
   match obs with
   | [] -> None
-  | bs -> Some
+  | bs -> Some (version,
     { ivec = Relutils.get_str "ivec" bs
     ; pkey = Relutils.get_str "pkey" bs
     ; localid = Relutils.get_int "localid" bs |> Conversion.i2n
     ; localnchunks = Relutils.get_int "localnchunks" bs |> Conversion.i2p
-    }
+    })
 
-let json2keys_versioned vmajor vkeys =
+let json2keys_versioned vmajor vminor vbuild vkeys =
+  let version = Printf.sprintf "%d.%d.%d" vmajor vminor vbuild in
   match vmajor with
   | 0
-  | 1 -> json2keys_v1 vkeys
+  | 1 -> json2keys_v1 version vkeys
   | _ -> None
 
-let json2keys_opt (el (* : (string * Git_store.contents) list *)) =
+let json2keys_opt el =
   match el with
   | [] -> None
   | rs ->
     let vobj = Relutils.get_obj "version" rs in
     let vmajor = Relutils.get_int "major" vobj in
+    let vminor = Relutils.get_int "minor" vobj in
+    let vbuild = Relutils.get_int "build" vobj in
     let vkeys = Relutils.get_obj "keys" rs in
-    json2keys_versioned vmajor vkeys
+    json2keys_versioned vmajor vminor vbuild vkeys
 
 (** find: gets aid -> keyinformation option *)
 let find aid db =
+  let fp = repo_path aid in
+  let%lwt res = Git_store.get db fp in
+  Lwt.return @@ match res with
+  | `O el -> begin match json2keys_opt el with
+               | Some (_,ki) -> Some ki
+               | None -> None
+             end
+  | _ -> None
+let find_v aid db =
   let fp = repo_path aid in
   let%lwt res = Git_store.get db fp in
   Lwt.return @@ match res with

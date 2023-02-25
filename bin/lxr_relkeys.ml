@@ -1,125 +1,75 @@
 
 open Elykseer__Lxr
+open Elykseer__Lxr.Configuration
 
 open Elykseer_utils
+open Elykseer_base.Hashing
 
-open Mlcpp_chrono
+let def_myid = 1234567890
 
 let arg_verbose = ref false
-let arg_bm = ref false
-let arg_fctrl = ref ""
+let arg_files = ref []
+let arg_dbpath = ref "/tmp/db"
+let arg_myid = ref def_myid
+
+let usage_msg = "lxr_relkeys [-v] [-i myid] [-d dbpath] <file1> [<file2>] ..."
 
 let argspec =
   [
     ("-v", Arg.Set arg_verbose, "verbose output");
-    ("-b", Arg.Set arg_bm, "benchmark");
-    ("-f", Arg.Set_string arg_fctrl, "relation file: file->aid");
+    ("-d", Arg.Set_string arg_dbpath, "sets database path");
+    ("-i", Arg.Set_int arg_myid, "sets own identifier (positive number)");
   ]
 
-let anon_args_fun _fn = ()
+let anon_args_fun fn = arg_files := fn :: !arg_files
 
-let mk_rel n rel =
-  let aid = Printf.sprintf "aid%06d" n in
-  let keys : Assembly.keyinformation =
-      { pkey = string_of_int (12345678901234567 + n)
-      ; ivec = "9876543210123456"
-      ; localnchunks=Conversion.i2p 16; localid=Conversion.i2n 4242 } in
-  Relkeys.add aid keys rel
 
-let rec prepare_bm cnt rel =
-  match cnt with
-  | 0 -> Lwt.return rel
-  | n -> let%lwt _rel' = mk_rel n rel in
-         prepare_bm (n - 1) rel
+let filename2aidlist fn relfiles : string list Lwt.t =
+  let%lwt rel = Relfiles.find (sha256 fn) relfiles in
+  match rel with
+  | None -> Lwt.return []
+  | Some r -> Lwt.return @@ List.map (fun (e : Assembly.blockinformation) -> e.blockaid) r.rfbs
 
-let check_bm i rel =
-  let aid = Printf.sprintf "aid%06d" i in
-  let%lwt ks = Relkeys.find aid rel in
-  match ks with
-  | None -> Lwt.return 0
-  | Some _k -> Lwt.return 1
+let filenames2aidlist relfiles fns : string list Lwt.t =
+  let%lwt l = Lwt_list.map_s (fun fn -> filename2aidlist fn relfiles) fns in
+  Lwt.return (List.flatten l |> List.sort_uniq (compare))
 
-let benchmark_run cnt =
-  let%lwt () = Lwt_io.printlf "benchmarking %d repetitions" cnt in
-  let config : Configuration.configuration =
-    { config_nchunks = Nchunks.from_int 16
-    ; path_chunks = "lxr"
-    ; path_db = "/tmp/db"
-    ; my_id = Conversion.i2n 4242 } in
-  let%lwt rel = Relkeys.new_map config in
-  let clock0 = Chrono.Clock.System.now () in
-  (* bm1 *)
-  let%lwt rel' = prepare_bm cnt rel in
-  let clock1 = Chrono.Clock.System.now () in
-  (* bm2 *)
-  let%lwt () = for%lwt i = 1 to cnt do
-    let%lwt nbm = check_bm i rel' in
-    if !arg_verbose then 
-      if nbm > 0 then Lwt_io.print "√" else Lwt_io.print "x"
-    else Lwt.return ()
-  done in
-  let clock2 = Chrono.Clock.System.now () in
-  let tdiff1 = Chrono.Clock.System.diff clock1 clock0 in
-  let tdiff2 = Chrono.Clock.System.diff clock2 clock1 in
-  let%lwt () = Lwt_io.printlf "preparation time:  %s" (Chrono.Duration.to_string @@ Chrono.Duration.cast_ms tdiff1) in
-  let%lwt () = Lwt_io.printlf "verification time: %s" (Chrono.Duration.to_string @@ Chrono.Duration.cast_ms tdiff2) in
-  Gc.print_stat stdout;
-  Lwt.return ()
 
-let example_output () =
-  let config : Configuration.configuration =
-    { config_nchunks = Nchunks.from_int 16
-    ; path_chunks = "lxr"
-    ; path_db = "/tmp/db"
-    ; my_id = Conversion.i2n 4242 } in
-  let%lwt rel = Relkeys.new_map config in
-  let k1 : Assembly.keyinformation = {pkey="key0001";ivec="12";localnchunks=Conversion.i2p 16;localid=Conversion.i2n 43424} in
-  let k2 : Assembly.keyinformation = {pkey="key0002";ivec="12";localnchunks=Conversion.i2p 24;localid=Conversion.i2n 62831} in
-  let%lwt _ = Relkeys.add "aid001" k1 rel in
-  let%lwt _ = Relkeys.add "aid002" k2 rel in
-  Lwt_io.printl "done."
+let output_keys fns relfiles relkeys =
+  let%lwt laid = filenames2aidlist relfiles fns in
+  let%lwt lk = Lwt_list.fold_left_s (fun acc aid -> let%lwt k = Relkeys.find_v aid relkeys in Lwt.return ((aid,k) :: acc))
+                          [] laid in
+  let li = List.fold_left (fun acc (aid,e) -> match e with
+                            | None ->
+                                let () = if !arg_verbose
+                                  then Format.printf "missing key for aid ='%s'\n" aid else () in
+                                acc
+                            | Some e' -> (aid,e') :: acc) [] lk in
+  match li with
+  | [] -> Lwt.return_unit
+  | _ ->
+    let%lwt () = Lwt_io.printl "\"myid\",\"nchunks\",\"version\",\"aid\",\"key\",\"iv\"" in
+    Lwt_list.iter_s (fun ((aid,(version,ki)) : (string * (string * Assembly.keyinformation))) ->
+                          Lwt_io.printlf "%d,%d,\"%s\",\"%s\",\"%s\",\"%s\""
+                            (Conversion.n2i ki.localid)
+                            (Conversion.p2i ki.localnchunks)
+                            version aid ki.pkey ki.ivec ) li
 
 (* main *)
-let main () = Arg.parse argspec anon_args_fun "lxr_relkeys: vbf";
-  let%lwt () = if !arg_bm
-  then
-    let%lwt () = benchmark_run 1000 in
-    Lwt.return ()
-  else if !arg_verbose
+let main () = Arg.parse argspec anon_args_fun usage_msg;
+  if !arg_files != []
     then
-      let%lwt () = example_output () in
-      Lwt.return ()
+      let nchunks = Nchunks.from_int 16 in
+      let myid = let id0 = !arg_myid in
+      if id0 >= 0 then id0 else def_myid in
+      let conf : configuration = {
+                      config_nchunks = nchunks;
+                      path_chunks = "lxr";
+                      path_db     = !arg_dbpath;
+                      my_id       = Conversion.i2n myid } in
+      let%lwt relfiles = Relfiles.new_map conf in
+      let%lwt relkeys = Relkeys.new_map conf in
+      output_keys !arg_files relfiles relkeys
     else Lwt.return ()
-  in
-  Lwt_io.printl "all done."
 
 let () = Lwt_main.run (main ())
-
-(* benchmark 
-benchmarking 10000 repetitions        
-preparation time:  198 ms
-JSON store time: 10 ms
-bechmark run time: 172 ms
-all done.
-compress
-encrypt for tester
-minor_collections:      1036
-major_collections:      4
-compactions:            0
-forced_major_collections: 0
-
-minor_words:    271160145
-promoted_words:    294828
-major_words:       302901
-
-top_heap_words: 311296
-heap_words:     311296
-live_words:     270138
-free_words:      40505
-largest_free:    40505
-fragments:         653
-
-live_blocks: 67747
-free_blocks: 1
-heap_chunks: 4   
-*)
