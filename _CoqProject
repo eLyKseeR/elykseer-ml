@@ -10,5 +10,6 @@ theories/Configuration.v
 theories/Conversion.v
 theories/Utilities.v
 theories/BackupPlanner.v
+theories/AssemblyCache.v
 theories/MakeML.v
 theories/Version.v
