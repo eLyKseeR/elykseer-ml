@@ -1,9 +1,13 @@
 
+val negb : bool -> bool
+
 type nat =
 | O
 | S of nat
 
 val fst : ('a1 * 'a2) -> 'a1
+
+val length : 'a1 list -> nat
 
 val app : 'a1 list -> 'a1 list -> 'a1 list
 
@@ -118,6 +122,8 @@ val rev : 'a1 list -> 'a1 list
 val map : ('a1 -> 'a2) -> 'a1 list -> 'a2 list
 
 val fold_left : ('a1 -> 'a2 -> 'a1) -> 'a2 list -> 'a1 -> 'a1
+
+val filter : ('a1 -> bool) -> 'a1 list -> 'a1 list
 
 val seq : nat -> nat -> nat list
 
@@ -433,6 +439,11 @@ module Environment :
   val env_add_aid_key :
     string -> environment -> Assembly.keyinformation -> environment
 
+  val key_for_aid :
+    environment -> Assembly.aid_t -> Assembly.keyinformation option
+
+  val restore_assembly : environment -> Assembly.aid_t -> environment option
+
   val cpp_mk_key256 : unit -> string
 
   val cpp_mk_key128 : unit -> string
@@ -443,6 +454,102 @@ module Environment :
 
   val backup :
     environment -> string -> n -> Buffer.BufferPlain.buffer_t -> environment
+ end
+
+module AssemblyCache :
+ sig
+  type readqueueentity = { qaid : Assembly.aid_t; qapos : n; qrlen : n }
+
+  val qaid : readqueueentity -> Assembly.aid_t
+
+  val qapos : readqueueentity -> n
+
+  val qrlen : readqueueentity -> n
+
+  type readqueueresult = { readrequest : readqueueentity;
+                           rresult : Buffer.BufferPlain.buffer_t }
+
+  val readrequest : readqueueresult -> readqueueentity
+
+  val rresult : readqueueresult -> Buffer.BufferPlain.buffer_t
+
+  type writequeueentity = { qfhash : string; qfpos : n;
+                            qbuffer : Buffer.BufferPlain.buffer_t }
+
+  val qfhash : writequeueentity -> string
+
+  val qfpos : writequeueentity -> n
+
+  val qbuffer : writequeueentity -> Buffer.BufferPlain.buffer_t
+
+  type writequeueresult = { writerequest : writequeueentity;
+                            wresult : readqueueentity }
+
+  val writerequest : writequeueresult -> writequeueentity
+
+  val wresult : writequeueresult -> readqueueentity
+
+  val qsize : positive
+
+  type readqueue = { rqueue : readqueueentity list; rqueuesz : positive }
+
+  val rqueue : readqueue -> readqueueentity list
+
+  val rqueuesz : readqueue -> positive
+
+  type writequeue = { wqueue : writequeueentity list; wqueuesz : positive }
+
+  val wqueue : writequeue -> writequeueentity list
+
+  val wqueuesz : writequeue -> positive
+
+  type assemblycache = { acenvs : Environment.environment list; acsize : 
+                         nat; acwriteenv : Environment.environment;
+                         acconfig : Configuration.configuration;
+                         acwriteq : writequeue; acreadq : readqueue }
+
+  val acenvs : assemblycache -> Environment.environment list
+
+  val acsize : assemblycache -> nat
+
+  val acwriteenv : assemblycache -> Environment.environment
+
+  val acconfig : assemblycache -> Configuration.configuration
+
+  val acwriteq : assemblycache -> writequeue
+
+  val acreadq : assemblycache -> readqueue
+
+  val prepare_assemblycache :
+    Configuration.configuration -> positive -> assemblycache
+
+  val enqueue_write_request :
+    assemblycache -> writequeueentity -> bool * assemblycache
+
+  val enqueue_read_request :
+    assemblycache -> readqueueentity -> bool * assemblycache
+
+  val last_opt : 'a1 list -> 'a1 option
+
+  val ensure_assembly :
+    assemblycache -> Assembly.aid_t ->
+    (Environment.environment * assemblycache) option
+
+  val run_read_requests :
+    assemblycache -> readqueueentity list -> readqueueresult list ->
+    readqueueresult list * assemblycache
+
+  val run_write_requests :
+    assemblycache -> writequeueentity list -> writequeueresult list ->
+    writequeueresult list * assemblycache
+
+  val iterate_read_queue :
+    assemblycache -> readqueueresult list * assemblycache
+
+  val iterate_write_queue :
+    assemblycache -> writequeueresult list * assemblycache
+
+  val close : assemblycache -> assemblycache
  end
 
 module Filesupport :

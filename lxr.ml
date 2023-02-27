@@ -1,4 +1,10 @@
 
+(** val negb : bool -> bool **)
+
+let negb = function
+| true -> false
+| false -> true
+
 type nat =
 | O
 | S of nat
@@ -7,6 +13,12 @@ type nat =
 
 let fst = function
 | (x, _) -> x
+
+(** val length : 'a1 list -> nat **)
+
+let rec length = function
+| [] -> O
+| _ :: l' -> S (length l')
 
 (** val app : 'a1 list -> 'a1 list -> 'a1 list **)
 
@@ -397,6 +409,12 @@ let rec fold_left f l a0 =
   match l with
   | [] -> a0
   | b :: t0 -> fold_left f t0 (f a0 b)
+
+(** val filter : ('a1 -> bool) -> 'a1 list -> 'a1 list **)
+
+let rec filter f = function
+| [] -> []
+| x :: l0 -> if f x then x :: (filter f l0) else filter f l0
 
 (** val seq : nat -> nat -> nat list **)
 
@@ -1217,6 +1235,34 @@ module Environment =
     { cur_assembly = e.cur_assembly; cur_buffer = e.cur_buffer; config =
       e.config; fblocks = e.fblocks; keys = ((aid0, ki) :: e.keys) }
 
+  (** val key_for_aid :
+      environment -> Assembly.aid_t -> Assembly.keyinformation option **)
+
+  let key_for_aid e aid0 =
+    match filter (fun e0 -> (=) (fst e0) aid0) e.keys with
+    | [] -> None
+    | p :: _ -> let (_, ki) = p in Some ki
+
+  (** val restore_assembly :
+      environment -> Assembly.aid_t -> environment option **)
+
+  let restore_assembly e0 aid0 =
+    match key_for_aid e0 aid0 with
+    | Some k ->
+      (match Assembly.recall e0.config { Assembly.nchunks =
+               e0.config.Configuration.config_nchunks; Assembly.aid = aid0;
+               Assembly.apos = N0 } with
+       | Some p ->
+         let (a1, b1) = p in
+         (match Assembly.decrypt a1 b1 k with
+          | Some p0 ->
+            let (a2, b2) = p0 in
+            Some { cur_assembly = a2; cur_buffer = b2; config = e0.config;
+            fblocks = e0.fblocks; keys = e0.keys }
+          | None -> None)
+       | None -> None)
+    | None -> None
+
   (** val cpp_mk_key256 : unit -> string **)
 
   let cpp_mk_key256 = fun () -> Helper.cpp_mk_key256 ()
@@ -1271,6 +1317,316 @@ module Environment =
     in
     { cur_assembly = a'; cur_buffer = e1.cur_buffer; config = e1.config;
     fblocks = ((fp, bi) :: e1.fblocks); keys = e1.keys }
+ end
+
+module AssemblyCache =
+ struct
+  type readqueueentity = { qaid : Assembly.aid_t; qapos : n; qrlen : n }
+
+  (** val qaid : readqueueentity -> Assembly.aid_t **)
+
+  let qaid r =
+    r.qaid
+
+  (** val qapos : readqueueentity -> n **)
+
+  let qapos r =
+    r.qapos
+
+  (** val qrlen : readqueueentity -> n **)
+
+  let qrlen r =
+    r.qrlen
+
+  type readqueueresult = { readrequest : readqueueentity;
+                           rresult : Buffer.BufferPlain.buffer_t }
+
+  (** val readrequest : readqueueresult -> readqueueentity **)
+
+  let readrequest r =
+    r.readrequest
+
+  (** val rresult : readqueueresult -> Buffer.BufferPlain.buffer_t **)
+
+  let rresult r =
+    r.rresult
+
+  type writequeueentity = { qfhash : string; qfpos : n;
+                            qbuffer : Buffer.BufferPlain.buffer_t }
+
+  (** val qfhash : writequeueentity -> string **)
+
+  let qfhash w =
+    w.qfhash
+
+  (** val qfpos : writequeueentity -> n **)
+
+  let qfpos w =
+    w.qfpos
+
+  (** val qbuffer : writequeueentity -> Buffer.BufferPlain.buffer_t **)
+
+  let qbuffer w =
+    w.qbuffer
+
+  type writequeueresult = { writerequest : writequeueentity;
+                            wresult : readqueueentity }
+
+  (** val writerequest : writequeueresult -> writequeueentity **)
+
+  let writerequest w =
+    w.writerequest
+
+  (** val wresult : writequeueresult -> readqueueentity **)
+
+  let wresult w =
+    w.wresult
+
+  (** val qsize : positive **)
+
+  let qsize =
+    XO (XO (XI XH))
+
+  type readqueue = { rqueue : readqueueentity list; rqueuesz : positive }
+
+  (** val rqueue : readqueue -> readqueueentity list **)
+
+  let rqueue r =
+    r.rqueue
+
+  (** val rqueuesz : readqueue -> positive **)
+
+  let rqueuesz r =
+    r.rqueuesz
+
+  type writequeue = { wqueue : writequeueentity list; wqueuesz : positive }
+
+  (** val wqueue : writequeue -> writequeueentity list **)
+
+  let wqueue w =
+    w.wqueue
+
+  (** val wqueuesz : writequeue -> positive **)
+
+  let wqueuesz w =
+    w.wqueuesz
+
+  type assemblycache = { acenvs : Environment.environment list; acsize : 
+                         nat; acwriteenv : Environment.environment;
+                         acconfig : Configuration.configuration;
+                         acwriteq : writequeue; acreadq : readqueue }
+
+  (** val acenvs : assemblycache -> Environment.environment list **)
+
+  let acenvs a =
+    a.acenvs
+
+  (** val acsize : assemblycache -> nat **)
+
+  let acsize a =
+    a.acsize
+
+  (** val acwriteenv : assemblycache -> Environment.environment **)
+
+  let acwriteenv a =
+    a.acwriteenv
+
+  (** val acconfig : assemblycache -> Configuration.configuration **)
+
+  let acconfig a =
+    a.acconfig
+
+  (** val acwriteq : assemblycache -> writequeue **)
+
+  let acwriteq a =
+    a.acwriteq
+
+  (** val acreadq : assemblycache -> readqueue **)
+
+  let acreadq a =
+    a.acreadq
+
+  (** val prepare_assemblycache :
+      Configuration.configuration -> positive -> assemblycache **)
+
+  let prepare_assemblycache c size =
+    { acenvs = []; acsize = (Coq_Pos.to_nat size); acwriteenv =
+      (Environment.initial_environment c); acconfig = c; acwriteq =
+      { wqueue = []; wqueuesz = qsize }; acreadq = { rqueue = []; rqueuesz =
+      qsize } }
+
+  (** val enqueue_write_request :
+      assemblycache -> writequeueentity -> bool * assemblycache **)
+
+  let enqueue_write_request ac req =
+    let ln = length ac.acwriteq.wqueue in
+    if N.leb (Conversion.pos2N qsize) (Conversion.nat2N ln)
+    then (false, ac)
+    else (true, { acenvs = ac.acenvs; acsize = ac.acsize; acwriteenv =
+           ac.acwriteenv; acconfig = ac.acconfig; acwriteq = { wqueue =
+           (app ac.acwriteq.wqueue (req :: [])); wqueuesz =
+           ac.acwriteq.wqueuesz }; acreadq = ac.acreadq })
+
+  (** val enqueue_read_request :
+      assemblycache -> readqueueentity -> bool * assemblycache **)
+
+  let enqueue_read_request ac req =
+    let ln = length ac.acreadq.rqueue in
+    if N.leb (Conversion.pos2N qsize) (Conversion.nat2N ln)
+    then (false, ac)
+    else (true, { acenvs = ac.acenvs; acsize = ac.acsize; acwriteenv =
+           ac.acwriteenv; acconfig = ac.acconfig; acwriteq = ac.acwriteq;
+           acreadq = { rqueue = (app ac.acreadq.rqueue (req :: []));
+           rqueuesz = ac.acreadq.rqueuesz } })
+
+  (** val last_opt : 'a1 list -> 'a1 option **)
+
+  let rec last_opt = function
+  | [] -> None
+  | _a :: l0 -> (match l0 with
+                 | [] -> Some _a
+                 | _ :: _ -> last_opt l0)
+
+  (** val ensure_assembly :
+      assemblycache -> Assembly.aid_t ->
+      (Environment.environment * assemblycache) option **)
+
+  let ensure_assembly ac0 sel_aid =
+    let filtered_var = ac0.acenvs in
+    (match filtered_var with
+     | [] ->
+       let filtered_var0 =
+         Environment.restore_assembly
+           (Environment.initial_environment ac0.acconfig) sel_aid
+       in
+       (match filtered_var0 with
+        | Some env ->
+          Some (env, { acenvs = (env :: []); acsize = ac0.acsize;
+            acwriteenv = ac0.acwriteenv; acconfig = ac0.acconfig; acwriteq =
+            ac0.acwriteq; acreadq = ac0.acreadq })
+        | None -> None)
+     | e1 :: r ->
+       if (=) e1.Environment.cur_assembly.Assembly.aid sel_aid
+       then Some (e1, ac0)
+       else let found =
+              filter (fun e ->
+                (=) e.Environment.cur_assembly.Assembly.aid sel_aid) r
+            in
+            (match found with
+             | [] ->
+               let filtered_var0 = last_opt r in
+               (match filtered_var0 with
+                | Some env0 ->
+                  let filtered_var1 =
+                    Environment.restore_assembly env0 sel_aid
+                  in
+                  (match filtered_var1 with
+                   | Some env ->
+                     Some (env, { acenvs =
+                       (env :: (filter (fun e ->
+                                 negb
+                                   ((=)
+                                     e.Environment.cur_assembly.Assembly.aid
+                                     env0.Environment.cur_assembly.Assembly.aid))
+                                 ac0.acenvs)); acsize = ac0.acsize;
+                       acwriteenv = ac0.acwriteenv; acconfig = ac0.acconfig;
+                       acwriteq = ac0.acwriteq; acreadq = ac0.acreadq })
+                   | None -> None)
+                | None ->
+                  let filtered_var1 =
+                    Environment.restore_assembly
+                      (Environment.initial_environment ac0.acconfig) sel_aid
+                  in
+                  (match filtered_var1 with
+                   | Some env ->
+                     Some (env, { acenvs = (env :: ac0.acenvs); acsize =
+                       ac0.acsize; acwriteenv = ac0.acwriteenv; acconfig =
+                       ac0.acconfig; acwriteq = ac0.acwriteq; acreadq =
+                       ac0.acreadq })
+                   | None -> None))
+             | efound :: _ ->
+               Some (efound, { acenvs =
+                 (efound :: (e1 :: (filter (fun e ->
+                                     negb
+                                       ((=)
+                                         e.Environment.cur_assembly.Assembly.aid
+                                         sel_aid)) r))); acsize = ac0.acsize;
+                 acwriteenv = ac0.acwriteenv; acconfig = ac0.acconfig;
+                 acwriteq = ac0.acwriteq; acreadq = ac0.acreadq })))
+
+  (** val run_read_requests :
+      assemblycache -> readqueueentity list -> readqueueresult list ->
+      readqueueresult list * assemblycache **)
+
+  let rec run_read_requests ac0 reqs res =
+    match reqs with
+    | [] -> (res, ac0)
+    | h :: r ->
+      let aid0 = h.qaid in
+      let filtered_var = ensure_assembly ac0 aid0 in
+      (match filtered_var with
+       | Some p ->
+         let (_, ac1) = p in
+         let buf = Buffer.BufferPlain.buffer_create h.qrlen in
+         run_read_requests ac1 r ({ readrequest = h; rresult = buf } :: res)
+       | None -> (res, ac0))
+
+  (** val run_write_requests :
+      assemblycache -> writequeueentity list -> writequeueresult list ->
+      writequeueresult list * assemblycache **)
+
+  let rec run_write_requests ac0 reqs res =
+    match reqs with
+    | [] -> (res, ac0)
+    | h :: r ->
+      let env = Environment.backup ac0.acwriteenv h.qfhash h.qfpos h.qbuffer
+      in
+      let ac1 = { acenvs = ac0.acenvs; acsize = ac0.acsize; acwriteenv = env;
+        acconfig = ac0.acconfig; acwriteq = { wqueue = []; wqueuesz =
+        ac0.acwriteq.wqueuesz }; acreadq = ac0.acreadq }
+      in
+      run_write_requests ac1 r ({ writerequest = h; wresult = { qaid =
+        env.Environment.cur_assembly.Assembly.aid; qapos =
+        env.Environment.cur_assembly.Assembly.apos; qrlen =
+        (Buffer.BufferPlain.buffer_len h.qbuffer) } } :: res)
+
+  (** val iterate_read_queue :
+      assemblycache -> readqueueresult list * assemblycache **)
+
+  let iterate_read_queue ac0 =
+    let filtered_var = ac0.acreadq.rqueue in
+    (match filtered_var with
+     | [] -> ([], ac0)
+     | h :: r ->
+       let aid0 = h.qaid in
+       let sel = filter (fun e -> (=) e.qaid aid0) r in
+       let ac1 = { acenvs = ac0.acenvs; acsize = ac0.acsize; acwriteenv =
+         ac0.acwriteenv; acconfig = ac0.acconfig; acwriteq = ac0.acwriteq;
+         acreadq = { rqueue = (filter (fun e -> negb ((=) e.qaid aid0)) r);
+         rqueuesz = ac0.acreadq.rqueuesz } }
+       in
+       run_read_requests ac1 (h :: sel) [])
+
+  (** val iterate_write_queue :
+      assemblycache -> writequeueresult list * assemblycache **)
+
+  let iterate_write_queue ac0 =
+    let filtered_var = ac0.acwriteq.wqueue in
+    (match filtered_var with
+     | [] -> ([], ac0)
+     | h :: r ->
+       let ac1 = { acenvs = ac0.acenvs; acsize = ac0.acsize; acwriteenv =
+         ac0.acwriteenv; acconfig = ac0.acconfig; acwriteq = { wqueue = [];
+         wqueuesz = ac0.acwriteq.wqueuesz }; acreadq = ac0.acreadq }
+       in
+       run_write_requests ac1 (h :: r) [])
+
+  (** val close : assemblycache -> assemblycache **)
+
+  let close ac0 =
+    let env = Environment.finalise_assembly ac0.acwriteenv in
+    { acenvs = []; acsize = ac0.acsize; acwriteenv = env; acconfig =
+    ac0.acconfig; acwriteq = ac0.acwriteq; acreadq = ac0.acreadq }
  end
 
 module Filesupport =

@@ -97,12 +97,7 @@ Program Definition enqueue_read_request (ac : assemblycache) (req : readqueueent
                   acreadq := {| rqueue := List.app (rqueue ac.(acreadq)) (req :: nil); rqueuesz := rqueuesz ac.(acreadq) |};
                   acwriteq := ac.(acwriteq)  |}).
 
-(* TODO: should be moved to Environment *)
-Program Definition restore_assembly (env : environment) (aid : Assembly.aid_t) : environment :=
-    (* TODO *)
-    env.
-
-(* Variable A : Type. *)
+(* extract the last element of a list if it exists *)
 Fixpoint last_opt { a : Type } (l : list a) : option a :=
     match l with
     | nil => None
@@ -112,28 +107,38 @@ Fixpoint last_opt { a : Type } (l : list a) : option a :=
 
 (* ensure that an environment with assembly (by aid) is available 
    and that it is in the head position of the list of envs *)
-Program Definition ensure_assembly (ac0 : assemblycache) (sel_aid : Assembly.aid_t) : (environment * assemblycache) :=
+Program Definition ensure_assembly (ac0 : assemblycache) (sel_aid : Assembly.aid_t) : option (environment * assemblycache) :=
     match ac0.(acenvs) with
     | nil => (* create first env *)
-        let env := restore_assembly (Environment.initial_environment ac0.(acconfig)) sel_aid in
-        (env, {| acenvs := env :: nil; acsize := ac0.(acsize); acwriteenv := ac0.(acwriteenv); acconfig := ac0.(acconfig);
-                 acreadq := ac0.(acreadq); acwriteq := ac0.(acwriteq) |})
-    | e1 :: r => if String.eqb (aid e1.(cur_assembly)) sel_aid then (e1, ac0)
+        match restore_assembly (Environment.initial_environment ac0.(acconfig)) sel_aid with
+        | None => None
+        | Some env =>
+           Some (env, {| acenvs := env :: nil; acsize := ac0.(acsize); acwriteenv := ac0.(acwriteenv); acconfig := ac0.(acconfig);
+                         acreadq := ac0.(acreadq); acwriteq := ac0.(acwriteq) |})
+        end
+    | e1 :: r => if String.eqb (aid e1.(cur_assembly)) sel_aid then Some (e1, ac0)
         else
             let found := List.filter (fun e => String.eqb (aid e.(cur_assembly)) sel_aid) r in
             match found with
-            | efound :: _ => (efound, {| acenvs := efound :: e1 :: List.filter (fun e => negb (String.eqb (aid e.(cur_assembly)) sel_aid)) r;
-                                         acsize := ac0.(acsize); acwriteenv := ac0.(acwriteenv); acconfig := ac0.(acconfig);
-                                         acreadq := ac0.(acreadq); acwriteq := ac0.(acwriteq) |})
+            | efound :: _ =>
+                Some (efound, {| acenvs := efound :: e1 :: List.filter (fun e => negb (String.eqb (aid e.(cur_assembly)) sel_aid)) r;
+                                 acsize := ac0.(acsize); acwriteenv := ac0.(acwriteenv); acconfig := ac0.(acconfig);
+                                 acreadq := ac0.(acreadq); acwriteq := ac0.(acwriteq) |})
             | nil =>
                 match last_opt r with
-                | None => let env := restore_assembly (Environment.initial_environment ac0.(acconfig)) sel_aid in
-                    (env, {| acenvs := env :: ac0.(acenvs); acsize := ac0.(acsize); acwriteenv := ac0.(acwriteenv); acconfig := ac0.(acconfig);
-                             acreadq := ac0.(acreadq); acwriteq := ac0.(acwriteq) |})
-                | Some env0 => let env := restore_assembly env0 sel_aid in
-                    (env, {| acenvs := env :: List.filter (fun e => negb (String.eqb (aid e.(cur_assembly)) (aid env0.(cur_assembly)))) ac0.(acenvs);
-                             acsize := ac0.(acsize); acwriteenv := ac0.(acwriteenv); acconfig := ac0.(acconfig);
-                             acreadq := ac0.(acreadq); acwriteq := ac0.(acwriteq) |})
+                | None => match restore_assembly (Environment.initial_environment ac0.(acconfig)) sel_aid with
+                          | None => None
+                          | Some env =>
+                              Some (env, {| acenvs := env :: ac0.(acenvs); acsize := ac0.(acsize); acwriteenv := ac0.(acwriteenv); acconfig := ac0.(acconfig);
+                                            acreadq := ac0.(acreadq); acwriteq := ac0.(acwriteq) |})
+                          end
+                | Some env0 => match restore_assembly env0 sel_aid with
+                               | None => None
+                               | Some env =>
+                                   Some (env, {| acenvs := env :: List.filter (fun e => negb (String.eqb (aid e.(cur_assembly)) (aid env0.(cur_assembly)))) ac0.(acenvs);
+                                                 acsize := ac0.(acsize); acwriteenv := ac0.(acwriteenv); acconfig := ac0.(acconfig);
+                                                 acreadq := ac0.(acreadq); acwriteq := ac0.(acwriteq) |})
+                               end
                 end
             end
     end.
@@ -143,10 +148,13 @@ Program Fixpoint run_read_requests (ac0 : assemblycache) (reqs : list readqueuee
     | nil => (res, ac0)
     | h :: r =>
         let aid := h.(qaid) in
-        let (env, ac1) := ensure_assembly ac0 aid in
-        let buf := BufferPlain.buffer_create h.(qrlen) in
-        let _ := assembly_get_content (id_assembly_full_buffer_from_writable env.(cur_buffer)) h.(qrlen) h.(qapos) buf in
-        run_read_requests ac1 r ({| readrequest := h; rresult := buf |} :: res)
+        match ensure_assembly ac0 aid with
+        | None => (res, ac0)
+        | Some (env, ac1) =>
+            let buf := BufferPlain.buffer_create h.(qrlen) in
+            let _ := assembly_get_content (id_assembly_full_buffer_from_writable env.(cur_buffer)) h.(qrlen) h.(qapos) buf in
+            run_read_requests ac1 r ({| readrequest := h; rresult := buf |} :: res)
+        end
     end.
 
 Program Fixpoint run_write_requests (ac0 : assemblycache) (reqs : list writequeueentity) (res : list writequeueresult) : (list writequeueresult * assemblycache) :=

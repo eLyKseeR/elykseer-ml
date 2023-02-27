@@ -43,15 +43,10 @@ let ensure_assembly e relk aid =
   match%lwt Relkeys.find aid relk with
   | None -> Lwt.return @@ Error "no key found"
   | Some ki ->
-    let config : Configuration.configuration = { config_nchunks = ki.localnchunks;
-                   path_chunks = e.config.path_chunks; path_db = e.config.path_db;
-                   my_id = ki.localid } in
-    let ai : Assembly.assemblyinformation = { nchunks = ki.localnchunks; aid = aid; apos = Conversion.i2n 0 } in
-    match Assembly.recall config ai with
-    | None -> Lwt.return @@ Error "cannot recall assembly"
-    | Some (a,b) -> match Assembly.decrypt a b ki with
-      | None -> Lwt.return @@ Error "failed to decrypt"
-      | Some (a',b') -> Lwt.return @@ Ok (a',b')
+    let e1 = Environment.env_add_aid_key aid e ki in
+    match Environment.restore_assembly e1 aid with
+    | None -> Lwt.return @@ Error "failed to restore assembly"
+    | Some e2 -> Lwt.return @@ Ok (e2.cur_assembly, e2.cur_buffer)
 
 let restore_file_blocks e0 relk fptr (fb : Assembly.blockinformation) =
   match%lwt ensure_assembly e0 relk fb.blockaid with

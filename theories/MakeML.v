@@ -6,6 +6,7 @@ Require Import ZArith NArith.
 Open Scope positive_scope.
 
 From LXR Require Import Assembly.
+From LXR Require Import AssemblyCache.
 From LXR Require Import BackupPlanner.
 From LXR Require Import Buffer.
 From LXR Require Import Configuration.
@@ -194,4 +195,5 @@ Extract Constant get_file_information =>
    ".
 
 (* extract into "lxr.ml" all named modules and definitions, and their dependencies *)
-Extraction "lxr.ml"  Version Conversion Utilities Filetypes Filesupport Nchunks Assembly Configuration Environment Buffer BackupPlanner.
+Extraction "lxr.ml"  Version Conversion Utilities Filetypes Filesupport Nchunks Assembly
+                     Configuration Environment Buffer BackupPlanner AssemblyCache.

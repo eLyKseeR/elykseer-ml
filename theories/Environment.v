@@ -59,6 +59,29 @@ Definition env_add_aid_key (aid : string) (e : environment) (ki : keyinformation
     ;  keys := (aid,ki) :: keys e
     |}.
 
+(* find a key for an aid *)
+Definition key_for_aid (e : environment) (aid : Assembly.aid_t) : option keyinformation :=
+    match List.filter (fun e => String.eqb (fst e) aid) e.(keys) with
+    | nil => None
+    | (_,ki) :: _ => Some ki
+    end.
+
+(* the decryption key needs to be preloaded in the key list *)
+Definition restore_assembly (e0 : environment) (aid : Assembly.aid_t) : option environment :=
+    match key_for_aid e0 aid with
+    | None => None
+    | Some k =>
+        match Assembly.recall e0.(config) {| nchunks := Configuration.config_nchunks (config e0); aid := aid; apos := 0 |} with
+        | None => None
+        | Some (a1, b1) =>
+            match Assembly.decrypt a1 b1 k with
+            | None => None
+            | Some (a2, b2) =>
+                Some {| cur_assembly := a2; cur_buffer := b2; config := e0.(config); fblocks := e0.(fblocks); keys := e0.(keys) |}
+            end
+        end
+    end.
+
 Axiom cpp_mk_key256 : unit -> string.
 Axiom cpp_mk_key128 : unit -> string.
 Definition finalise_assembly (e0 : environment) : environment :=
