@@ -6,7 +6,7 @@ Module Export AssemblyCache.
 
 Require Import Program.
 Require Import NArith PArith.
-From Coq Require Import NArith.BinNat Lists.List Strings.String.
+From Coq Require Import NArith.BinNat Lists.List Strings.String Lia.
 
 Open Scope N_scope.
 Open Scope list_scope.
@@ -62,16 +62,20 @@ Record assemblycache : Type :=
     mkassemblycache
         { acenvs : list environment
         ; acsize : nat
+            (* ^ read environments of a fixed maximal size *)
         ; acwriteenv : environment
+            (* ^ write environment, exactly one *)
         ; acconfig : configuration
+            (* ^ configuration needed to create new assemblies *)
         ; acwriteq : writequeue
+            (* ^ writer queue *)
         ; acreadq : readqueue
+            (* ^ reader queue *)
         }.
 
 
 Definition prepare_assemblycache (c : configuration) (size : positive) : assemblycache :=
-    (* let celist := Utilities.make_list size in *)
-    {| acenvs := nil (* List.map (fun _i => Environment.initial_environment c) celist *)
+    {| acenvs := nil
      ; acsize := Pos.to_nat size
      ; acwriteenv := Environment.initial_environment c
      ; acconfig := c
@@ -105,7 +109,7 @@ Fixpoint last_opt { a : Type } (l : list a) : option a :=
     | _a :: l => last_opt l
     end.
 
-(* ensure that an environment with assembly (by aid) is available 
+(* ensure that an environment with assembly (by aid) is available
    and that it is in the head position of the list of envs *)
 Program Definition ensure_assembly (ac0 : assemblycache) (sel_aid : Assembly.aid_t) : option (environment * assemblycache) :=
     match ac0.(acenvs) with
@@ -116,15 +120,20 @@ Program Definition ensure_assembly (ac0 : assemblycache) (sel_aid : Assembly.aid
            Some (env, {| acenvs := env :: nil; acsize := ac0.(acsize); acwriteenv := ac0.(acwriteenv); acconfig := ac0.(acconfig);
                          acreadq := ac0.(acreadq); acwriteq := ac0.(acwriteq) |})
         end
-    | e1 :: r => if String.eqb (aid e1.(cur_assembly)) sel_aid then Some (e1, ac0)
+    | e1 :: r =>
+        if String.eqb (aid e1.(cur_assembly)) sel_aid then
+            (* found in first position *)
+            Some (e1, ac0)
         else
             let found := List.filter (fun e => String.eqb (aid e.(cur_assembly)) sel_aid) r in
             match found with
             | efound :: _ =>
+                (* found further down -> move to first position *)
                 Some (efound, {| acenvs := efound :: e1 :: List.filter (fun e => negb (String.eqb (aid e.(cur_assembly)) sel_aid)) r;
                                  acsize := ac0.(acsize); acwriteenv := ac0.(acwriteenv); acconfig := ac0.(acconfig);
                                  acreadq := ac0.(acreadq); acwriteq := ac0.(acwriteq) |})
             | nil =>
+                (* last position (not) filled? *)
                 match last_opt r with
                 | None => match restore_assembly (Environment.initial_environment ac0.(acconfig)) sel_aid with
                           | None => None
@@ -197,8 +206,83 @@ Program Definition iterate_write_queue (ac0 : assemblycache) : (list writequeuer
 
 (* finalise and extract from writable environment *)
 Program Definition close (ac0 : assemblycache) : assemblycache :=
-    let env := finalise_assembly ac0.(acwriteenv) in
+    let env := Environment.finalise_assembly ac0.(acwriteenv) in
     {| acenvs := nil; acsize := ac0.(acsize); acwriteenv := env; acconfig := ac0.(acconfig);
        acreadq := ac0.(acreadq); acwriteq := ac0.(acwriteq) |}.
+
+
+
+Section Lemmas.
+
+Lemma emptyread_id : forall c k, let ac := prepare_assemblycache c k in iterate_read_queue ac = (nil, ac).
+Proof.
+    intros.
+    unfold iterate_read_queue. simpl.
+    trivial.
+Qed.
+
+Lemma emptywrite_id : forall c k, let ac := prepare_assemblycache c k in iterate_write_queue ac = (nil, ac).
+Proof.
+    intros.
+    unfold iterate_write_queue. simpl.
+    trivial.
+Qed.
+
+(* Theorem ensure_any_assembly : forall ac said env, ensure_assembly ac said = Some (env,ac).
+Proof.
+    intros. Admitted. *)
+
+Axiom run_read_requests_same_length : forall ac reqs,
+    let len1 := List.length reqs in
+    let (lres, _) := run_read_requests ac reqs nil in
+    let len2 := List.length lres in
+    len1 = len2.
+(* Proof.
+    induction reqs. intros.
+    - simpl. reflexivity.
+    - admit.
+Admitted.  *)
+
+Theorem read_returns_same_length : forall ac reqs,
+    let len1 := List.length reqs in
+    let (lres, ac') := (run_read_requests ac reqs nil) in
+    let len2 := List.length lres in
+    len1 = len2.
+Proof.
+    intros.
+    induction reqs. simpl.
+    - reflexivity.
+    - apply run_read_requests_same_length. 
+Qed.
+
+Lemma singleread_empty : forall c,
+    let ac := prepare_assemblycache c 3 in
+    let readreq := (mkreadqueueentity "someaid" 123 457) in
+    let (true,ac') := enqueue_read_request ac readreq in
+    let (readres, ac'') := iterate_read_queue ac' in
+    List.length readres = S 0.
+Proof.
+    intros.
+    unfold enqueue_read_request. simpl.
+    unfold iterate_read_queue.
+    set (currac := {|
+        acenvs := nil;
+        acsize := Pos.to_nat 3;
+        acwriteenv := initial_environment c;
+        acconfig := c;
+        acwriteq :=
+          {| wqueue := nil; wqueuesz := qsize |};
+        acreadq :=
+          {| rqueue := readreq :: nil; rqueuesz := qsize |}
+      |}).
+    (* generalize rqueue (acreadq currac).  *)
+    replace (rqueue (acreadq currac)) with (readreq :: nil).
+    unfold filter.
+    - admit. (* looks like OK; TODO *)
+    - reflexivity. 
+Admitted.
+
+End Lemmas.
+
 
 End AssemblyCache.
