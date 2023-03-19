@@ -18,6 +18,10 @@ type comparison =
 
 val add : nat -> nat -> nat
 
+val eqb : nat -> nat -> bool
+
+val leb : nat -> nat -> bool
+
 type positive =
 | XI of positive
 | XO of positive
@@ -116,6 +120,8 @@ module N :
 
   val of_nat : nat -> n
  end
+
+val removelast : 'a1 list -> 'a1 list
 
 val rev : 'a1 list -> 'a1 list
 
@@ -529,7 +535,12 @@ module AssemblyCache :
   val enqueue_read_request :
     assemblycache -> readqueueentity -> bool * assemblycache
 
-  val last_opt : 'a1 list -> 'a1 option
+  val try_restore_assembly :
+    Configuration.configuration -> Assembly.aid_t -> Environment.environment
+    option
+
+  val set_envs :
+    assemblycache -> Environment.environment list -> assemblycache
 
   val ensure_assembly :
     assemblycache -> Assembly.aid_t ->
@@ -548,6 +559,8 @@ module AssemblyCache :
 
   val iterate_write_queue :
     assemblycache -> writequeueresult list * assemblycache
+
+  val flush : assemblycache -> assemblycache
 
   val close : assemblycache -> assemblycache
  end

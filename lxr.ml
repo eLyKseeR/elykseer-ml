@@ -41,6 +41,26 @@ module Coq__1 = struct
 end
 include Coq__1
 
+(** val eqb : nat -> nat -> bool **)
+
+let rec eqb n0 m =
+  match n0 with
+  | O -> (match m with
+          | O -> true
+          | S _ -> false)
+  | S n' -> (match m with
+             | O -> false
+             | S m' -> eqb n' m')
+
+(** val leb : nat -> nat -> bool **)
+
+let rec leb n0 m =
+  match n0 with
+  | O -> true
+  | S n' -> (match m with
+             | O -> false
+             | S m' -> leb n' m')
+
 type positive =
 | XI of positive
 | XO of positive
@@ -390,6 +410,14 @@ module N =
   | O -> N0
   | S n' -> Npos (Coq_Pos.of_succ_nat n')
  end
+
+(** val removelast : 'a1 list -> 'a1 list **)
+
+let rec removelast = function
+| [] -> []
+| a :: l0 -> (match l0 with
+              | [] -> []
+              | _ :: _ -> a :: (removelast l0))
 
 (** val rev : 'a1 list -> 'a1 list **)
 
@@ -1276,7 +1304,7 @@ module Environment =
   let finalise_assembly e0 =
     let a0 = e0.cur_assembly in
     let apos0 = a0.Assembly.apos in
-    if N.leb (Npos XH) apos0
+    if N.ltb N0 apos0
     then let (a, b) = Assembly.finish a0 e0.cur_buffer in
          let ki = { Assembly.ivec = (cpp_mk_key128 ()); Assembly.pkey =
            (cpp_mk_key256 ()); Assembly.localid =
@@ -1479,13 +1507,21 @@ module AssemblyCache =
            acreadq = { rqueue = (app ac.acreadq.rqueue (req :: []));
            rqueuesz = ac.acreadq.rqueuesz } })
 
-  (** val last_opt : 'a1 list -> 'a1 option **)
+  (** val try_restore_assembly :
+      Configuration.configuration -> Assembly.aid_t ->
+      Environment.environment option **)
 
-  let rec last_opt = function
-  | [] -> None
-  | _a :: l0 -> (match l0 with
-                 | [] -> Some _a
-                 | _ :: _ -> last_opt l0)
+  let try_restore_assembly config0 sel_aid =
+    Environment.restore_assembly (Environment.initial_environment config0)
+      sel_aid
+
+  (** val set_envs :
+      assemblycache -> Environment.environment list -> assemblycache **)
+
+  let set_envs ac0 envs =
+    { acenvs = envs; acsize = ac0.acsize; acwriteenv = ac0.acwriteenv;
+      acconfig = ac0.acconfig; acwriteq = ac0.acwriteq; acreadq =
+      ac0.acreadq }
 
   (** val ensure_assembly :
       assemblycache -> Assembly.aid_t ->
@@ -1495,64 +1531,53 @@ module AssemblyCache =
     let filtered_var = ac0.acenvs in
     (match filtered_var with
      | [] ->
-       let filtered_var0 =
-         Environment.restore_assembly
-           (Environment.initial_environment ac0.acconfig) sel_aid
-       in
+       let filtered_var0 = try_restore_assembly ac0.acconfig sel_aid in
        (match filtered_var0 with
-        | Some env ->
-          Some (env, { acenvs = (env :: []); acsize = ac0.acsize;
-            acwriteenv = ac0.acwriteenv; acconfig = ac0.acconfig; acwriteq =
-            ac0.acwriteq; acreadq = ac0.acreadq })
+        | Some env -> Some (env, (set_envs ac0 (env :: [])))
         | None -> None)
      | e1 :: r ->
-       if (=) e1.Environment.cur_assembly.Assembly.aid sel_aid
-       then Some (e1, ac0)
-       else let found =
-              filter (fun e ->
-                (=) e.Environment.cur_assembly.Assembly.aid sel_aid) r
-            in
-            (match found with
-             | [] ->
-               let filtered_var0 = last_opt r in
+       (match r with
+        | [] ->
+          if (=) e1.Environment.cur_assembly.Assembly.aid sel_aid
+          then Some (e1, ac0)
+          else let filtered_var0 = try_restore_assembly ac0.acconfig sel_aid
+               in
                (match filtered_var0 with
-                | Some env0 ->
-                  let filtered_var1 =
-                    Environment.restore_assembly env0 sel_aid
+                | Some env ->
+                  if eqb ac0.acsize (S O)
+                  then Some (env, (set_envs ac0 (env :: [])))
+                  else Some (env, (set_envs ac0 (env :: (e1 :: []))))
+                | None -> None)
+        | e :: l ->
+          let r0 = e :: l in
+          if (=) e1.Environment.cur_assembly.Assembly.aid sel_aid
+          then Some (e1, ac0)
+          else let found =
+                 filter (fun e0 ->
+                   (=) e0.Environment.cur_assembly.Assembly.aid sel_aid) r0
+               in
+               (match found with
+                | [] ->
+                  let filtered_var0 =
+                    try_restore_assembly ac0.acconfig sel_aid
                   in
-                  (match filtered_var1 with
+                  (match filtered_var0 with
                    | Some env ->
-                     Some (env, { acenvs =
-                       (env :: (filter (fun e ->
-                                 negb
-                                   ((=)
-                                     e.Environment.cur_assembly.Assembly.aid
-                                     env0.Environment.cur_assembly.Assembly.aid))
-                                 ac0.acenvs)); acsize = ac0.acsize;
-                       acwriteenv = ac0.acwriteenv; acconfig = ac0.acconfig;
-                       acwriteq = ac0.acwriteq; acreadq = ac0.acreadq })
+                     let lr =
+                       if leb ac0.acsize (length ac0.acenvs)
+                       then removelast ac0.acenvs
+                       else ac0.acenvs
+                     in
+                     Some (env, (set_envs ac0 (env :: lr)))
                    | None -> None)
-                | None ->
-                  let filtered_var1 =
-                    Environment.restore_assembly
-                      (Environment.initial_environment ac0.acconfig) sel_aid
+                | efound :: _ ->
+                  let r' =
+                    filter (fun e0 ->
+                      negb
+                        ((=) e0.Environment.cur_assembly.Assembly.aid sel_aid))
+                      r0
                   in
-                  (match filtered_var1 with
-                   | Some env ->
-                     Some (env, { acenvs = (env :: ac0.acenvs); acsize =
-                       ac0.acsize; acwriteenv = ac0.acwriteenv; acconfig =
-                       ac0.acconfig; acwriteq = ac0.acwriteq; acreadq =
-                       ac0.acreadq })
-                   | None -> None))
-             | efound :: _ ->
-               Some (efound, { acenvs =
-                 (efound :: (e1 :: (filter (fun e ->
-                                     negb
-                                       ((=)
-                                         e.Environment.cur_assembly.Assembly.aid
-                                         sel_aid)) r))); acsize = ac0.acsize;
-                 acwriteenv = ac0.acwriteenv; acconfig = ac0.acconfig;
-                 acwriteq = ac0.acwriteq; acreadq = ac0.acreadq })))
+                  Some (efound, (set_envs ac0 (efound :: (e1 :: r')))))))
 
   (** val run_read_requests :
       assemblycache -> readqueueentity list -> readqueueresult list ->
@@ -1620,6 +1645,13 @@ module AssemblyCache =
          wqueuesz = ac0.acwriteq.wqueuesz }; acreadq = ac0.acreadq }
        in
        run_write_requests ac1 (h :: r) [])
+
+  (** val flush : assemblycache -> assemblycache **)
+
+  let flush ac0 =
+    let env = Environment.finalise_and_recreate_assembly ac0.acwriteenv in
+    { acenvs = []; acsize = ac0.acsize; acwriteenv = env; acconfig =
+    ac0.acconfig; acwriteq = ac0.acwriteq; acreadq = ac0.acreadq }
 
   (** val close : assemblycache -> assemblycache **)
 

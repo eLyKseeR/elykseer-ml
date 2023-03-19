@@ -87,7 +87,7 @@ Axiom cpp_mk_key128 : unit -> string.
 Definition finalise_assembly (e0 : environment) : environment :=
     let a0 := cur_assembly e0 in
     let apos := apos a0 in
-    if N.leb 1 apos then
+    if N.ltb 0 apos then
         let (a,b) := Assembly.finish a0 (cur_buffer e0) in
         let ki := {| pkey := cpp_mk_key256 tt
                    ; ivec := cpp_mk_key128 tt
