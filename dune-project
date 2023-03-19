@@ -1,4 +1,5 @@
 (lang dune 3.0)
+(cram enable)
 
 (name elykseer)
 
@@ -34,4 +35,22 @@
    "data archive")
  )
 )
-; See the complete stanza docs at https://dune.readthedocs.io/en/stable/dune-files.html#dune-project
+
+(package
+  (name elykseer_base)
+  (synopsis "eLyKseeR base support code")
+  (depends
+    (ocaml (>= 4.12.0))
+    (elykseer (= :version))
+    unix sha mlcpp_cstdio mlcpp_filesystem elykseer_crypto)
+)
+
+(package
+  (name elykseer_utils)
+  (synopsis "eLyKseeR utility code")
+  (depends
+    (ocaml (>= 4.12.0))
+    (elykseer (= :version))
+    yojson mlcpp_cstdio mlcpp_filesystem elykseer_crypto)
+)
+
