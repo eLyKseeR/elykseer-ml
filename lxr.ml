@@ -1162,45 +1162,6 @@ module Assembly =
     else None
  end
 
-module Filetypes =
- struct
-  type filename = string
-
-  type fileinformation = { fname : filename; fsize : n; fowner : string;
-                           fpermissions : n; fmodified : string;
-                           fchecksum : string }
-
-  (** val fname : fileinformation -> filename **)
-
-  let fname f =
-    f.fname
-
-  (** val fsize : fileinformation -> n **)
-
-  let fsize f =
-    f.fsize
-
-  (** val fowner : fileinformation -> string **)
-
-  let fowner f =
-    f.fowner
-
-  (** val fpermissions : fileinformation -> n **)
-
-  let fpermissions f =
-    f.fpermissions
-
-  (** val fmodified : fileinformation -> string **)
-
-  let fmodified f =
-    f.fmodified
-
-  (** val fchecksum : fileinformation -> string **)
-
-  let fchecksum f =
-    f.fchecksum
- end
-
 module Environment =
  struct
   type environment = { cur_assembly : Assembly.AssemblyPlainWritable.coq_H;
@@ -1663,17 +1624,52 @@ module AssemblyCache =
 
 module Filesupport =
  struct
-  (** val get_file_information :
-      Filetypes.filename -> Filetypes.fileinformation **)
+  type filename = string
+
+  type fileinformation = { fname : filename; fsize : n; fowner : string;
+                           fpermissions : n; fmodified : string;
+                           fchecksum : string }
+
+  (** val fname : fileinformation -> filename **)
+
+  let fname f =
+    f.fname
+
+  (** val fsize : fileinformation -> n **)
+
+  let fsize f =
+    f.fsize
+
+  (** val fowner : fileinformation -> string **)
+
+  let fowner f =
+    f.fowner
+
+  (** val fpermissions : fileinformation -> n **)
+
+  let fpermissions f =
+    f.fpermissions
+
+  (** val fmodified : fileinformation -> string **)
+
+  let fmodified f =
+    f.fmodified
+
+  (** val fchecksum : fileinformation -> string **)
+
+  let fchecksum f =
+    f.fchecksum
+
+  (** val get_file_information : filename -> fileinformation **)
 
   let get_file_information =   
     fun fn ->
-        { Filetypes.fname = fn;
-          Filetypes.fsize = Conversion.i2n (Elykseer_base.Fsutils.fsize fn);
-          Filetypes.fowner = string_of_int (Elykseer_base.Fsutils.fowner fn);
-          Filetypes.fpermissions = Conversion.i2n (Elykseer_base.Fsutils.fperm fn);
-          Filetypes.fmodified = Elykseer_base.Fsutils.fmod fn;
-          Filetypes.fchecksum = Elykseer_base.Fsutils.fchksum fn }
+        { fname = fn;
+          fsize = Conversion.i2n (Elykseer_base.Fsutils.fsize fn);
+          fowner = string_of_int (Elykseer_base.Fsutils.fowner fn);
+          fpermissions = Conversion.i2n (Elykseer_base.Fsutils.fperm fn);
+          fmodified = Elykseer_base.Fsutils.fmod fn;
+          fchecksum = Elykseer_base.Fsutils.fchksum fn }
    
  end
 
@@ -1696,10 +1692,10 @@ module BackupPlanner =
   let fbsz f =
     f.fbsz
 
-  type fileblockinformation = { fbifi : Filetypes.fileinformation;
+  type fileblockinformation = { fbifi : Filesupport.fileinformation;
                                 fbifblocks : fileblock list }
 
-  (** val fbifi : fileblockinformation -> Filetypes.fileinformation **)
+  (** val fbifi : fileblockinformation -> Filesupport.fileinformation **)
 
   let fbifi f =
     f.fbifi
@@ -1762,7 +1758,7 @@ module BackupPlanner =
 
   let analyse_file nchunks0 afree_p anum_p fn =
     let fi = Filesupport.get_file_information fn in
-    let nblocks = N.div fi.Filetypes.fsize max_block_size in
+    let nblocks = N.div fi.Filesupport.fsize max_block_size in
     let fuel =
       N.to_nat
         (N.add (N.add nblocks (N.div nblocks (Conversion.pos2N nchunks0)))
@@ -1770,7 +1766,7 @@ module BackupPlanner =
     in
     let (afbs, ares) =
       prepare_blocks nchunks0 max_block_size fuel anum_p afree_p [] N0
-        fi.Filetypes.fsize
+        fi.Filesupport.fsize
     in
     (ares, { fbifi = fi; fbifblocks = (rev afbs) })
  end

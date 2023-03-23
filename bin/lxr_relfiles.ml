@@ -39,7 +39,7 @@ let mk_rel n aid rel =
   let rnd = Elykseer_crypto.Random.with_rng (fun rng -> Elykseer_crypto.Random.r32_range rng 1 12) in
   let blocks : Assembly.blockinformation list = mk_blocks rnd aid 1200 0 in
   let fname = Printf.sprintf "test_%04d.dat" n in
-  let fi : Filetypes.fileinformation = {fname = fname
+  let fi : Filesupport.fileinformation = {fname = fname
            ;fsize = Conversion.i2n @@ List.fold_left (fun acc (e : Assembly.blockinformation) -> (Conversion.n2i e.blocksize) + acc) 0 blocks
            ;fowner = ""; fpermissions = Conversion.i2n 644; fmodified = ""; fchecksum = ""} in
   let fhash = sha256 fname in

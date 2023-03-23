@@ -9,7 +9,7 @@ module Git_info = Irmin_unix.Info(Git_store.Info)
 type t = Git_store.t
 
 type relation = {
-  rfi : Filetypes.fileinformation;
+  rfi : Filesupport.fileinformation;
   rfbs : Assembly.blockinformation list
 }
 
@@ -34,7 +34,7 @@ let version_obj : Git_store.contents =
     ; "minor", `String Version.minor
     ; "build", `String Version.build ]
 
-let fi2json_v1 (fi : Filetypes.fileinformation) : Git_store.contents =
+let fi2json_v1 (fi : Filesupport.fileinformation) : Git_store.contents =
   `O [ "fname", `String fi.fname
      ; "fsize", `String (string_of_int (Conversion.n2i fi.fsize))
      ; "fowner", `String fi.fowner
@@ -68,7 +68,7 @@ let add fhash relation db =
     with Failure e -> Lwt_io.eprintlf "error : %s" e in
   Lwt.return db
 
-let json2fi_v1 fi : Filetypes.fileinformation =
+let json2fi_v1 fi : Filesupport.fileinformation =
     { fname = Relutils.get_str "fname" fi
     ; fsize = Relutils.get_int "fsize" fi |> Conversion.i2n
     ; fowner = Relutils.get_str "fowner" fi
