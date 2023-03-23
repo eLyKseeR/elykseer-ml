@@ -92,7 +92,7 @@ let rec additional_fblocks' (maxfb : Assembly.blockinformation) fsz acc =
 let additional_fblocks (maxfb : Assembly.blockinformation) fsz =
   additional_fblocks' maxfb fsz []
 
-let make_fblocks (fi : Filetypes.fileinformation) (r : Relfiles.relation) =
+let make_fblocks (fi : Filesupport.fileinformation) (r : Relfiles.relation) =
   let fsz = fi.fsize in
   let cleanfbs = List.filter (fun (fb : Assembly.blockinformation) -> N.ltb fb.filepos fsz) r.rfbs in
   let fstb = List.hd cleanfbs in

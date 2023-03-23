@@ -13,7 +13,6 @@ Open Scope N_scope.
 From LXR Require Import Assembly.
 From LXR Require Import Buffer.
 From LXR Require Import Configuration.
-From LXR Require Import Filetypes.
 From LXR Require Import Nchunks.
 
 

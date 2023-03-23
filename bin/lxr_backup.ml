@@ -41,9 +41,9 @@ let curr_assembly_sz n = Conversion.n2i (Assembly.assemblysize n)
 (* data structure of a backup plan *)
 type backup_plan_file = {
   fhash : string;
-  curfi : Filetypes.fileinformation;
+  curfi : Filesupport.fileinformation;
   curbs : BackupPlanner.fileblock list;
-  reffi : Filetypes.fileinformation option;
+  reffi : Filesupport.fileinformation option;
   refbs : (Assembly.blockinformation list) option
 }
 type backup_plan = {

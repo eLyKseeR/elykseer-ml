@@ -13,7 +13,6 @@ From LXR Require Import Configuration.
 From LXR Require Import Conversion.
 From LXR Require Import Environment.
 From LXR Require Import Filesupport.
-From LXR Require Import Filetypes.
 From LXR Require Import Nchunks.
 From LXR Require Import Utilities.
 From LXR Require Import Version.
@@ -186,14 +185,14 @@ Extract Constant ext_load_chunk_from_path =>
 Extract Constant get_file_information =>
    "  
     fun fn ->
-        { Filetypes.fname = fn;
-          Filetypes.fsize = Conversion.i2n (Elykseer_base.Fsutils.fsize fn);
-          Filetypes.fowner = string_of_int (Elykseer_base.Fsutils.fowner fn);
-          Filetypes.fpermissions = Conversion.i2n (Elykseer_base.Fsutils.fperm fn);
-          Filetypes.fmodified = Elykseer_base.Fsutils.fmod fn;
-          Filetypes.fchecksum = Elykseer_base.Fsutils.fchksum fn }
+        { fname = fn;
+          fsize = Conversion.i2n (Elykseer_base.Fsutils.fsize fn);
+          fowner = string_of_int (Elykseer_base.Fsutils.fowner fn);
+          fpermissions = Conversion.i2n (Elykseer_base.Fsutils.fperm fn);
+          fmodified = Elykseer_base.Fsutils.fmod fn;
+          fchecksum = Elykseer_base.Fsutils.fchksum fn }
    ".
 
 (* extract into "lxr.ml" all named modules and definitions, and their dependencies *)
-Extraction "lxr.ml"  Version Conversion Utilities Filetypes Filesupport Nchunks Assembly
+Extraction "lxr.ml"  Version Conversion Utilities Filesupport Nchunks Assembly
                      Configuration Environment Buffer BackupPlanner AssemblyCache.

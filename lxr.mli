@@ -396,27 +396,6 @@ module Assembly :
     Buffer.BufferPlain.buffer_t option
  end
 
-module Filetypes :
- sig
-  type filename = string
-
-  type fileinformation = { fname : filename; fsize : n; fowner : string;
-                           fpermissions : n; fmodified : string;
-                           fchecksum : string }
-
-  val fname : fileinformation -> filename
-
-  val fsize : fileinformation -> n
-
-  val fowner : fileinformation -> string
-
-  val fpermissions : fileinformation -> n
-
-  val fmodified : fileinformation -> string
-
-  val fchecksum : fileinformation -> string
- end
-
 module Environment :
  sig
   type environment = { cur_assembly : Assembly.AssemblyPlainWritable.coq_H;
@@ -567,7 +546,25 @@ module AssemblyCache :
 
 module Filesupport :
  sig
-  val get_file_information : Filetypes.filename -> Filetypes.fileinformation
+  type filename = string
+
+  type fileinformation = { fname : filename; fsize : n; fowner : string;
+                           fpermissions : n; fmodified : string;
+                           fchecksum : string }
+
+  val fname : fileinformation -> filename
+
+  val fsize : fileinformation -> n
+
+  val fowner : fileinformation -> string
+
+  val fpermissions : fileinformation -> n
+
+  val fmodified : fileinformation -> string
+
+  val fchecksum : fileinformation -> string
+
+  val get_file_information : filename -> fileinformation
  end
 
 module BackupPlanner :
@@ -580,10 +577,10 @@ module BackupPlanner :
 
   val fbsz : fileblock -> n
 
-  type fileblockinformation = { fbifi : Filetypes.fileinformation;
+  type fileblockinformation = { fbifi : Filesupport.fileinformation;
                                 fbifblocks : fileblock list }
 
-  val fbifi : fileblockinformation -> Filetypes.fileinformation
+  val fbifi : fileblockinformation -> Filesupport.fileinformation
 
   val fbifblocks : fileblockinformation -> fileblock list
 

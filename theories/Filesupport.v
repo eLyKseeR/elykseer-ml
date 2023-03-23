@@ -9,7 +9,19 @@
 
 Module Export Filesupport.
 
-From LXR Require Import Filetypes.
+From Coq Require Import Strings.String.
+Require Import NArith.
+
+Definition filename := string.
+
+Record fileinformation : Type := mkfileinformation
+     { fname : filename
+     ; fsize : N
+     ; fowner : string
+     ; fpermissions : N
+     ; fmodified : string
+     ; fchecksum : string
+     }.
 
 Axiom get_file_information : filename -> fileinformation.
 

@@ -20,7 +20,6 @@ From LXR Require Import Configuration.
 From LXR Require Import Conversion.
 From LXR Require Import Environment.
 From LXR Require Import Filesupport.
-From LXR Require Import Filetypes.
 
 Open Scope string_scope.
 

@@ -3,7 +3,7 @@ open Elykseer__Lxr
 type t
 
 type relation = {
-    rfi : Filetypes.fileinformation;
+    rfi : Filesupport.fileinformation;
     rfbs : Assembly.blockinformation list
 }
 

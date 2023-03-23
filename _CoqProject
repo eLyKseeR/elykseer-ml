@@ -1,7 +1,6 @@
 -R theories LXR
 
 theories/Buffer.v
-theories/Filetypes.v
 theories/Filesupport.v
 theories/Environment.v
 theories/Nchunks.v
