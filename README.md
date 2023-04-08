@@ -29,3 +29,12 @@ Code generation
 
 3) build and run executable (shows help):
     `dune exec lxr_backup -- -h`
+
+Docker image
+============
+
+docker build -f Dockerfile -t elykseer-ml:latest . 
+
+docker run --rm -it elykseer-ml:latest
+
+
