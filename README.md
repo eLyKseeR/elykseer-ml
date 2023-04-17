@@ -33,8 +33,8 @@ Code generation
 Docker image
 ============
 
-docker build -f Dockerfile -t elykseer-ml:latest . 
+docker build -f Dockerfile -t codieplusplus/elykseer-ml:latest .
 
-docker run --rm -it elykseer-ml:latest
+docker run --rm -it codieplusplus/elykseer-ml:latest
 
 

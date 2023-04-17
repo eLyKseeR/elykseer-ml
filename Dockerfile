@@ -1,4 +1,3 @@
-#FROM arm64v8/alpine
 FROM alpine
 
 RUN addgroup -g 1000 coq \
