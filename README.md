@@ -33,8 +33,11 @@ Code generation
 Docker image
 ============
 
-docker build -f Dockerfile -t codieplusplus/elykseer-ml:latest .
+docker build -f Dockerfile -t codieplusplus/elykseer-ml:local .
+docker run --rm -it codieplusplus/elykseer-ml:local
 
-docker run --rm -it codieplusplus/elykseer-ml:latest
 
+#### experimenting with multiarch building
+
+`docker buildx build --platform linux/amd64,linux/arm64 -t codieplusplus/elykseer-ml:latest --push .`
 
