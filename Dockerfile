@@ -1,4 +1,4 @@
-FROM arm64v8/alpine
+FROM alpine:latest
 
 RUN addgroup -g 1000 coq \
     && adduser -u 1000 -G coq -s /bin/bash -D coq \
