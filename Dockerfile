@@ -1,5 +1,11 @@
 FROM alpine:latest
 
+# 
+LABEL org.opencontainers.image.source=https://github.com/eLyKseeR/elykseer-ml
+LABEL org.opencontainers.image.description="formally specified & verified implementation of eLyKseeR in Coq / OCaml"
+LABEL org.opencontainers.image.licenses=GPL-3.0-or-later
+
+
 RUN addgroup -g 1000 coq \
     && adduser -u 1000 -G coq -s /bin/bash -D coq \
     && apk update \

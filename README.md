@@ -1,22 +1,20 @@
 
-Preparations
-============
+# Preparations
 
 0.) `opam switch create $(pwd)/opam-4.14.0 4.14.0`
 
 1.) `eval $(opam env --set-switch --switch=$(pwd)/opam-4.14.0)`
 
 
-# newest version
+## Coq version used
 `opam pin add coq 8.15.1`
 
-# more packages
+## more packages
 `opam repo add coq-released https://coq.inria.fr/opam/released`
 
-opam install yojson lwt_ppx sha
+see the [Dockerfile](/Dockerfile) which other packages are installed.
 
-Code generation
-===============
+# Code generation
 
 0) create _Coq_'s Makefile
     `coq_makefile -f _CoqProject -o Makefile`
@@ -30,14 +28,201 @@ Code generation
 3) build and run executable (shows help):
     `dune exec lxr_backup -- -h`
 
-Docker image
-============
+# Dependencies
 
+* [elykseer-crypto](https://github.com/eLyKseeR/elykseer-crypto)
+  provides cryptographic primitives
+
+* [mlcpp_filesystem](https://github.com/CodiePP/ml-cpp-filesystem)
+  OCaml integration with C++ standard library &gt;filesystem&lt; module
+
+* [mlcpp_cstdio](https://github.com/CodiePP/ml-cpp-cstdio)
+  OCaml integration with C++ standard library &gt;cstdio&lt; module
+
+* [mlcpp_chrono](https://github.com/CodiePP/ml-cpp-chrono)
+  OCaml integration with C++ standard library &gt;chrono&lt; module
+
+# Docker image
+
+```sh
 docker build -f Dockerfile -t codieplusplus/elykseer-ml:local .
 docker run --rm -it codieplusplus/elykseer-ml:local
+```
 
 
 #### experimenting with multiarch building
 
+The images are available for Linux/amd64 and Linux/arm64 on [Docker hub](https://hub.docker.com/r/codieplusplus/elykseer-ml).
+
 `docker buildx build --platform linux/amd64,linux/arm64 -t codieplusplus/elykseer-ml:latest --push .`
+
+# Executables
+
+<details>
+<summary>Backup</summary>
+
+#### lxr_backup - backup files indicated on the command line to LXR
+
+```
+lxr_backup: vyxdnji
+  -v verbose output
+  -y dry run
+  -x sets output path for encrypted chunks
+  -d sets database path
+  -n sets number of chunks (16-256) per assembly
+  -j sets number of parallel processes
+  -i sets own identifier (positive number)
+  -help  Display this list of options
+  --help  Display this list of options
+```
+
+##### example
+
+This examples assumes that an _irmin_ database exists at path `/data/elykseer.db`.
+Create here a file `irmin.yml` with content:
+```
+root: /data/elykseer.db
+store: git
+contents: json-value
+```
+and initialise: `irmin init`
+
+Moreover, the environment variable `$MYID` contains a unique number to distinguish between setups.
+```
+MYID=424242
+```
+
+backup three files:
+
+`dune exec lxr_backup -- -v -x /data/elykseer.chunks -d /data/elykseer.db -n 16 -i $MYID ./test1M ./test4M ./test8M`
+
+compute file hash:
+
+`FHASH=$(./_build/default/bin/lxr_filehash.exe -f ./test1M)`
+
+get block meta data for this file as CSV output:
+
+```
+irmin get ${MYID}/relfiles/${FHASH:4:2}/${FHASH} | jq -r '
+  .blocks[] | [.blockaid,.blockapos,.filepos,.blocksize] | @csv' | awk "{print \"${FHASH},\"\$0}"
+```
+
+lists:
+```
+86b16ef62a8334325e612629cf25b26a77aaa0a59f50024ba9be5b3eb64d90b5,"0fd37df6acbce4a3c99a89161ce7f629aab205cac51cc71126dca0540c4ce437","0","0","131072"
+86b16ef62a8334325e612629cf25b26a77aaa0a59f50024ba9be5b3eb64d90b5,"0fd37df6acbce4a3c99a89161ce7f629aab205cac51cc71126dca0540c4ce437","131072","131072","131072"
+86b16ef62a8334325e612629cf25b26a77aaa0a59f50024ba9be5b3eb64d90b5,"0fd37df6acbce4a3c99a89161ce7f629aab205cac51cc71126dca0540c4ce437","262144","262144","131072"
+86b16ef62a8334325e612629cf25b26a77aaa0a59f50024ba9be5b3eb64d90b5,"0fd37df6acbce4a3c99a89161ce7f629aab205cac51cc71126dca0540c4ce437","393216","393216","131072"
+86b16ef62a8334325e612629cf25b26a77aaa0a59f50024ba9be5b3eb64d90b5,"0fd37df6acbce4a3c99a89161ce7f629aab205cac51cc71126dca0540c4ce437","524288","524288","131072"
+86b16ef62a8334325e612629cf25b26a77aaa0a59f50024ba9be5b3eb64d90b5,"0fd37df6acbce4a3c99a89161ce7f629aab205cac51cc71126dca0540c4ce437","655360","655360","131072"
+86b16ef62a8334325e612629cf25b26a77aaa0a59f50024ba9be5b3eb64d90b5,"0fd37df6acbce4a3c99a89161ce7f629aab205cac51cc71126dca0540c4ce437","786432","786432","131072"
+86b16ef62a8334325e612629cf25b26a77aaa0a59f50024ba9be5b3eb64d90b5,"0fd37df6acbce4a3c99a89161ce7f629aab205cac51cc71126dca0540c4ce437","917504","917504","131072"
+```
+
+</details>
+
+<details>
+<summary>Restore</summary>
+
+#### lxr_restore - restore file(s) from LXR
+
+```
+lxr_restore: vxodnji
+  -v verbose output
+  -x sets path for encrypted chunks
+  -o sets output path for restored files
+  -d sets database path
+  -n sets number of chunks (16-256) per assembly
+  -j sets number of parallel processes
+  -i sets own identifier (positive number)
+  -help  Display this list of options
+  --help  Display this list of options
+```
+
+##### example
+
+```
+./_build/default/bin/lxr_restore.exe -v -x /data/elykseer.chunks -d /data/elykseer.db -o /tmp/ -i $MYID test4M test8M
+```
+
+outputs:
+
+```
+  restoring 8388607 bytes in file 'test8M' from 64 blocks
++✅ 'test8M'    restored with 8388607 bytes in total
+  restoring 4194304 bytes in file 'test4M' from 32 blocks
++✅ 'test4M'    restored with 4194304 bytes in total
+  restored 2 files with 12582911 bytes in total
+```
+
+The files were extracted to `/tmp/` and can be compared with: `md5sum /tmp/test4M test4M /tmp/test8M test8M`
+
+```
+83b1a2506a5d1a50dd645ac59c35d147  /tmp/test4M
+83b1a2506a5d1a50dd645ac59c35d147  test4M
+e4379d58904294ab7ab6431191cd9801  /tmp/test8M
+e4379d58904294ab7ab6431191cd9801  test8M
+```
+
+</details>
+
+<details>
+<summary>Verify</summary>
+
+#### lxr_compare - compare file(s) against backuped blocks in LXR
+
+```
+lxr_compare: vdi
+  -v verbose output
+  -d sets database path
+  -i sets own identifier (positive number)
+  -help  Display this list of options
+  --help  Display this list of options
+```
+
+##### example
+```
+./_build/default/bin/lxr_compare.exe -v -d /data/elykseer.db -i $MYID ./test4M
+```
+
+outputs:
+
+```
+comparing file ./test4M against meta data
+ +✅ block 1@0=131072
+ +✅ block 2@131072=131072
+ +✅ block 3@262144=131072
+ +✅ block 4@393216=131072
+ +✅ block 5@524288=131072
+ +✅ block 6@655360=131072
+ +✅ block 7@786432=131072
+ +✅ block 8@917504=131072
+ +✅ block 9@1048576=131072
+ +✅ block 10@1179648=131072
+ +✅ block 11@1310720=131072
+ +✅ block 12@1441792=131072
+ +✅ block 13@1572864=131072
+ +✅ block 14@1703936=131072
+ +✅ block 15@1835008=131072
+ +✅ block 16@1966080=131072
+ +✅ block 17@2097152=131072
+ +✅ block 18@2228224=131072
+ +✅ block 19@2359296=131072
+ +✅ block 20@2490368=131072
+ +✅ block 21@2621440=131072
+ +✅ block 22@2752512=131072
+ +✅ block 23@2883584=131072
+ +✅ block 24@3014656=131072
+ +✅ block 25@3145728=131072
+ +✅ block 26@3276800=131072
+ +✅ block 27@3407872=131072
+ +✅ block 28@3538944=131072
+ +✅ block 29@3670016=131072
+ +✅ block 30@3801088=131072
+ +✅ block 31@3932160=131072
+ +✅ block 32@4063232=131072
+comparison of 1 file with 1 equal
+```
+
+</details>
 
