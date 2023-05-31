@@ -36,6 +36,8 @@ type z =
 | Zpos of positive
 | Zneg of positive
 
+val const : 'a1 -> 'a2 -> 'a1
+
 module Pos :
  sig
   type mask =
@@ -396,6 +398,14 @@ module Assembly :
     Buffer.BufferPlain.buffer_t option
  end
 
+type 't settable =
+  't -> 't
+  (* singleton inductive, whose constructor was Build_Settable *)
+
+type ('r, 't) setter = ('t -> 't) -> 'r -> 'r
+
+val set : ('a1 -> 'a2) -> ('a1, 'a2) setter -> ('a2 -> 'a2) -> 'a1 -> 'a1
+
 module Environment :
  sig
   type environment = { cur_assembly : Assembly.AssemblyPlainWritable.coq_H;
@@ -413,6 +423,8 @@ module Environment :
   val fblocks : environment -> (string * Assembly.blockinformation) list
 
   val keys : environment -> (string * Assembly.keyinformation) list
+
+  val etaX : environment settable
 
   val initial_environment : Configuration.configuration -> environment
 
