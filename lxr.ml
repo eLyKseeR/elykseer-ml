@@ -75,6 +75,11 @@ type z =
 | Zpos of positive
 | Zneg of positive
 
+(** val const : 'a1 -> 'a2 -> 'a1 **)
+
+let const a _ =
+  a
+
 module Pos =
  struct
   type mask =
@@ -1162,6 +1167,18 @@ module Assembly =
     else None
  end
 
+type 't settable =
+  't -> 't
+  (* singleton inductive, whose constructor was Build_Settable *)
+
+type ('r, 't) setter = ('t -> 't) -> 'r -> 'r
+
+(** val set :
+    ('a1 -> 'a2) -> ('a1, 'a2) setter -> ('a2 -> 'a2) -> 'a1 -> 'a1 **)
+
+let set _ setter0 =
+  setter0
+
 module Environment =
  struct
   type environment = { cur_assembly : Assembly.AssemblyPlainWritable.coq_H;
@@ -1197,6 +1214,12 @@ module Environment =
   let keys e =
     e.keys
 
+  (** val etaX : environment settable **)
+
+  let etaX x =
+    { cur_assembly = x.cur_assembly; cur_buffer = x.cur_buffer; config =
+      x.config; fblocks = x.fblocks; keys = x.keys }
+
   (** val initial_environment : Configuration.configuration -> environment **)
 
   let initial_environment c =
@@ -1207,22 +1230,34 @@ module Environment =
 
   let recreate_assembly e =
     let (a, b) = Assembly.AssemblyPlainWritable.create e.config in
-    { cur_assembly = a; cur_buffer = b; config = e.config; fblocks =
-    e.fblocks; keys = e.keys }
+    set (fun e0 -> e0.cur_assembly) (fun f ->
+      let h = fun r -> f r.cur_assembly in
+      (fun x -> { cur_assembly = (h x); cur_buffer = x.cur_buffer; config =
+      x.config; fblocks = x.fblocks; keys = x.keys })) (const a)
+      (set (fun e0 -> e0.cur_buffer) (fun f ->
+        let b0 = fun r -> f r.cur_buffer in
+        (fun x -> { cur_assembly = x.cur_assembly; cur_buffer = (b0 x);
+        config = x.config; fblocks = x.fblocks; keys = x.keys })) (const b) e)
 
   (** val env_add_file_block :
       string -> environment -> Assembly.blockinformation -> environment **)
 
   let env_add_file_block fname0 e bi =
-    { cur_assembly = e.cur_assembly; cur_buffer = e.cur_buffer; config =
-      e.config; fblocks = ((fname0, bi) :: e.fblocks); keys = e.keys }
+    set (fun e0 -> e0.fblocks) (fun f ->
+      let l = fun r -> f r.fblocks in
+      (fun x -> { cur_assembly = x.cur_assembly; cur_buffer = x.cur_buffer;
+      config = x.config; fblocks = (l x); keys = x.keys })) (fun bs ->
+      (fname0, bi) :: bs) e
 
   (** val env_add_aid_key :
       string -> environment -> Assembly.keyinformation -> environment **)
 
   let env_add_aid_key aid0 e ki =
-    { cur_assembly = e.cur_assembly; cur_buffer = e.cur_buffer; config =
-      e.config; fblocks = e.fblocks; keys = ((aid0, ki) :: e.keys) }
+    set (fun e0 -> e0.keys) (fun f ->
+      let l = fun r -> f r.keys in
+      (fun x -> { cur_assembly = x.cur_assembly; cur_buffer = x.cur_buffer;
+      config = x.config; fblocks = x.fblocks; keys = (l x) })) (fun ks ->
+      (aid0, ki) :: ks) e
 
   (** val key_for_aid :
       environment -> Assembly.aid_t -> Assembly.keyinformation option **)

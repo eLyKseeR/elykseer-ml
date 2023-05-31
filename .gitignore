@@ -38,3 +38,7 @@ test8M
 testCHAR
 
 *.swp
+
+/html
+/mlihtml
+

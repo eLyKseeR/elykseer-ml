@@ -5,7 +5,9 @@
 Module Export Environment.
 
 Require Import NArith PArith.
-From Coq Require Import NArith.BinNat Lists.List Strings.String.
+From Coq Require Import NArith.BinNat Lists.List Strings.String Program.Basics.
+
+From RecordUpdate Require Import RecordUpdate.
 
 (* Open Scope positive_scope. *)
 Open Scope N_scope.
@@ -25,6 +27,8 @@ Record environment : Type :=
         ; keys : list (string * Assembly.keyinformation)
         }.
 
+#[export] Instance etaX : Settable _ := settable! mkenvironment <cur_assembly; cur_buffer; config; fblocks; keys>.
+
 Definition initial_environment (c : configuration) : environment :=
     let (a,b) := AssemblyPlainWritable.create c in
     {| cur_assembly := a
@@ -36,27 +40,13 @@ Definition initial_environment (c : configuration) : environment :=
 
 Definition recreate_assembly (e : environment) : environment :=
     let (a,b) := AssemblyPlainWritable.create (config e) in
-    {| cur_assembly := a
-    ;  cur_buffer := b
-    ;  config := config e
-    ;  fblocks := fblocks e
-    ;  keys := keys e
-    |}.
+    set cur_assembly (const a) (set cur_buffer (const b) e).
+
 Definition env_add_file_block (fname : string) (e : environment) (bi : Assembly.blockinformation) : environment :=
-    {| cur_assembly := cur_assembly e
-    ;  cur_buffer := cur_buffer e
-    ;  config := config e
-    ;  fblocks := (fname,bi) :: fblocks e
-    ;  keys := keys e
-    |}.
+    set fblocks (fun bs => (fname,bi) :: bs) e.
 
 Definition env_add_aid_key (aid : string) (e : environment) (ki : keyinformation) : environment :=
-    {| cur_assembly := cur_assembly e
-    ;  cur_buffer := cur_buffer e
-    ;  config := config e
-    ;  fblocks := fblocks e
-    ;  keys := (aid,ki) :: keys e
-    |}.
+    set keys (fun ks => (aid,ki) :: ks) e.
 
 (* find a key for an aid *)
 Definition key_for_aid (e : environment) (aid : Assembly.aid_t) : option keyinformation :=
