@@ -2,9 +2,9 @@
       e L y K s e e R
 *)
 
-Module Export Utilities.
-
 Require Import PArith Lists.List Strings.String.
+
+Module Export Utilities.
 
 Section make_list.
 

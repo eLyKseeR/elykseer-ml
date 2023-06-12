@@ -316,9 +316,6 @@ module Assembly :
   val id_buffer_t_from_enc :
     AssemblyEncrypted.coq_B -> Buffer.BufferEncrypted.buffer_t
 
-  val id_enc_from_buffer_t :
-    Buffer.BufferEncrypted.buffer_t -> AssemblyEncrypted.coq_B
-
   val id_assembly_plain_buffer_t_from_buf :
     Buffer.BufferPlain.buffer_t -> AssemblyPlainWritable.coq_B
 
@@ -335,6 +332,9 @@ module Assembly :
   val ext_load_chunk_from_path :
     string -> Buffer.BufferEncrypted.buffer_t option
 
+  val id_enc_from_buffer_t :
+    Buffer.BufferEncrypted.buffer_t -> AssemblyEncrypted.coq_B
+
   val recall :
     Configuration.configuration -> AssemblyEncrypted.coq_H ->
     (AssemblyEncrypted.coq_H * AssemblyEncrypted.coq_B) option
@@ -348,9 +348,6 @@ module Assembly :
 
   val id_buffer_t_from_full :
     AssemblyPlainFull.coq_B -> Buffer.BufferPlain.buffer_t
-
-  val id_buffer_t_from_writable :
-    AssemblyPlainWritable.coq_B -> Buffer.BufferPlain.buffer_t
 
   val id_assembly_enc_buffer_t_from_buf :
     Buffer.BufferEncrypted.buffer_t -> AssemblyEncrypted.coq_B

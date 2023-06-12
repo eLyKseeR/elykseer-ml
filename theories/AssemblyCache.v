@@ -2,15 +2,9 @@
       e L y K s e e R
 *)
 
-Module Export AssemblyCache.
-
 Require Import Program.
 Require Import NArith PArith.
 From Coq Require Import NArith.BinNat Lists.List Strings.String Lia.
-
-Open Scope N_scope.
-Open Scope list_scope.
-Open Scope string_scope.
 
 From LXR Require Import Assembly.
 From LXR Require Import Buffer.
@@ -19,6 +13,12 @@ From LXR Require Import Conversion.
 From LXR Require Import Environment.
 From LXR Require Import Nchunks.
 From LXR Require Import Utilities.
+
+Module Export AssemblyCache.
+
+Open Scope N_scope.
+Open Scope list_scope.
+Open Scope string_scope.
 
 Record readqueueentity : Type :=
     mkreadqueueentity
@@ -168,14 +168,17 @@ Program Fixpoint run_read_requests (ac0 : assemblycache) (reqs : list readqueuee
         end
     end.
 
-Program Fixpoint run_write_requests (ac0 : assemblycache) (reqs : list writequeueentity) (res : list writequeueresult) : (list writequeueresult * assemblycache) :=
+Program Fixpoint run_write_requests (ac0 : assemblycache) (reqs : list writequeueentity) (res : list writequeueresult)
+                                  : (list writequeueresult * assemblycache) :=
     match reqs with
     | nil => (res, ac0)
     | h :: r =>
         let env := Environment.backup ac0.(acwriteenv) h.(qfhash) h.(qfpos) h.(qbuffer) in
         let ac1 := {| acenvs := ac0.(acenvs); acsize := ac0.(acsize); acwriteenv := env; acconfig := ac0.(acconfig);
                       acreadq := ac0.(acreadq); acwriteq := {| wqueue := nil; wqueuesz := wqueuesz ac0.(acwriteq) |} |} in
-        run_write_requests ac1 r ({| writerequest := h; wresult := {| qaid := aid env.(cur_assembly); qapos := apos env.(cur_assembly); qrlen := buffer_len h.(qbuffer) |} |} :: res)
+        run_write_requests ac1 r ({| writerequest := h;
+                                     wresult := {| qaid := env.(cur_assembly).(aid); qapos := env.(cur_assembly).(apos);
+                                                   qrlen := buffer_len h.(qbuffer) |} |} :: res)
     end.
 
 
@@ -189,7 +192,7 @@ Program Definition iterate_read_queue (ac0 : assemblycache) : (list readqueueres
         let aid := h.(qaid) in
         let sel := List.filter (fun e => String.eqb e.(qaid) aid) r in
         let ac1 := {| acenvs := ac0.(acenvs); acsize := ac0.(acsize); acwriteenv := ac0.(acwriteenv); acconfig := ac0.(acconfig);
-                      acreadq := {| rqueue := List.filter (fun e => negb (String.eqb e.(qaid) aid)) r; rqueuesz := rqueuesz ac0.(acreadq) |};
+                      acreadq := {| rqueue := List.filter (fun e => negb (String.eqb e.(qaid) aid)) r; rqueuesz := ac0.(acreadq).(rqueuesz) |};
                       acwriteq := ac0.(acwriteq)|} in
         run_read_requests ac1 (h :: sel) nil
     end.
@@ -222,15 +225,15 @@ Program Definition close (ac0 : assemblycache) : assemblycache :=
 
 Section Validation.
 
-(* the assembly with id "aid_found" exists and can be restored *)
-Axiom env_for_known_aid : forall e c,
+(* our database: the assembly with id "aid_found" exists and can be restored *)
+Axiom db_env_for_known_aid : forall e c,
     let env :=
         {| fblocks := e.(fblocks); keys := e.(keys); config := e.(config); cur_buffer := e.(cur_buffer);
         cur_assembly := mkassembly c.(config_nchunks) "aid_found" 0 |} in
     try_restore_assembly c "aid_found" = Some env.
 
 (* all other assemblies are not found. *)
-Axiom env_none_default : forall a c,
+Axiom db_env_none_default : forall a c,
     let env := initial_environment c in
     try_restore_assembly c a = None.
 
@@ -239,16 +242,17 @@ Lemma emptyread_id : forall c k, let ac := prepare_assemblycache c k in iterate_
 Proof.
     intros.
     unfold iterate_read_queue. simpl.
-    trivial.
+    reflexivity.
 Qed.
 
 Lemma emptywrite_id : forall c k, let ac := prepare_assemblycache c k in iterate_write_queue ac = (nil, ac).
 Proof.
     intros.
     unfold iterate_write_queue. simpl.
-    trivial.
+    reflexivity.
 Qed.
 
+Section Unfinished.
 Axiom run_read_requests_same_length : forall ac reqs,
     let len1 := List.length reqs in
     let (lres, _) := run_read_requests ac reqs nil in
@@ -271,7 +275,8 @@ Proof.
     induction reqs. simpl.
     - reflexivity.
     - apply run_read_requests_same_length. 
-Qed.
+Abort.
+End Unfinished.
 
 (* running the read queue with a single read request,
    returns exactly one result *)
@@ -288,7 +293,7 @@ Proof.
     unfold filter. simpl.
     unfold ensure_assembly. simpl.
     set (e0 := initial_environment Config).
-    rewrite env_for_known_aid with (e := e0).
+    rewrite db_env_for_known_aid with (e := e0).
     auto.
 Qed.
 
@@ -306,12 +311,12 @@ Proof.
     intro Config.
     unfold ensure_assembly. simpl.
     set (e0 := initial_environment Config).
-    rewrite env_for_known_aid with (e := e0).
+    rewrite db_env_for_known_aid with (e := e0).
     unfold set_envs. reflexivity.
 Qed.
 
-Axiom aid_of_initial_environment : forall c,
-    aid (cur_assembly (initial_environment c)) = "".
+(* Axiom aid_of_initial_environment : forall c,
+    aid (cur_assembly (initial_environment c)) = "". *)
 
 Example second_of3_env_for_not_filled_cache : forall c,
     let ac0 := prepare_assemblycache c 3 in
@@ -335,7 +340,7 @@ Proof.
     intro Config.
     unfold ensure_assembly. simpl.
     set (e0 := initial_environment Config).
-    rewrite env_for_known_aid with (e := e0).
+    rewrite db_env_for_known_aid with (e := e0).
     unfold set_envs. simpl. reflexivity.
 Qed.
 
@@ -361,7 +366,7 @@ Proof.
     intro Config.
     unfold ensure_assembly. simpl.
     set (e0 := initial_environment Config).
-    rewrite env_for_known_aid with (e := e0).
+    rewrite db_env_for_known_aid with (e := e0).
     unfold set_envs. simpl. reflexivity.
 Qed.
 
@@ -390,7 +395,7 @@ Proof.
     intro Config.
     unfold ensure_assembly. simpl.
     set (e0 := initial_environment Config).
-    rewrite env_for_known_aid with (e := e0).
+    rewrite db_env_for_known_aid with (e := e0).
     unfold set_envs. simpl. reflexivity.
 Qed.
 

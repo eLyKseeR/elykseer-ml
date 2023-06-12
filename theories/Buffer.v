@@ -2,6 +2,11 @@
       e L y K s e e R
 *)
 
+From Coq Require Import Strings.String.
+Require Import NArith.
+
+From LXR Require Import Conversion.
+
 Module Export Buffer.
 
 (**
@@ -13,11 +18,7 @@ Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
  
-From Coq Require Import Strings.String.
-Require Import NArith.
 Open Scope N_scope.
-
-From LXR Require Import Conversion.
 
 Inductive EncryptionState := Plain | Encrypted.
 
