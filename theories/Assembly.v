@@ -2,6 +2,12 @@
       e L y K s e e R
 *)
 
+From Coq Require Import Strings.String .
+Require Import ZArith NArith PArith.
+From Coq Require Import NArith.BinNat.
+
+From LXR Require Import Nchunks Buffer Configuration Conversion Utilities.
+
 Module Export Assembly.
 
 (**
@@ -15,16 +21,10 @@ Set Implicit Arguments.
 Unset Strict Implicit.
 (* Unset Printing Implicit Defensive. *)
 
-From Coq Require Import Strings.String .
-Require Import ZArith NArith PArith.
-From Coq Require Import NArith.BinNat.
 Open Scope positive_scope.
 Open Scope N_scope.
 Open Scope list_scope.
 Open Scope string_scope.
-
-From LXR Require Import Nchunks Buffer Configuration Conversion Utilities.
-
 
 Definition chunkwidth  : positive := 256%positive.
 Definition chunklength : positive := 1024%positive.
@@ -98,7 +98,6 @@ Section Code_Encrypted.
 (** operations on AssemblyEncrypted *)
 
 Axiom id_buffer_t_from_enc : AssemblyEncrypted.B -> BufferEncrypted.buffer_t.
-Axiom id_enc_from_buffer_t : BufferEncrypted.buffer_t -> AssemblyEncrypted.B.
 Axiom id_assembly_plain_buffer_t_from_buf : BufferPlain.buffer_t -> AssemblyPlainWritable.B.
 Program Definition decrypt (a : AssemblyEncrypted.H) (b : AssemblyEncrypted.B) (ki : keyinformation) : option (AssemblyPlainWritable.H * AssemblyPlainWritable.B) :=
     let a' := mkassembly (nchunks a) (aid a) 0 in
@@ -111,6 +110,7 @@ Axiom chunk_identifier_path : configuration -> aid_t -> positive -> string.
 
 Axiom ext_load_chunk_from_path : string -> option BufferEncrypted.buffer_t.
 
+Axiom id_enc_from_buffer_t : BufferEncrypted.buffer_t -> AssemblyEncrypted.B.
 Program Definition recall (c : configuration) (a : AssemblyEncrypted.H) : option (AssemblyEncrypted.H * AssemblyEncrypted.B) :=
     let cidlist := Utilities.make_list (nchunks a) in
     let b := BufferEncrypted.buffer_create (Conversion.pos2N (nchunks a) * chunksize_N) in
@@ -155,7 +155,7 @@ Section Code_Plain.
 (** operations on AssemblyPlain *)
 
 Axiom id_buffer_t_from_full : AssemblyPlainFull.B -> BufferPlain.buffer_t.
-Axiom id_buffer_t_from_writable : AssemblyPlainWritable.B -> BufferPlain.buffer_t.
+(* Axiom id_buffer_t_from_writable : AssemblyPlainWritable.B -> BufferPlain.buffer_t. *)
 Axiom id_assembly_enc_buffer_t_from_buf : BufferEncrypted.buffer_t -> AssemblyEncrypted.B.
 Axiom id_assembly_full_buffer_from_writable : AssemblyPlainWritable.B -> AssemblyPlainFull.B.
 

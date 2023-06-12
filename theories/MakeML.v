@@ -131,7 +131,7 @@ Extract Constant BufferPlain.to_buffer => "fun b -> Helper.cpp_buffer_id b".
 
 Extract Constant id_buffer_t_from_enc => "fun b -> Helper.cpp_buffer_id b".
 Extract Constant id_buffer_t_from_full => "fun b -> Helper.cpp_buffer_id b".
-Extract Constant id_buffer_t_from_writable => "fun b -> Helper.cpp_buffer_id b".
+(* Extract Constant id_buffer_t_from_writable => "fun b -> Helper.cpp_buffer_id b". *)
 Extract Constant id_assembly_plain_buffer_t_from_buf => "fun b -> Helper.cpp_buffer_id b".
 Extract Constant id_assembly_enc_buffer_t_from_buf => "fun b -> Helper.cpp_buffer_id b".
 Extract Constant id_enc_from_buffer_t => "fun b -> Helper.cpp_buffer_id b".

@@ -941,11 +941,6 @@ module Assembly =
 
   let id_buffer_t_from_enc = fun b -> Helper.cpp_buffer_id b
 
-  (** val id_enc_from_buffer_t :
-      Buffer.BufferEncrypted.buffer_t -> AssemblyEncrypted.coq_B **)
-
-  let id_enc_from_buffer_t = fun b -> Helper.cpp_buffer_id b
-
   (** val id_assembly_plain_buffer_t_from_buf :
       Buffer.BufferPlain.buffer_t -> AssemblyPlainWritable.coq_B **)
 
@@ -986,6 +981,11 @@ module Assembly =
   let ext_load_chunk_from_path = 
     fun fp -> Helper.load_chunk_from_path (Mlcpp_filesystem.Filesystem.Path.from_string fp)
    
+
+  (** val id_enc_from_buffer_t :
+      Buffer.BufferEncrypted.buffer_t -> AssemblyEncrypted.coq_B **)
+
+  let id_enc_from_buffer_t = fun b -> Helper.cpp_buffer_id b
 
   (** val recall :
       Configuration.configuration -> AssemblyEncrypted.coq_H ->
@@ -1045,11 +1045,6 @@ module Assembly =
       AssemblyPlainFull.coq_B -> Buffer.BufferPlain.buffer_t **)
 
   let id_buffer_t_from_full = fun b -> Helper.cpp_buffer_id b
-
-  (** val id_buffer_t_from_writable :
-      AssemblyPlainWritable.coq_B -> Buffer.BufferPlain.buffer_t **)
-
-  let id_buffer_t_from_writable = fun b -> Helper.cpp_buffer_id b
 
   (** val id_assembly_enc_buffer_t_from_buf :
       Buffer.BufferEncrypted.buffer_t -> AssemblyEncrypted.coq_B **)
@@ -1784,8 +1779,8 @@ module BackupPlanner =
   (** val max_block_size : n **)
 
   let max_block_size =
-    Npos (XO (XO (XO (XO (XO (XO (XO (XO (XO (XO (XO (XO (XO (XO (XO (XO (XO
-      XH)))))))))))))))))
+    N.mul (Npos (XO (XO (XO (XO (XO (XO (XO XH)))))))) (Npos (XO (XO (XO (XO
+      (XO (XO (XO (XO (XO (XO XH)))))))))))
 
   (** val analyse_file :
       positive -> n -> positive -> string ->
@@ -1821,7 +1816,7 @@ module Version =
   (** val build : string **)
 
   let build =
-    "2"
+    "4"
 
   (** val version : string **)
 

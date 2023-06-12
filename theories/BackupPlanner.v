@@ -4,15 +4,10 @@
 
 (** modeling backup of multiple files to LXR *)
 
-Module Export BackupPlanner.
-
-(** imports *)
 From Coq Require Import Strings.String Strings.Byte Lists.List Lia.
 (* Require Import Arith Number. *)
 Require Import ZArith NArith PArith.
 From Coq Require Import NArith.BinNat Program.Wf.
-Open Scope positive_scope.
-Open Scope N_scope.
 
 From LXR Require Import Assembly.
 From LXR Require Import Buffer.
@@ -21,6 +16,10 @@ From LXR Require Import Conversion.
 From LXR Require Import Environment.
 From LXR Require Import Filesupport.
 
+Module Export BackupPlanner.
+
+Open Scope positive_scope.
+Open Scope N_scope.
 Open Scope string_scope.
 
 Record fileblock : Type :=
@@ -77,7 +76,7 @@ End prepare_blocks.
 Section analyse_file.
 
 Variable nchunks : positive.
-Definition max_block_size : N := 131072.
+Definition max_block_size : N := 128 * 1024 (* 131072 *).
 
 Definition analyse_file (afree_p : N) (anum_p : positive) (fn : string) : (positive * N) * fileblockinformation :=
   (* Printf.printf "backup %s\n" fn; *)

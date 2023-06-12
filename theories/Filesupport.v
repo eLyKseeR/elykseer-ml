@@ -7,10 +7,10 @@
  Description: provides abstract definitions of file functions.
  *)
 
-Module Export Filesupport.
-
-From Coq Require Import Strings.String.
-Require Import NArith.
+ From Coq Require Import Strings.String.
+ Require Import NArith.
+ 
+ Module Export Filesupport.
 
 Definition filename := string.
 
