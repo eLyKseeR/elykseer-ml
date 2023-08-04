@@ -22,7 +22,7 @@ let c2j c = "{ \"config_nchunks\": \"" ^ (string_of_int @@ Conversion.n2i @@ Nch
           ^ ", \"my_id\": " ^ (string_of_int @@ Conversion.n2i @@ c.my_id) ^ " }"
 
 let pluralise s m =
-  let post = if m > 1 then "s" else "" in
-  s^post
+  if m > 1 then s^"s" else s
+
 let pluralise2 s1 s2 m =
   if m > 1 then s2 else s1

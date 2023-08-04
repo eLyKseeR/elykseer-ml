@@ -140,8 +140,9 @@ Extract Constant id_assembly_full_buffer_from_writable => "fun b -> Helper.cpp_b
 Extract Constant cpp_encrypt_buffer => "fun b iv pw -> Helper.cpp_encrypt_buffer b iv pw".
 Extract Constant cpp_decrypt_buffer => "fun b iv pw -> Helper.cpp_decrypt_buffer b iv pw".
 
-Extract Constant cpp_mk_key256 => "fun () -> Helper.cpp_mk_key256 ()".
-Extract Constant cpp_mk_key128 => "fun () -> Helper.cpp_mk_key128 ()".
+Extract Constant cpp_mk_key256 => "fun () -> Helper.mk_key256 ()".
+Extract Constant cpp_mk_key128 => "fun () -> Helper.mk_key128 ()".
+Extract Constant cpp_ranbuf128 => "fun () -> Helper.ranbuf128 ()".
 
 Extract Constant assembly_add_content => (* BufferPlain.buffer_t -> N -> N -> AssemblyPlainWritable.B -> N. *)
    "
