@@ -455,6 +455,18 @@ let rec seq start = function
 | O -> []
 | S len0 -> start :: (seq (S start) len0)
 
+type 't settable =
+  't -> 't
+  (* singleton inductive, whose constructor was Build_Settable *)
+
+type ('r, 't) setter = ('t -> 't) -> 'r -> 'r
+
+(** val set :
+    ('a1 -> 'a2) -> ('a1, 'a2) setter -> ('a2 -> 'a2) -> 'a1 -> 'a1 **)
+
+let set _ setter0 =
+  setter0
+
 module Conversion =
  struct
   (** val pos2N : positive -> n **)
@@ -716,6 +728,15 @@ module Buffer =
 
   let decrypt =
     cpp_decrypt_buffer
+
+  (** val cpp_ranbuf128 : unit -> cstdio_buffer **)
+
+  let cpp_ranbuf128 = fun () -> Helper.ranbuf128 ()
+
+  (** val ranbuf128 : unit -> BufferPlain.buffer_t **)
+
+  let ranbuf128 _ =
+    let rb = cpp_ranbuf128 () in BufferPlain.from_buffer rb
  end
 
 module Configuration =
@@ -816,6 +837,11 @@ module Assembly =
   let apos a =
     a.apos
 
+  (** val etaX : assemblyinformation settable **)
+
+  let etaX x =
+    { nchunks = x.nchunks; aid = x.aid; apos = x.apos }
+
   type keyinformation = { ivec : string; pkey : string; localid : n;
                           localnchunks : positive }
 
@@ -876,8 +902,13 @@ module Assembly =
         Buffer.BufferPlain.buffer_create
           (N.mul chunksize_N (Nchunks.to_N chunks))
       in
+      let rb = Buffer.ranbuf128 () in
+      let nb =
+        Buffer.BufferPlain.copy_sz_pos rb N0 (Npos (XO (XO (XO (XO XH))))) b
+          N0
+      in
       ({ nchunks = chunks; aid = (Utilities.rnd256 c.Configuration.my_id);
-      apos = N0 }, b)
+      apos = nb }, b)
    end
 
   module AssemblyEncrypted =
@@ -951,7 +982,12 @@ module Assembly =
       (AssemblyPlainWritable.coq_H * AssemblyPlainWritable.coq_B) option **)
 
   let decrypt a b ki =
-    let a' = { nchunks = a.nchunks; aid = a.aid; apos = N0 } in
+    let a' =
+      set (fun a0 -> a0.apos) (fun f ->
+        let n0 = fun r -> f r.apos in
+        (fun x -> { nchunks = x.nchunks; aid = x.aid; apos = (n0 x) }))
+        (const N0) a
+    in
     let bdec = Buffer.decrypt (id_buffer_t_from_enc b) ki.ivec ki.pkey in
     let b' = id_assembly_plain_buffer_t_from_buf bdec in Some (a', b')
 
@@ -1015,7 +1051,12 @@ module Assembly =
            else nread
          | None -> nread)) cidlist N0
     in
-    let a' = { nchunks = a.nchunks; aid = aid0; apos = nread } in
+    let a' =
+      set (fun a0 -> a0.apos) (fun f ->
+        let n0 = fun r -> f r.apos in
+        (fun x -> { nchunks = x.nchunks; aid = x.aid; apos = (n0 x) }))
+        (const nread) a
+    in
     let b' = id_enc_from_buffer_t b in
     if N.eqb nread blen then Some (a', b') else None
 
@@ -1061,16 +1102,18 @@ module Assembly =
       AssemblyPlainFull.coq_H * AssemblyPlainFull.coq_B **)
 
   let finish a b =
-    ({ nchunks = a.nchunks; aid = a.aid; apos = a.apos },
-      (id_assembly_full_buffer_from_writable b))
+    (a, (id_assembly_full_buffer_from_writable b))
 
   (** val encrypt :
       AssemblyPlainFull.coq_H -> AssemblyPlainFull.coq_B -> keyinformation ->
       (AssemblyEncrypted.coq_H * AssemblyEncrypted.coq_B) option **)
 
   let encrypt a b ki =
-    let a' = { nchunks = a.nchunks; aid = a.aid; apos =
-      (assemblysize a.nchunks) }
+    let a' =
+      set (fun a0 -> a0.apos) (fun f ->
+        let n0 = fun r -> f r.apos in
+        (fun x -> { nchunks = x.nchunks; aid = x.aid; apos = (n0 x) }))
+        (const (assemblysize a.nchunks)) a
     in
     let benc = Buffer.encrypt (id_buffer_t_from_full b) ki.ivec ki.pkey in
     let b' = id_assembly_enc_buffer_t_from_buf benc in Some (a', b')
@@ -1133,8 +1176,11 @@ module Assembly =
     let bi = { blockid = XH; bchecksum = chksum; blocksize = nwritten;
       filepos = fpos; blockaid = a.aid; blockapos = apos_n }
     in
-    let a' = { nchunks = a.nchunks; aid = a.aid; apos =
-      (N.add apos_n nwritten) }
+    let a' =
+      set (fun a0 -> a0.apos) (fun f ->
+        let n0 = fun r -> f r.apos in
+        (fun x -> { nchunks = x.nchunks; aid = x.aid; apos = (n0 x) }))
+        (fun ap -> N.add ap nwritten) a
     in
     (a', bi)
 
@@ -1161,18 +1207,6 @@ module Assembly =
          if (=) bcksum bi.bchecksum then Some b' else None
     else None
  end
-
-type 't settable =
-  't -> 't
-  (* singleton inductive, whose constructor was Build_Settable *)
-
-type ('r, 't) setter = ('t -> 't) -> 'r -> 'r
-
-(** val set :
-    ('a1 -> 'a2) -> ('a1, 'a2) setter -> ('a2 -> 'a2) -> 'a1 -> 'a1 **)
-
-let set _ setter0 =
-  setter0
 
 module Environment =
  struct
@@ -1284,11 +1318,11 @@ module Environment =
 
   (** val cpp_mk_key256 : unit -> string **)
 
-  let cpp_mk_key256 = fun () -> Helper.cpp_mk_key256 ()
+  let cpp_mk_key256 = fun () -> Helper.mk_key256 ()
 
   (** val cpp_mk_key128 : unit -> string **)
 
-  let cpp_mk_key128 = fun () -> Helper.cpp_mk_key128 ()
+  let cpp_mk_key128 = fun () -> Helper.mk_key128 ()
 
   (** val finalise_assembly : environment -> environment **)
 

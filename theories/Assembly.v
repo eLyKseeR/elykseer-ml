@@ -2,9 +2,11 @@
       e L y K s e e R
 *)
 
-From Coq Require Import Strings.String .
+From Coq Require Import Strings.String Program.Basics.
 Require Import ZArith NArith PArith.
 From Coq Require Import NArith.BinNat.
+
+From RecordUpdate Require Import RecordUpdate.
 
 From LXR Require Import Nchunks Buffer Configuration Conversion Utilities.
 
@@ -40,6 +42,8 @@ Record assemblyinformation : Type :=
         ; aid : aid_t
         ; apos : N }.
 
+#[export] Instance etaX : Settable _ := settable! mkassembly <nchunks; aid; apos>.
+
 Record keyinformation : Type :=
     mkkeyinformation
         { ivec : string
@@ -66,7 +70,9 @@ Module AssemblyPlainWritable : ASS.
     Definition create (c : configuration) : H * B :=
         let chunks := config_nchunks c in
         let b := BufferPlain.buffer_create (chunksize_N * Nchunks.to_N chunks) in
-        (mkassembly chunks (Utilities.rnd256 (my_id c)) 0, b).
+        let rb := Buffer.ranbuf128 tt in
+        let nb := BufferPlain.copy_sz_pos rb 0 16 b 0 in
+        (mkassembly chunks (Utilities.rnd256 (my_id c)) nb, b).
 End AssemblyPlainWritable.
 
 Module AssemblyEncrypted : ASS.
@@ -100,7 +106,7 @@ Section Code_Encrypted.
 Axiom id_buffer_t_from_enc : AssemblyEncrypted.B -> BufferEncrypted.buffer_t.
 Axiom id_assembly_plain_buffer_t_from_buf : BufferPlain.buffer_t -> AssemblyPlainWritable.B.
 Program Definition decrypt (a : AssemblyEncrypted.H) (b : AssemblyEncrypted.B) (ki : keyinformation) : option (AssemblyPlainWritable.H * AssemblyPlainWritable.B) :=
-    let a' := mkassembly (nchunks a) (aid a) 0 in
+    let a' := set apos (const 0) a in
     let bdec := Buffer.decrypt (id_buffer_t_from_enc b) (ivec ki) (pkey ki) in
     let b' := id_assembly_plain_buffer_t_from_buf bdec in
     Some (a', b').
@@ -130,7 +136,7 @@ Program Definition recall (c : configuration) (a : AssemblyEncrypted.H) : option
                     )
                     cidlist
                     0 in
-    let a' := mkassembly (nchunks a) aid nread in
+    let a' := set apos (const nread) a in
     let b' := id_enc_from_buffer_t b in
     if N.eqb nread blen
     then Some (a', b')
@@ -160,11 +166,11 @@ Axiom id_assembly_enc_buffer_t_from_buf : BufferEncrypted.buffer_t -> AssemblyEn
 Axiom id_assembly_full_buffer_from_writable : AssemblyPlainWritable.B -> AssemblyPlainFull.B.
 
 Program Definition finish (a : AssemblyPlainWritable.H) (b : AssemblyPlainWritable.B) : (AssemblyPlainFull.H * AssemblyPlainFull.B) :=
-    ( mkassembly (nchunks a) (aid a) (apos a)
+    ( a
     , id_assembly_full_buffer_from_writable b ).
 
 Program Definition encrypt (a : AssemblyPlainFull.H) (b : AssemblyPlainFull.B) (ki : keyinformation) : option (AssemblyEncrypted.H * AssemblyEncrypted.B) :=
-    let a' := mkassembly (nchunks a) (aid a) (assemblysize (nchunks a)) in
+    let a' := set apos (const (assemblysize (nchunks a))) a in
     let benc  := Buffer.encrypt (id_buffer_t_from_full b) (ivec ki) (pkey ki) in
     let b' := id_assembly_enc_buffer_t_from_buf benc in
     Some (a', b').
@@ -193,7 +199,7 @@ Program Definition backup (a : AssemblyPlainWritable.H) (b : AssemblyPlainWritab
                ; filepos   := fpos
                ; blockaid  := aid a
                ; blockapos := apos_n |} in
-    let a' := {| nchunks := nchunks a; aid := aid a; apos := apos_n + nwritten |} in
+    let a' := set apos (fun ap => ap + nwritten) a in
     (a', bi).
 
 (** restore: copy buffer from an assembly

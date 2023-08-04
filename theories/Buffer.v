@@ -69,4 +69,9 @@ Axiom cpp_decrypt_buffer : BufferEncrypted.buffer_t -> string -> string -> Buffe
 Definition decrypt (bin : BufferEncrypted.buffer_t) (iv : string) (pw : string) : BufferPlain.buffer_t :=
   cpp_decrypt_buffer bin iv pw.
 
+Axiom cpp_ranbuf128 : unit -> cstdio_buffer.
+Program Definition ranbuf128 (_ : unit) : BufferPlain.buffer_t :=
+  let rb := cpp_ranbuf128 tt in
+  BufferPlain.from_buffer rb.
+
 End Buffer.

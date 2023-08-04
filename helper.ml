@@ -52,5 +52,10 @@ let load_chunk_from_path fp =
     end
   else None
 
-let cpp_mk_key256 () = Elykseer_crypto.Key256.mk () |> Elykseer_crypto.Key256.to_hex
-let cpp_mk_key128 () = Elykseer_crypto.Key128.mk () |> Elykseer_crypto.Key128.to_hex
+let mk_key256 () = Elykseer_crypto.Key256.mk () |> Elykseer_crypto.Key256.to_hex
+let mk_key128 () = Elykseer_crypto.Key128.mk () |> Elykseer_crypto.Key128.to_hex
+
+let ranbuf128 () =
+  let r = Elykseer_crypto.Key128.mk () |> Elykseer_crypto.Key128.to_bytes in
+  let b = Cstdio.File.Buffer.create (16) in
+  Cstdio.File.Buffer.copy_string r b 16; b

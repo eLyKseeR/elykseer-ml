@@ -135,6 +135,14 @@ val filter : ('a1 -> bool) -> 'a1 list -> 'a1 list
 
 val seq : nat -> nat -> nat list
 
+type 't settable =
+  't -> 't
+  (* singleton inductive, whose constructor was Build_Settable *)
+
+type ('r, 't) setter = ('t -> 't) -> 'r -> 'r
+
+val set : ('a1 -> 'a2) -> ('a1, 'a2) setter -> ('a2 -> 'a2) -> 'a1 -> 'a1
+
 module Conversion :
  sig
   val pos2N : positive -> n
@@ -232,6 +240,10 @@ module Buffer :
 
   val decrypt :
     BufferEncrypted.buffer_t -> string -> string -> BufferPlain.buffer_t
+
+  val cpp_ranbuf128 : unit -> cstdio_buffer
+
+  val ranbuf128 : unit -> BufferPlain.buffer_t
  end
 
 module Configuration :
@@ -279,6 +291,8 @@ module Assembly :
   val aid : assemblyinformation -> aid_t
 
   val apos : assemblyinformation -> n
+
+  val etaX : assemblyinformation settable
 
   type keyinformation = { ivec : string; pkey : string; localid : n;
                           localnchunks : positive }
@@ -394,14 +408,6 @@ module Assembly :
     AssemblyPlainFull.coq_B -> blockinformation ->
     Buffer.BufferPlain.buffer_t option
  end
-
-type 't settable =
-  't -> 't
-  (* singleton inductive, whose constructor was Build_Settable *)
-
-type ('r, 't) setter = ('t -> 't) -> 'r -> 'r
-
-val set : ('a1 -> 'a2) -> ('a1, 'a2) setter -> ('a2 -> 'a2) -> 'a1 -> 'a1
 
 module Environment :
  sig
