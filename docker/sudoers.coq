@@ -1,0 +1,1 @@
+coq ALL=(ALL) NOPASSWD: ALL

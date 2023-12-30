@@ -1,13 +1,13 @@
 
 # Preparations
 
-0.) `opam switch create $(pwd)/opam-4.14.0 4.14.0`
+0.) if not yet done: `opam init -a --bare`
 
-1.) `eval $(opam env --set-switch --switch=$(pwd)/opam-4.14.0)`
+1.) create a compiler switch: `opam switch create 5.1.1`
 
 
 ## Coq version used
-`opam pin add coq 8.15.1`
+`opam pin add coq 8.18.0`
 
 ## more packages
 `opam repo add coq-released https://coq.inria.fr/opam/released`
@@ -42,12 +42,28 @@ see the [Dockerfile](/Dockerfile) which other packages are installed.
 * [mlcpp_chrono](https://github.com/CodiePP/ml-cpp-chrono)
   OCaml integration with C++ standard library &gt;chrono&lt; module
 
+* [Coq record update](https://github.com/tchajed/coq-record-update.git)
+  lightweight record update notation
+
 # Docker image
 
+(in the following commands replace `arm64` with `amd64` if run on x86-64)
+
+either build the image locally:
 ```sh
-docker build -f Dockerfile -t codieplusplus/elykseer-ml:local .
-docker run --rm -it codieplusplus/elykseer-ml:local
+cd docker
+DOCKER_BUILDKIT=1 docker build -t codieplusplus/elykseer-ml.arm64:local .
 ```
+or, download it from Docker Hub:
+```sh
+docker pull codieplusplus/elykseer-ml.arm64:latest
+```
+
+run the image:
+```sh
+docker run --rm -it codieplusplus/elykseer-ml.arm64
+```
+(one can also attach a local Visual Code editor to this container; install extensions "VsCoq" and "OCaml Platform" for source code highlighting)
 
 
 #### experimenting with multiarch building
