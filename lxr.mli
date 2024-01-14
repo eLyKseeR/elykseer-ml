@@ -249,7 +249,7 @@ module Buffer :
 module Configuration :
  sig
   type configuration = { config_nchunks : Nchunks.t; path_chunks : string;
-                         path_db : string; my_id : n }
+                         path_db : string; my_id : string }
 
   val config_nchunks : configuration -> Nchunks.t
 
@@ -257,7 +257,7 @@ module Configuration :
 
   val path_db : configuration -> string
 
-  val my_id : configuration -> n
+  val my_id : configuration -> string
  end
 
 module Utilities :
@@ -266,7 +266,7 @@ module Utilities :
 
   val rnd : n -> n
 
-  val rnd256 : n -> string
+  val rnd256 : string -> string
  end
 
 module Assembly :
@@ -294,14 +294,14 @@ module Assembly :
 
   val etaX : assemblyinformation settable
 
-  type keyinformation = { ivec : string; pkey : string; localid : n;
+  type keyinformation = { ivec : string; pkey : string; localid : string;
                           localnchunks : positive }
 
   val ivec : keyinformation -> string
 
   val pkey : keyinformation -> string
 
-  val localid : keyinformation -> n
+  val localid : keyinformation -> string
 
   val localnchunks : keyinformation -> positive
 

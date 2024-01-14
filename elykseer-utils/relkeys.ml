@@ -14,8 +14,8 @@ let my_id = ref "unset"
 let my_log = ref "unset (0.0.1)"
 
 let new_map (config : Configuration.configuration) =
-  my_id := Printf.sprintf "%d" (Conversion.n2i config.my_id);
-  my_log := Printf.sprintf "%d (%s)" (Conversion.n2i config.my_id) Version.version;
+  my_id := Printf.sprintf "%s" config.my_id;
+  my_log := Printf.sprintf "%s (%s)" config.my_id Version.version;
   let git_config = Irmin_git.config ~bare:true config.path_db in
   let* repo = Git_store.Repo.v git_config in
   Git_store.main repo
@@ -33,7 +33,7 @@ let version_obj : Git_store.contents =
 let key2json_v1 (k : Assembly.keyinformation) : Git_store.contents =
   `O [ ("ivec", `String k.ivec)
      ; ("pkey", `String k.pkey)
-     ; ("localid", `String (string_of_int (Conversion.n2i k.localid)))
+     ; ("localid", `String k.localid)
      ; ("localnchunks", `String (string_of_int (Conversion.p2i k.localnchunks))) ]
 let keys2json_v1 (keys : Assembly.keyinformation) : Git_store.contents =
   `O [ "version", version_obj
@@ -58,7 +58,7 @@ let json2keys_v1 version obs : (string * Assembly.keyinformation) option =
   | bs -> Some (version,
     { ivec = Relutils.get_str "ivec" bs
     ; pkey = Relutils.get_str "pkey" bs
-    ; localid = Relutils.get_int "localid" bs |> Conversion.i2n
+    ; localid = Relutils.get_str "localid" bs
     ; localnchunks = Relutils.get_int "localnchunks" bs |> Conversion.i2p
     })
 

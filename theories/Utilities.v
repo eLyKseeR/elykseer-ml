@@ -30,7 +30,7 @@ Axiom rnd : N -> N.
    random number, current time, hostname, and
    maybe other local information
 *)
-Axiom rnd256 : N -> string.
+Axiom rnd256 : string -> string.
 
 End axioms.
 

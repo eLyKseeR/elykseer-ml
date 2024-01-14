@@ -14,7 +14,7 @@ open Elykseer_utils
 
 open Mlcpp_cstdio
 
-let def_myid = 1234567890
+let def_myid = "1234567890"
 
 let arg_verbose = ref false
 let arg_dryrun = ref false
@@ -30,7 +30,7 @@ let argspec =
     ("-y", Arg.Set arg_dryrun, "dry run");
     ("-x", Arg.Set_string arg_chunkpath, "sets output path for encrypted chunks");
     ("-d", Arg.Set_string arg_dbpath, "sets database path");
-    ("-i", Arg.Set_int arg_myid, "sets own identifier (positive number)");
+    ("-i", Arg.Set_string arg_myid, "sets own identifier");
     ("-n", Arg.Set_int arg_nchunks, "sets number of chunks (16-256) per assembly");
   ]
 
@@ -108,13 +108,12 @@ let main () = Arg.parse argspec anon_args_fun "lxr_incremental: vyxdin";
   let nchunks = Nchunks.from_int !arg_nchunks in
   if List.length !arg_files > 0
     then
-      let myid = let id0 = !arg_myid in
-                if id0 >= 0 then id0 else def_myid in
+      let myid = !arg_myid in
       let conf : configuration = {
                     config_nchunks = nchunks;
                     path_chunks = !arg_chunkpath;
                     path_db     = !arg_dbpath;
-                    my_id       = Conversion.i2n myid } in
+                    my_id       = myid } in
       let%lwt relfiles = Relfiles.new_map conf in
       let%lwt acontroller = Actrl.create conf in
       let%lwt (res, actrl') = Lwt_list.fold_left_s (fun (res,actrl) fn ->

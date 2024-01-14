@@ -34,6 +34,7 @@ type comparison =
 
 module Coq__1 = struct
  (** val add : nat -> nat -> nat **)
+
  let rec add n0 m =
    match n0 with
    | O -> m
@@ -742,7 +743,7 @@ module Buffer =
 module Configuration =
  struct
   type configuration = { config_nchunks : Nchunks.t; path_chunks : string;
-                         path_db : string; my_id : n }
+                         path_db : string; my_id : string }
 
   (** val config_nchunks : configuration -> Nchunks.t **)
 
@@ -759,7 +760,7 @@ module Configuration =
   let path_db c =
     c.path_db
 
-  (** val my_id : configuration -> n **)
+  (** val my_id : configuration -> string **)
 
   let my_id c =
     c.my_id
@@ -779,12 +780,12 @@ module Utilities =
      _ -> Elykseer_crypto.Random.with_rng (fun rng -> Elykseer_crypto.Random.random32 rng) |> Conversion.i2n
    
 
-  (** val rnd256 : n -> string **)
+  (** val rnd256 : string -> string **)
 
   let rnd256 = 
    function
    x -> Elykseer_crypto.Random.with_rng (fun rng -> Elykseer_crypto.Random.random32 rng) |> string_of_int |>
-     String.cat (Conversion.n2i x |> string_of_int) |>
+     String.cat x |>
      String.cat (Unix.gethostname ()) |> String.cat (Unix.gettimeofday () |> string_of_float) |>
      Elykseer_crypto.Sha256.string
    
@@ -842,7 +843,7 @@ module Assembly =
   let etaX x =
     { nchunks = x.nchunks; aid = x.aid; apos = x.apos }
 
-  type keyinformation = { ivec : string; pkey : string; localid : n;
+  type keyinformation = { ivec : string; pkey : string; localid : string;
                           localnchunks : positive }
 
   (** val ivec : keyinformation -> string **)
@@ -855,7 +856,7 @@ module Assembly =
   let pkey k =
     k.pkey
 
-  (** val localid : keyinformation -> n **)
+  (** val localid : keyinformation -> string **)
 
   let localid k =
     k.localid
@@ -996,7 +997,7 @@ module Assembly =
 
   let chunk_identifier =   
     fun config aid cid -> let s =
-      (string_of_int (Conversion.n2i (Configuration.my_id config))) ^
+      (Configuration.my_id config) ^
       (string_of_int (Conversion.p2i cid)) ^
       aid in
       Elykseer_base.Hashing.sha256 s
@@ -1850,7 +1851,7 @@ module Version =
   (** val build : string **)
 
   let build =
-    "4"
+    "5"
 
   (** val version : string **)
 

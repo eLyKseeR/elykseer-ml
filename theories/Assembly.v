@@ -48,7 +48,7 @@ Record keyinformation : Type :=
     mkkeyinformation
         { ivec : string
         ; pkey : string
-        ; localid : N
+        ; localid : string
         ; localnchunks : positive
         }.
 

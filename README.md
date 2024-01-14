@@ -87,7 +87,7 @@ lxr_backup: vyxdnji
   -d sets database path
   -n sets number of chunks (16-256) per assembly
   -j sets number of parallel processes
-  -i sets own identifier (positive number)
+  -i sets own identifier
   -help  Display this list of options
   --help  Display this list of options
 ```
@@ -103,9 +103,9 @@ contents: json-value
 ```
 and initialise: `irmin init`
 
-Moreover, the environment variable `$MYID` contains a unique number to distinguish between setups.
+Moreover, the environment variable `$MYID` contains a unique string to distinguish between setups.
 ```
-MYID=424242
+MYID="424242"
 ```
 
 backup three files:
@@ -150,7 +150,7 @@ lxr_restore: vxodnji
   -d sets database path
   -n sets number of chunks (16-256) per assembly
   -j sets number of parallel processes
-  -i sets own identifier (positive number)
+  -i sets own identifier
   -help  Display this list of options
   --help  Display this list of options
 ```
@@ -191,7 +191,7 @@ e4379d58904294ab7ab6431191cd9801  test8M
 lxr_compare: vdi
   -v verbose output
   -d sets database path
-  -i sets own identifier (positive number)
+  -i sets own identifier
   -help  Display this list of options
   --help  Display this list of options
 ```

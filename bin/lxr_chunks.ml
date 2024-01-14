@@ -9,7 +9,7 @@ open Elykseer__Lxr.Configuration
 (* open Mlcpp_cstdio
 open Mlcpp_filesystem *)
 
-let def_myid = 1234567890
+let def_myid = "1234567890"
 
 let arg_verbose = ref false
 let arg_files = ref []
@@ -24,7 +24,7 @@ let argspec =
     ("-a", Arg.Set_string arg_aid, "sets assembly id");
     ("-x", Arg.Set_string arg_chunkpath, "sets path for encrypted chunks");
     ("-n", Arg.Set_int arg_nchunks, "sets number of chunks (16-256) per assembly");
-    ("-i", Arg.Set_int arg_myid, "sets own identifier (positive number)");
+    ("-i", Arg.Set_string arg_myid, "sets own identifier");
   ]
 
 let anon_args_fun fn = arg_files := fn :: !arg_files
@@ -32,12 +32,11 @@ let anon_args_fun fn = arg_files := fn :: !arg_files
 (* main *)
 let () = Arg.parse argspec anon_args_fun "lxr_chunks: vxni";
          let nchunks = Nchunks.from_int !arg_nchunks in
-         let myid = let id0 = !arg_myid in
-                    if id0 >= 0 then id0 else def_myid in
+         let myid = !arg_myid in
          let conf : configuration = {
                          config_nchunks = nchunks;
                          path_chunks = !arg_chunkpath;
-                         path_db   = "/tmp/db";
-                         my_id       = Conversion.i2n myid } in
+                         path_db     = "/tmp/db";
+                         my_id       = myid } in
          List.iter (fun cid -> Assembly.chunk_identifier_path conf !arg_aid cid |> Printf.printf "%03d %s\n" (Conversion.p2i cid))
             @@ Utilities.make_list (Nchunks.to_positive nchunks)

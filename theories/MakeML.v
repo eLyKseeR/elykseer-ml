@@ -92,7 +92,7 @@ Extract Constant rnd256 =>
    "
    function
    x -> Elykseer_crypto.Random.with_rng (fun rng -> Elykseer_crypto.Random.random32 rng) |> string_of_int |>
-     String.cat (Conversion.n2i x |> string_of_int) |>
+     String.cat x |>
      String.cat (Unix.gethostname ()) |> String.cat (Unix.gettimeofday () |> string_of_float) |>
      Elykseer_crypto.Sha256.string
    ".
@@ -100,7 +100,7 @@ Extract Constant rnd256 =>
 Extract Constant chunk_identifier =>
    "  
     fun config aid cid -> let s =
-      (string_of_int (Conversion.n2i (Configuration.my_id config))) ^
+      (Configuration.my_id config) ^
       (string_of_int (Conversion.p2i cid)) ^
       aid in
       Elykseer_base.Hashing.sha256 s

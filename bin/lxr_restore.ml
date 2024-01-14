@@ -9,7 +9,7 @@ open Elykseer_utils
 open Mlcpp_cstdio
 open Mlcpp_filesystem
 
-let def_myid = 1234567890
+let def_myid = "1234567890"
 
 let arg_verbose = ref false
 let arg_files = ref []
@@ -28,7 +28,7 @@ let argspec =
     ("-d", Arg.Set_string arg_dbpath, "sets database path");
     ("-n", Arg.Set_int arg_nchunks, "sets number of chunks (16-256) per assembly");
     ("-j", Arg.Set_int arg_nproc, "sets number of parallel processes");
-    ("-i", Arg.Set_int arg_myid, "sets own identifier (positive number)");
+    ("-i", Arg.Set_string arg_myid, "sets own identifier");
   ]
 
 let anon_args_fun fn = arg_files := fn :: !arg_files
@@ -127,13 +127,12 @@ let main () = Arg.parse argspec anon_args_fun "lxr_restore: vxodnji";
     && !arg_nproc > 0 && !arg_nproc < 65
     && exists_output_dir !arg_outpath
     then
-      let myid = let id0 = !arg_myid in
-                if id0 >= 0 then id0 else def_myid in
+      let myid = !arg_myid in
       let conf : configuration = {
                     config_nchunks = nchunks;
                     path_chunks = !arg_chunkpath;
                     path_db     = !arg_dbpath;
-                    my_id       = Conversion.i2n myid } in
+                    my_id       = myid } in
       let e0 = Environment.initial_environment conf in
       let%lwt relf = Relfiles.new_map conf in
       let%lwt relk = Relkeys.new_map conf in

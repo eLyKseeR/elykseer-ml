@@ -1,12 +1,12 @@
 open Elykseer__Lxr
 
 type t = {
-  myid : int;
+  myid : string;
   env : Environment.environment
 }
 
 let create (config : Configuration.configuration) = Lwt.return {
-  myid = Conversion.n2i config.my_id;
+  myid = config.my_id;
   env = Environment.initial_environment config
 }
 
@@ -16,7 +16,7 @@ let stop actrl =
   let%lwt () = Lwt_list.iter_s (fun (aid, ki) ->
                                 let%lwt _ = Relkeys.add aid ki relk in Lwt.return ()) env.keys in
   let%lwt () = Relkeys.close_map relk in
-  Lwt_io.printlf "stopping assembly controller %d" actrl.myid
+  Lwt_io.printlf "stopping assembly controller %s" actrl.myid
 
 let addblock actrl fn (fb : Assembly.blockinformation) buf =
   (* let%lwt () = Lwt_io.printlf "adding block (%d@%d=%d) with buffer (%d)" (Conversion.p2i fb.blockid) (Conversion.n2i fb.filepos) (Conversion.n2i fb.blocksize)

@@ -14,7 +14,7 @@ open Elykseer_utils
 
 open Mlcpp_cstdio
 
-let def_myid = 1234567890
+let def_myid = "1234567890"
 
 let arg_verbose = ref false
 let arg_files = ref []
@@ -25,7 +25,7 @@ let argspec =
   [
     ("-v", Arg.Set arg_verbose, "verbose output");
     ("-d", Arg.Set_string arg_dbpath, "sets database path");
-    ("-i", Arg.Set_int arg_myid, "sets own identifier (positive number)");
+    ("-i", Arg.Set_string arg_myid, "sets own identifier");
   ]
 
 let anon_args_fun fn = arg_files := fn :: !arg_files
@@ -88,13 +88,12 @@ let main () = Arg.parse argspec anon_args_fun "lxr_compare: vdi";
   let nchunks = Nchunks.from_int 16 in
   if List.length !arg_files > 0
   then
-    let myid = let id0 = !arg_myid in
-               if id0 >= 0 then id0 else def_myid in
+    let myid = !arg_myid in
     let conf : configuration = {
                   config_nchunks = nchunks;
                   path_chunks = "lxr";
                   path_db     = !arg_dbpath;
-                  my_id       = Conversion.i2n myid } in
+                  my_id       = myid } in
     let%lwt relfiles = Relfiles.new_map conf in
     let%lwt res = Lwt_list.map_s (fun fn ->
           let%lwt () = if !arg_verbose then Lwt_io.printlf "comparing file %s against meta data" fn else Lwt.return_unit in

@@ -19,8 +19,8 @@ let my_id = ref "unset"
 let my_log = ref "unset (0.0.1)"
 
 let new_map (config : Configuration.configuration) =
-  my_id := Printf.sprintf "%d" (Conversion.n2i config.my_id);
-  my_log := Printf.sprintf "%d (%s)" (Conversion.n2i config.my_id) Version.version;
+  my_id := Printf.sprintf "%s" config.my_id;
+  my_log := Printf.sprintf "%s (%s)" config.my_id Version.version;
   let git_config = Irmin_git.config ~bare:true config.path_db in
   let* repo = Git_store.Repo.v git_config in
   Git_store.main repo

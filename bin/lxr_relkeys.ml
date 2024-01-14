@@ -5,7 +5,7 @@ open Elykseer__Lxr.Configuration
 open Elykseer_utils
 open Elykseer_base.Hashing
 
-let def_myid = 1234567890
+let def_myid = "1234567890"
 
 let arg_verbose = ref false
 let arg_files = ref []
@@ -18,7 +18,7 @@ let argspec =
   [
     ("-v", Arg.Set arg_verbose, "verbose output");
     ("-d", Arg.Set_string arg_dbpath, "sets database path");
-    ("-i", Arg.Set_int arg_myid, "sets own identifier (positive number)");
+    ("-i", Arg.Set_string arg_myid, "sets own identifier");
   ]
 
 let anon_args_fun fn = arg_files := fn :: !arg_files
@@ -50,8 +50,8 @@ let output_keys fns relfiles relkeys =
   | _ ->
     let%lwt () = Lwt_io.printl "\"myid\",\"nchunks\",\"version\",\"aid\",\"key\",\"iv\"" in
     Lwt_list.iter_s (fun ((aid,(version,ki)) : (string * (string * Assembly.keyinformation))) ->
-                          Lwt_io.printlf "%d,%d,\"%s\",\"%s\",\"%s\",\"%s\""
-                            (Conversion.n2i ki.localid)
+                          Lwt_io.printlf "%s,%d,\"%s\",\"%s\",\"%s\",\"%s\""
+                            ki.localid
                             (Conversion.p2i ki.localnchunks)
                             version aid ki.pkey ki.ivec ) li
 
@@ -60,13 +60,12 @@ let main () = Arg.parse argspec anon_args_fun usage_msg;
   if !arg_files != []
     then
       let nchunks = Nchunks.from_int 16 in
-      let myid = let id0 = !arg_myid in
-      if id0 >= 0 then id0 else def_myid in
+      let myid = !arg_myid in
       let conf : configuration = {
                       config_nchunks = nchunks;
                       path_chunks = "lxr";
                       path_db     = !arg_dbpath;
-                      my_id       = Conversion.i2n myid } in
+                      my_id       = myid } in
       let%lwt relfiles = Relfiles.new_map conf in
       let%lwt relkeys = Relkeys.new_map conf in
       output_keys !arg_files relfiles relkeys

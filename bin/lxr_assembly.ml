@@ -48,7 +48,7 @@ let main () = Arg.parse argspec anon_args_fun "lxr_assembly: vaf";
     let%lwt () = Lwt_io.printlf "rnd256 %d" (Conversion.n2i @@ Utilities.rnd @@ Conversion.i2n 0) in
     let%lwt () = Lwt_io.printlf "rnd256 %d" (Conversion.n2i @@ Utilities.rnd @@ Conversion.i2n 0) in
     let%lwt () = Lwt_io.printlf "sha256 of /bin/sh %s" (Fsutils.fchksum "/bin/sh") in
-    let c : Configuration.configuration = { config_nchunks = (Nchunks.from_int 16); path_chunks = "./chunks"; path_db = "/tmp/db"; my_id = Conversion.i2n 16} in
+    let c : Configuration.configuration = { config_nchunks = (Nchunks.from_int 16); path_chunks = "./chunks"; path_db = "/tmp/db"; my_id = "16"} in
     let e0 = Environment.initial_environment c in
     let a = Environment.cur_assembly e0 in
     let b = Environment.cur_buffer e0 in
