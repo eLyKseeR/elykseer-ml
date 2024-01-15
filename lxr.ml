@@ -866,13 +866,45 @@ module Assembly =
   let localnchunks k =
     k.localnchunks
 
+  type blockinformation = { blockid : positive; bchecksum : string;
+                            blocksize : n; filepos : n; blockaid : aid_t;
+                            blockapos : n }
+
+  (** val blockid : blockinformation -> positive **)
+
+  let blockid b =
+    b.blockid
+
+  (** val bchecksum : blockinformation -> string **)
+
+  let bchecksum b =
+    b.bchecksum
+
+  (** val blocksize : blockinformation -> n **)
+
+  let blocksize b =
+    b.blocksize
+
+  (** val filepos : blockinformation -> n **)
+
+  let filepos b =
+    b.filepos
+
+  (** val blockaid : blockinformation -> aid_t **)
+
+  let blockaid b =
+    b.blockaid
+
+  (** val blockapos : blockinformation -> n **)
+
+  let blockapos b =
+    b.blockapos
+
   module type ASS =
    sig
-    type coq_H = assemblyinformation
-
     type coq_B
 
-    val create : Configuration.configuration -> coq_H * coq_B
+    val create : Configuration.configuration -> assemblyinformation * coq_B
 
     val buffer_len : coq_B -> n
 
@@ -881,8 +913,6 @@ module Assembly =
 
   module AssemblyPlainWritable =
    struct
-    type coq_H = assemblyinformation
-
     type coq_B = Buffer.BufferPlain.buffer_t
 
     (** val buffer_len : coq_B -> n **)
@@ -895,7 +925,8 @@ module Assembly =
     let calc_checksum _ =
       "<>"
 
-    (** val create : Configuration.configuration -> coq_H * coq_B **)
+    (** val create :
+        Configuration.configuration -> assemblyinformation * coq_B **)
 
     let create c =
       let chunks = c.Configuration.config_nchunks in
@@ -914,8 +945,6 @@ module Assembly =
 
   module AssemblyEncrypted =
    struct
-    type coq_H = assemblyinformation
-
     type coq_B = Buffer.BufferEncrypted.buffer_t
 
     (** val buffer_len : coq_B -> n **)
@@ -928,7 +957,8 @@ module Assembly =
     let calc_checksum =
       Buffer.BufferEncrypted.calc_checksum
 
-    (** val create : Configuration.configuration -> coq_H * coq_B **)
+    (** val create :
+        Configuration.configuration -> assemblyinformation * coq_B **)
 
     let create c =
       let chunks = c.Configuration.config_nchunks in
@@ -942,8 +972,6 @@ module Assembly =
 
   module AssemblyPlainFull =
    struct
-    type coq_H = assemblyinformation
-
     type coq_B = Buffer.BufferPlain.buffer_t
 
     (** val buffer_len : coq_B -> n **)
@@ -957,8 +985,7 @@ module Assembly =
       Buffer.BufferPlain.calc_checksum
 
     (** val create :
-        Configuration.configuration ->
-        assemblyinformation * Buffer.BufferPlain.buffer_t **)
+        Configuration.configuration -> assemblyinformation * coq_B **)
 
     let create c =
       let chunks = c.Configuration.config_nchunks in
@@ -968,19 +995,115 @@ module Assembly =
       apos = sz }, b)
    end
 
+  (** val id_assembly_full_ainfo_from_writable :
+      assemblyinformation -> assemblyinformation **)
+
+  let id_assembly_full_ainfo_from_writable = fun b -> Helper.cpp_buffer_id b
+
+  (** val id_assembly_full_buffer_from_writable :
+      AssemblyPlainWritable.coq_B -> AssemblyPlainFull.coq_B **)
+
+  let id_assembly_full_buffer_from_writable = fun b -> Helper.cpp_buffer_id b
+
+  (** val finish :
+      assemblyinformation -> AssemblyPlainWritable.coq_B ->
+      assemblyinformation * AssemblyPlainFull.coq_B **)
+
+  let finish a b =
+    ((id_assembly_full_ainfo_from_writable a),
+      (id_assembly_full_buffer_from_writable b))
+
+  (** val assembly_add_content :
+      Buffer.BufferPlain.buffer_t -> n -> n -> AssemblyPlainWritable.coq_B ->
+      n **)
+
+  let assembly_add_content = 
+    fun src sz_N pos_N tgt ->
+      let sz = Conversion.n2i sz_N
+      and pos = Conversion.n2i pos_N in
+      Elykseer_base.Assembly.add_content ~src:src ~sz:sz ~pos:pos ~tgt:tgt |> Conversion.i2n
+   
+
+  (** val backup :
+      assemblyinformation -> AssemblyPlainWritable.coq_B -> n ->
+      Buffer.BufferPlain.buffer_t -> assemblyinformation * blockinformation **)
+
+  let backup a b fpos content =
+    let apos_n = a.apos in
+    let bsz = Buffer.BufferPlain.buffer_len content in
+    let chksum = Buffer.BufferPlain.calc_checksum content in
+    let nwritten = assembly_add_content content bsz apos_n b in
+    let bi = { blockid = XH; bchecksum = chksum; blocksize = nwritten;
+      filepos = fpos; blockaid = a.aid; blockapos = apos_n }
+    in
+    let a' =
+      set (fun a0 -> a0.apos) (fun f ->
+        let n0 = fun r -> f r.apos in
+        (fun x -> { nchunks = x.nchunks; aid = x.aid; apos = (n0 x) }))
+        (fun ap -> N.add ap nwritten) a
+    in
+    (a', bi)
+
+  (** val id_buffer_t_from_full :
+      AssemblyPlainFull.coq_B -> Buffer.BufferPlain.buffer_t **)
+
+  let id_buffer_t_from_full = fun b -> Helper.cpp_buffer_id b
+
+  (** val id_assembly_enc_buffer_t_from_buf :
+      Buffer.BufferEncrypted.buffer_t -> AssemblyEncrypted.coq_B **)
+
+  let id_assembly_enc_buffer_t_from_buf = fun b -> Helper.cpp_buffer_id b
+
+  (** val encrypt :
+      assemblyinformation -> AssemblyPlainFull.coq_B -> keyinformation ->
+      (assemblyinformation * AssemblyEncrypted.coq_B) option **)
+
+  let encrypt a b ki =
+    let a' =
+      set (fun a0 -> a0.apos) (fun f ->
+        let n0 = fun r -> f r.apos in
+        (fun x -> { nchunks = x.nchunks; aid = x.aid; apos = (n0 x) }))
+        (const (assemblysize a.nchunks)) a
+    in
+    let benc = Buffer.encrypt (id_buffer_t_from_full b) ki.ivec ki.pkey in
+    let b' = id_assembly_enc_buffer_t_from_buf benc in Some (a', b')
+
+  (** val assembly_get_content :
+      AssemblyPlainFull.coq_B -> n -> n -> Buffer.BufferPlain.buffer_t -> n **)
+
+  let assembly_get_content = 
+    fun src sz_N pos_N tgt ->
+      let sz = Conversion.n2i sz_N
+      and pos = Conversion.n2i pos_N in
+      Elykseer_base.Assembly.get_content ~src:src ~sz:sz ~pos:pos ~tgt:tgt |> Conversion.i2n
+   
+
+  (** val restore :
+      AssemblyPlainFull.coq_B -> blockinformation ->
+      Buffer.BufferPlain.buffer_t option **)
+
+  let restore b bi =
+    let bsz = bi.blocksize in
+    let b' = Buffer.BufferPlain.buffer_create bsz in
+    let nw = assembly_get_content b bsz bi.blockapos b' in
+    if N.eqb nw bsz
+    then let bcksum = Buffer.BufferPlain.calc_checksum b' in
+         if (=) bcksum bi.bchecksum then Some b' else None
+    else None
+
   (** val id_buffer_t_from_enc :
       AssemblyEncrypted.coq_B -> Buffer.BufferEncrypted.buffer_t **)
 
   let id_buffer_t_from_enc = fun b -> Helper.cpp_buffer_id b
 
   (** val id_assembly_plain_buffer_t_from_buf :
-      Buffer.BufferPlain.buffer_t -> AssemblyPlainWritable.coq_B **)
+      Buffer.BufferPlain.buffer_t -> AssemblyPlainFull.coq_B **)
 
   let id_assembly_plain_buffer_t_from_buf = fun b -> Helper.cpp_buffer_id b
 
   (** val decrypt :
-      AssemblyEncrypted.coq_H -> AssemblyEncrypted.coq_B -> keyinformation ->
-      (AssemblyPlainWritable.coq_H * AssemblyPlainWritable.coq_B) option **)
+      assemblyinformation -> AssemblyEncrypted.coq_B -> keyinformation ->
+      (assemblyinformation * AssemblyPlainFull.coq_B) option **)
 
   let decrypt a b ki =
     let a' =
@@ -1025,8 +1148,8 @@ module Assembly =
   let id_enc_from_buffer_t = fun b -> Helper.cpp_buffer_id b
 
   (** val recall :
-      Configuration.configuration -> AssemblyEncrypted.coq_H ->
-      (AssemblyEncrypted.coq_H * AssemblyEncrypted.coq_B) option **)
+      Configuration.configuration -> assemblyinformation ->
+      (assemblyinformation * AssemblyEncrypted.coq_B) option **)
 
   let recall c a =
     let cidlist = Utilities.make_list a.nchunks in
@@ -1070,7 +1193,7 @@ module Assembly =
    
 
   (** val extract :
-      Configuration.configuration -> AssemblyEncrypted.coq_H ->
+      Configuration.configuration -> assemblyinformation ->
       AssemblyEncrypted.coq_B -> n **)
 
   let extract c a b =
@@ -1082,240 +1205,43 @@ module Assembly =
       in
       N.add nwritten (ext_store_chunk_to_path cpath chunksize_N apos0 buf))
       (Utilities.make_list a.nchunks) N0
-
-  (** val id_buffer_t_from_full :
-      AssemblyPlainFull.coq_B -> Buffer.BufferPlain.buffer_t **)
-
-  let id_buffer_t_from_full = fun b -> Helper.cpp_buffer_id b
-
-  (** val id_assembly_enc_buffer_t_from_buf :
-      Buffer.BufferEncrypted.buffer_t -> AssemblyEncrypted.coq_B **)
-
-  let id_assembly_enc_buffer_t_from_buf = fun b -> Helper.cpp_buffer_id b
-
-  (** val id_assembly_full_buffer_from_writable :
-      AssemblyPlainWritable.coq_B -> AssemblyPlainFull.coq_B **)
-
-  let id_assembly_full_buffer_from_writable = fun b -> Helper.cpp_buffer_id b
-
-  (** val finish :
-      AssemblyPlainWritable.coq_H -> AssemblyPlainWritable.coq_B ->
-      AssemblyPlainFull.coq_H * AssemblyPlainFull.coq_B **)
-
-  let finish a b =
-    (a, (id_assembly_full_buffer_from_writable b))
-
-  (** val encrypt :
-      AssemblyPlainFull.coq_H -> AssemblyPlainFull.coq_B -> keyinformation ->
-      (AssemblyEncrypted.coq_H * AssemblyEncrypted.coq_B) option **)
-
-  let encrypt a b ki =
-    let a' =
-      set (fun a0 -> a0.apos) (fun f ->
-        let n0 = fun r -> f r.apos in
-        (fun x -> { nchunks = x.nchunks; aid = x.aid; apos = (n0 x) }))
-        (const (assemblysize a.nchunks)) a
-    in
-    let benc = Buffer.encrypt (id_buffer_t_from_full b) ki.ivec ki.pkey in
-    let b' = id_assembly_enc_buffer_t_from_buf benc in Some (a', b')
-
-  type blockinformation = { blockid : positive; bchecksum : string;
-                            blocksize : n; filepos : n; blockaid : string;
-                            blockapos : n }
-
-  (** val blockid : blockinformation -> positive **)
-
-  let blockid b =
-    b.blockid
-
-  (** val bchecksum : blockinformation -> string **)
-
-  let bchecksum b =
-    b.bchecksum
-
-  (** val blocksize : blockinformation -> n **)
-
-  let blocksize b =
-    b.blocksize
-
-  (** val filepos : blockinformation -> n **)
-
-  let filepos b =
-    b.filepos
-
-  (** val blockaid : blockinformation -> string **)
-
-  let blockaid b =
-    b.blockaid
-
-  (** val blockapos : blockinformation -> n **)
-
-  let blockapos b =
-    b.blockapos
-
-  (** val assembly_add_content :
-      Buffer.BufferPlain.buffer_t -> n -> n -> AssemblyPlainWritable.coq_B ->
-      n **)
-
-  let assembly_add_content = 
-    fun src sz_N pos_N tgt ->
-      let sz = Conversion.n2i sz_N
-      and pos = Conversion.n2i pos_N in
-      Elykseer_base.Assembly.add_content ~src:src ~sz:sz ~pos:pos ~tgt:tgt |> Conversion.i2n
-   
-
-  (** val backup :
-      AssemblyPlainWritable.coq_H -> AssemblyPlainWritable.coq_B -> n ->
-      Buffer.BufferPlain.buffer_t ->
-      AssemblyPlainWritable.coq_H * blockinformation **)
-
-  let backup a b fpos content =
-    let apos_n = a.apos in
-    let bsz = Buffer.BufferPlain.buffer_len content in
-    let chksum = Buffer.BufferPlain.calc_checksum content in
-    let nwritten = assembly_add_content content bsz apos_n b in
-    let bi = { blockid = XH; bchecksum = chksum; blocksize = nwritten;
-      filepos = fpos; blockaid = a.aid; blockapos = apos_n }
-    in
-    let a' =
-      set (fun a0 -> a0.apos) (fun f ->
-        let n0 = fun r -> f r.apos in
-        (fun x -> { nchunks = x.nchunks; aid = x.aid; apos = (n0 x) }))
-        (fun ap -> N.add ap nwritten) a
-    in
-    (a', bi)
-
-  (** val assembly_get_content :
-      AssemblyPlainFull.coq_B -> n -> n -> Buffer.BufferPlain.buffer_t -> n **)
-
-  let assembly_get_content = 
-    fun src sz_N pos_N tgt ->
-      let sz = Conversion.n2i sz_N
-      and pos = Conversion.n2i pos_N in
-      Elykseer_base.Assembly.get_content ~src:src ~sz:sz ~pos:pos ~tgt:tgt |> Conversion.i2n
-   
-
-  (** val restore :
-      AssemblyPlainFull.coq_B -> blockinformation ->
-      Buffer.BufferPlain.buffer_t option **)
-
-  let restore b bi =
-    let bsz = bi.blocksize in
-    let b' = Buffer.BufferPlain.buffer_create bsz in
-    let nw = assembly_get_content b bsz bi.blockapos b' in
-    if N.eqb nw bsz
-    then let bcksum = Buffer.BufferPlain.calc_checksum b' in
-         if (=) bcksum bi.bchecksum then Some b' else None
-    else None
  end
 
 module Environment =
  struct
-  type environment = { cur_assembly : Assembly.AssemblyPlainWritable.coq_H;
-                       cur_buffer : Assembly.AssemblyPlainWritable.coq_B;
-                       config : Configuration.configuration;
-                       fblocks : (string * Assembly.blockinformation) list;
-                       keys : (string * Assembly.keyinformation) list }
+  type 'aB environment = { cur_assembly : Assembly.assemblyinformation;
+                           cur_buffer : 'aB;
+                           config : Configuration.configuration;
+                           fblocks : (string * Assembly.blockinformation) list;
+                           keys : (Assembly.aid_t * Assembly.keyinformation)
+                                  list }
 
-  (** val cur_assembly :
-      environment -> Assembly.AssemblyPlainWritable.coq_H **)
+  (** val cur_assembly : 'a1 environment -> Assembly.assemblyinformation **)
 
   let cur_assembly e =
     e.cur_assembly
 
-  (** val cur_buffer : environment -> Assembly.AssemblyPlainWritable.coq_B **)
+  (** val cur_buffer : 'a1 environment -> 'a1 **)
 
   let cur_buffer e =
     e.cur_buffer
 
-  (** val config : environment -> Configuration.configuration **)
+  (** val config : 'a1 environment -> Configuration.configuration **)
 
   let config e =
     e.config
 
   (** val fblocks :
-      environment -> (string * Assembly.blockinformation) list **)
+      'a1 environment -> (string * Assembly.blockinformation) list **)
 
   let fblocks e =
     e.fblocks
 
-  (** val keys : environment -> (string * Assembly.keyinformation) list **)
+  (** val keys :
+      'a1 environment -> (Assembly.aid_t * Assembly.keyinformation) list **)
 
   let keys e =
     e.keys
-
-  (** val etaX : environment settable **)
-
-  let etaX x =
-    { cur_assembly = x.cur_assembly; cur_buffer = x.cur_buffer; config =
-      x.config; fblocks = x.fblocks; keys = x.keys }
-
-  (** val initial_environment : Configuration.configuration -> environment **)
-
-  let initial_environment c =
-    let (a, b) = Assembly.AssemblyPlainWritable.create c in
-    { cur_assembly = a; cur_buffer = b; config = c; fblocks = []; keys = [] }
-
-  (** val recreate_assembly : environment -> environment **)
-
-  let recreate_assembly e =
-    let (a, b) = Assembly.AssemblyPlainWritable.create e.config in
-    set (fun e0 -> e0.cur_assembly) (fun f ->
-      let h = fun r -> f r.cur_assembly in
-      (fun x -> { cur_assembly = (h x); cur_buffer = x.cur_buffer; config =
-      x.config; fblocks = x.fblocks; keys = x.keys })) (const a)
-      (set (fun e0 -> e0.cur_buffer) (fun f ->
-        let b0 = fun r -> f r.cur_buffer in
-        (fun x -> { cur_assembly = x.cur_assembly; cur_buffer = (b0 x);
-        config = x.config; fblocks = x.fblocks; keys = x.keys })) (const b) e)
-
-  (** val env_add_file_block :
-      string -> environment -> Assembly.blockinformation -> environment **)
-
-  let env_add_file_block fname0 e bi =
-    set (fun e0 -> e0.fblocks) (fun f ->
-      let l = fun r -> f r.fblocks in
-      (fun x -> { cur_assembly = x.cur_assembly; cur_buffer = x.cur_buffer;
-      config = x.config; fblocks = (l x); keys = x.keys })) (fun bs ->
-      (fname0, bi) :: bs) e
-
-  (** val env_add_aid_key :
-      string -> environment -> Assembly.keyinformation -> environment **)
-
-  let env_add_aid_key aid0 e ki =
-    set (fun e0 -> e0.keys) (fun f ->
-      let l = fun r -> f r.keys in
-      (fun x -> { cur_assembly = x.cur_assembly; cur_buffer = x.cur_buffer;
-      config = x.config; fblocks = x.fblocks; keys = (l x) })) (fun ks ->
-      (aid0, ki) :: ks) e
-
-  (** val key_for_aid :
-      environment -> Assembly.aid_t -> Assembly.keyinformation option **)
-
-  let key_for_aid e aid0 =
-    match filter (fun e0 -> (=) (fst e0) aid0) e.keys with
-    | [] -> None
-    | p :: _ -> let (_, ki) = p in Some ki
-
-  (** val restore_assembly :
-      environment -> Assembly.aid_t -> environment option **)
-
-  let restore_assembly e0 aid0 =
-    match key_for_aid e0 aid0 with
-    | Some k ->
-      (match Assembly.recall e0.config { Assembly.nchunks =
-               e0.config.Configuration.config_nchunks; Assembly.aid = aid0;
-               Assembly.apos = N0 } with
-       | Some p ->
-         let (a1, b1) = p in
-         (match Assembly.decrypt a1 b1 k with
-          | Some p0 ->
-            let (a2, b2) = p0 in
-            Some { cur_assembly = a2; cur_buffer = b2; config = e0.config;
-            fblocks = e0.fblocks; keys = e0.keys }
-          | None -> None)
-       | None -> None)
-    | None -> None
 
   (** val cpp_mk_key256 : unit -> string **)
 
@@ -1325,52 +1251,159 @@ module Environment =
 
   let cpp_mk_key128 = fun () -> Helper.mk_key128 ()
 
-  (** val finalise_assembly : environment -> environment **)
+  module type ENV =
+   sig
+    type coq_AB
 
-  let finalise_assembly e0 =
-    let a0 = e0.cur_assembly in
-    let apos0 = a0.Assembly.apos in
-    if N.ltb N0 apos0
-    then let (a, b) = Assembly.finish a0 e0.cur_buffer in
-         let ki = { Assembly.ivec = (cpp_mk_key128 ()); Assembly.pkey =
-           (cpp_mk_key256 ()); Assembly.localid =
-           e0.config.Configuration.my_id; Assembly.localnchunks =
-           e0.config.Configuration.config_nchunks }
-         in
-         let e1 = env_add_aid_key a.Assembly.aid e0 ki in
-         (match Assembly.encrypt a b ki with
-          | Some p ->
-            let (a', b') = p in
-            let n0 = Assembly.extract e1.config a' b' in
-            if N.eqb n0
-                 (Assembly.assemblysize
-                   e0.config.Configuration.config_nchunks)
-            then e1
-            else e0
-          | None -> e0)
-    else e0
+    type coq_E = coq_AB environment
 
-  (** val finalise_and_recreate_assembly : environment -> environment **)
+    val initial_environment : Configuration.configuration -> coq_E
+   end
 
-  let finalise_and_recreate_assembly e0 =
-    let e1 = finalise_assembly e0 in recreate_assembly e1
+  module EnvironmentWritable =
+   struct
+    type coq_AB = Assembly.AssemblyPlainWritable.coq_B
 
-  (** val backup :
-      environment -> string -> n -> Buffer.BufferPlain.buffer_t -> environment **)
+    type coq_E = coq_AB environment
 
-  let backup e0 fp fpos content =
-    let afree =
-      N.sub (Assembly.assemblysize e0.config.Configuration.config_nchunks)
-        e0.cur_assembly.Assembly.apos
-    in
-    let blen = Buffer.BufferPlain.buffer_len content in
-    let e1 =
-      if N.ltb afree blen then finalise_and_recreate_assembly e0 else e0
-    in
-    let (a', bi) = Assembly.backup e1.cur_assembly e1.cur_buffer fpos content
-    in
-    { cur_assembly = a'; cur_buffer = e1.cur_buffer; config = e1.config;
-    fblocks = ((fp, bi) :: e1.fblocks); keys = e1.keys }
+    (** val initial_environment : Configuration.configuration -> coq_E **)
+
+    let initial_environment c =
+      let (a, b) = Assembly.AssemblyPlainWritable.create c in
+      { cur_assembly = a; cur_buffer = b; config = c; fblocks = []; keys =
+      [] }
+
+    (** val recreate_assembly : coq_AB environment -> coq_AB environment **)
+
+    let recreate_assembly e =
+      let (a, b) = Assembly.AssemblyPlainWritable.create e.config in
+      { cur_assembly = a; cur_buffer = b; config = e.config; fblocks =
+      e.fblocks; keys = e.keys }
+
+    (** val env_add_file_block :
+        string -> coq_AB environment -> Assembly.blockinformation -> coq_AB
+        environment **)
+
+    let env_add_file_block fname0 e bi =
+      { cur_assembly = e.cur_assembly; cur_buffer = e.cur_buffer; config =
+        e.config; fblocks = ((fname0, bi) :: e.fblocks); keys = e.keys }
+
+    (** val env_add_aid_key :
+        Assembly.aid_t -> coq_AB environment -> Assembly.keyinformation ->
+        coq_AB environment **)
+
+    let env_add_aid_key aid0 e ki =
+      { cur_assembly = e.cur_assembly; cur_buffer = e.cur_buffer; config =
+        e.config; fblocks = e.fblocks; keys = ((aid0, ki) :: e.keys) }
+
+    (** val key_for_aid :
+        coq_AB environment -> Assembly.aid_t -> Assembly.keyinformation option **)
+
+    let key_for_aid e aid0 =
+      match filter (fun e0 -> (=) (fst e0) aid0) e.keys with
+      | [] -> None
+      | p :: _ -> let (_, ki) = p in Some ki
+
+    (** val finalise_assembly : coq_AB environment -> coq_AB environment **)
+
+    let finalise_assembly e0 =
+      let a0 = e0.cur_assembly in
+      let apos0 = a0.Assembly.apos in
+      if N.ltb N0 apos0
+      then let (a, b) = Assembly.finish a0 e0.cur_buffer in
+           let ki = { Assembly.ivec = (cpp_mk_key128 ()); Assembly.pkey =
+             (cpp_mk_key256 ()); Assembly.localid =
+             e0.config.Configuration.my_id; Assembly.localnchunks =
+             e0.config.Configuration.config_nchunks }
+           in
+           let e1 = env_add_aid_key a.Assembly.aid e0 ki in
+           (match Assembly.encrypt a b ki with
+            | Some p ->
+              let (a', b') = p in
+              let n0 = Assembly.extract e1.config a' b' in
+              if N.eqb n0
+                   (Assembly.assemblysize
+                     e0.config.Configuration.config_nchunks)
+              then e1
+              else e0
+            | None -> e0)
+      else e0
+
+    (** val finalise_and_recreate_assembly :
+        coq_AB environment -> coq_AB environment **)
+
+    let finalise_and_recreate_assembly e0 =
+      let e1 = finalise_assembly e0 in recreate_assembly e1
+
+    (** val backup :
+        coq_AB environment -> string -> n -> Buffer.BufferPlain.buffer_t ->
+        coq_AB environment **)
+
+    let backup e0 fp fpos content =
+      let afree =
+        N.sub (Assembly.assemblysize e0.config.Configuration.config_nchunks)
+          e0.cur_assembly.Assembly.apos
+      in
+      let blen = Buffer.BufferPlain.buffer_len content in
+      let e1 =
+        if N.ltb afree blen then finalise_and_recreate_assembly e0 else e0
+      in
+      let (a', bi) =
+        Assembly.backup e1.cur_assembly e1.cur_buffer fpos content
+      in
+      { cur_assembly = a'; cur_buffer = e1.cur_buffer; config = e1.config;
+      fblocks = ((fp, bi) :: e1.fblocks); keys = e1.keys }
+   end
+
+  module EnvironmentReadable =
+   struct
+    type coq_AB = Assembly.AssemblyPlainFull.coq_B
+
+    type coq_E = coq_AB environment
+
+    (** val initial_environment : Configuration.configuration -> coq_E **)
+
+    let initial_environment c =
+      let (a, b) = Assembly.AssemblyPlainFull.create c in
+      { cur_assembly = a; cur_buffer = b; config = c; fblocks = []; keys =
+      [] }
+
+    (** val env_add_aid_key :
+        Assembly.aid_t -> coq_AB environment -> Assembly.keyinformation ->
+        coq_AB environment **)
+
+    let env_add_aid_key aid0 e ki =
+      { cur_assembly = e.cur_assembly; cur_buffer = e.cur_buffer; config =
+        e.config; fblocks = e.fblocks; keys = ((aid0, ki) :: e.keys) }
+
+    (** val key_for_aid :
+        coq_AB environment -> Assembly.aid_t -> Assembly.keyinformation option **)
+
+    let key_for_aid e aid0 =
+      match filter (fun e0 -> (=) (fst e0) aid0) e.keys with
+      | [] -> None
+      | p :: _ -> let (_, ki) = p in Some ki
+
+    (** val restore_assembly :
+        coq_AB environment -> Assembly.aid_t -> coq_AB environment option **)
+
+    let restore_assembly e0 aid0 =
+      match key_for_aid e0 aid0 with
+      | Some k ->
+        (match Assembly.recall e0.config { Assembly.nchunks =
+                 e0.config.Configuration.config_nchunks; Assembly.aid = aid0;
+                 Assembly.apos = N0 } with
+         | Some p ->
+           let (a1, b1) = p in
+           (match Assembly.decrypt a1 b1 k with
+            | Some p0 ->
+              let (a2, b2) = p0 in
+              Some { cur_assembly = a2; cur_buffer = b2; config = e0.config;
+              fblocks = e0.fblocks; keys = e0.keys }
+            | None -> None)
+         | None -> None)
+      | None -> None
+   end
  end
 
 module AssemblyCache =
@@ -1465,12 +1498,14 @@ module AssemblyCache =
   let wqueuesz w =
     w.wqueuesz
 
-  type assemblycache = { acenvs : Environment.environment list; acsize : 
-                         nat; acwriteenv : Environment.environment;
+  type assemblycache = { acenvs : Environment.EnvironmentReadable.coq_E list;
+                         acsize : nat;
+                         acwriteenv : Environment.EnvironmentWritable.coq_E;
                          acconfig : Configuration.configuration;
                          acwriteq : writequeue; acreadq : readqueue }
 
-  (** val acenvs : assemblycache -> Environment.environment list **)
+  (** val acenvs :
+      assemblycache -> Environment.EnvironmentReadable.coq_E list **)
 
   let acenvs a =
     a.acenvs
@@ -1480,7 +1515,8 @@ module AssemblyCache =
   let acsize a =
     a.acsize
 
-  (** val acwriteenv : assemblycache -> Environment.environment **)
+  (** val acwriteenv :
+      assemblycache -> Environment.EnvironmentWritable.coq_E **)
 
   let acwriteenv a =
     a.acwriteenv
@@ -1505,9 +1541,9 @@ module AssemblyCache =
 
   let prepare_assemblycache c size =
     { acenvs = []; acsize = (Coq_Pos.to_nat size); acwriteenv =
-      (Environment.initial_environment c); acconfig = c; acwriteq =
-      { wqueue = []; wqueuesz = qsize }; acreadq = { rqueue = []; rqueuesz =
-      qsize } }
+      (Environment.EnvironmentWritable.initial_environment c); acconfig = c;
+      acwriteq = { wqueue = []; wqueuesz = qsize }; acreadq = { rqueue = [];
+      rqueuesz = qsize } }
 
   (** val enqueue_write_request :
       assemblycache -> writequeueentity -> bool * assemblycache **)
@@ -1535,14 +1571,15 @@ module AssemblyCache =
 
   (** val try_restore_assembly :
       Configuration.configuration -> Assembly.aid_t ->
-      Environment.environment option **)
+      Environment.EnvironmentReadable.coq_E option **)
 
   let try_restore_assembly config0 sel_aid =
-    Environment.restore_assembly (Environment.initial_environment config0)
-      sel_aid
+    Environment.EnvironmentReadable.restore_assembly
+      (Environment.EnvironmentReadable.initial_environment config0) sel_aid
 
   (** val set_envs :
-      assemblycache -> Environment.environment list -> assemblycache **)
+      assemblycache -> Environment.EnvironmentReadable.coq_E list ->
+      assemblycache **)
 
   let set_envs ac0 envs =
     { acenvs = envs; acsize = ac0.acsize; acwriteenv = ac0.acwriteenv;
@@ -1551,7 +1588,7 @@ module AssemblyCache =
 
   (** val ensure_assembly :
       assemblycache -> Assembly.aid_t ->
-      (Environment.environment * assemblycache) option **)
+      (Environment.EnvironmentReadable.coq_E * assemblycache) option **)
 
   let ensure_assembly ac0 sel_aid =
     let filtered_var = ac0.acenvs in
@@ -1630,7 +1667,9 @@ module AssemblyCache =
     match reqs with
     | [] -> (res, ac0)
     | h :: r ->
-      let env = Environment.backup ac0.acwriteenv h.qfhash h.qfpos h.qbuffer
+      let env =
+        Environment.EnvironmentWritable.backup ac0.acwriteenv h.qfhash
+          h.qfpos h.qbuffer
       in
       let ac1 = { acenvs = ac0.acenvs; acsize = ac0.acsize; acwriteenv = env;
         acconfig = ac0.acconfig; acwriteq = { wqueue = []; wqueuesz =
@@ -1675,14 +1714,18 @@ module AssemblyCache =
   (** val flush : assemblycache -> assemblycache **)
 
   let flush ac0 =
-    let env = Environment.finalise_and_recreate_assembly ac0.acwriteenv in
+    let env =
+      Environment.EnvironmentWritable.finalise_and_recreate_assembly
+        ac0.acwriteenv
+    in
     { acenvs = []; acsize = ac0.acsize; acwriteenv = env; acconfig =
     ac0.acconfig; acwriteq = ac0.acwriteq; acreadq = ac0.acreadq }
 
   (** val close : assemblycache -> assemblycache **)
 
   let close ac0 =
-    let env = Environment.finalise_assembly ac0.acwriteenv in
+    let env = Environment.EnvironmentWritable.finalise_assembly ac0.acwriteenv
+    in
     { acenvs = []; acsize = ac0.acsize; acwriteenv = env; acconfig =
     ac0.acconfig; acwriteq = ac0.acwriteq; acreadq = ac0.acreadq }
  end
@@ -1851,7 +1894,7 @@ module Version =
   (** val build : string **)
 
   let build =
-    "5"
+    "6"
 
   (** val version : string **)
 

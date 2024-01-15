@@ -136,6 +136,7 @@ Extract Constant id_assembly_plain_buffer_t_from_buf => "fun b -> Helper.cpp_buf
 Extract Constant id_assembly_enc_buffer_t_from_buf => "fun b -> Helper.cpp_buffer_id b".
 Extract Constant id_enc_from_buffer_t => "fun b -> Helper.cpp_buffer_id b".
 Extract Constant id_assembly_full_buffer_from_writable => "fun b -> Helper.cpp_buffer_id b".
+Extract Constant id_assembly_full_ainfo_from_writable => "fun b -> Helper.cpp_buffer_id b".
 
 Extract Constant cpp_encrypt_buffer => "fun b iv pw -> Helper.cpp_encrypt_buffer b iv pw".
 Extract Constant cpp_decrypt_buffer => "fun b iv pw -> Helper.cpp_decrypt_buffer b iv pw".

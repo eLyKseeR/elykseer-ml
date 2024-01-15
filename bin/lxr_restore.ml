@@ -43,8 +43,8 @@ let ensure_assembly e relk aid =
   match%lwt Relkeys.find aid relk with
   | None -> Lwt.return @@ Error "no key found"
   | Some ki ->
-    let e1 = Environment.env_add_aid_key aid e ki in
-    match Environment.restore_assembly e1 aid with
+    let e1 = Environment.EnvironmentReadable.env_add_aid_key aid e ki in
+    match Environment.EnvironmentReadable.restore_assembly e1 aid with
     | None -> Lwt.return @@ Error "failed to restore assembly"
     | Some e2 -> Lwt.return @@ Ok (e2.cur_assembly, e2.cur_buffer)
 
@@ -53,10 +53,9 @@ let restore_file_blocks e0 relk fptr (fb : Assembly.blockinformation) =
   | Error errstr -> let%lwt () = Lwt_io.printlf "  failed to recall assembly %s with '%s'" fb.blockaid errstr in
                     Lwt.return (0,e0)
   | Ok (a,b) ->
-      let (_a'', b'') = Assembly.finish a b in
       let sz = Conversion.n2i fb.blocksize in
       let fbuf = Cstdio.File.Buffer.create sz in
-      let abuf = Buffer.BufferPlain.to_buffer @@ Assembly.id_buffer_t_from_full b'' in
+      let abuf = Buffer.BufferPlain.to_buffer @@ Assembly.id_buffer_t_from_full b in
       let nread = Elykseer_base.Assembly.get_content ~src:abuf ~sz:sz ~pos:(Conversion.n2i fb.blockapos) ~tgt:fbuf in
       Cstdio.File.fseek fptr (Conversion.n2i fb.filepos) |> function
         | Error _ -> let%lwt () = Lwt_io.printlf "  failed to 'fseek'\n" in Lwt.return (0,e0)
@@ -94,7 +93,7 @@ let restore_file e0 relf relk fname =
               in
             Lwt.return (cnt,e1)
 
-let ensure_all_available (e : Environment.environment) fns =
+let ensure_all_available (e : Environment.EnvironmentReadable.coq_E) fns =
   let%lwt rel = Relfiles.new_map e.config in
   let%lwt ls = Lwt_list.map_s (fun fname -> let fhash = sha256 fname in
                   match%lwt Relfiles.find fhash rel with None -> Lwt.return 0 | Some _ -> Lwt.return 1) fns in
@@ -133,7 +132,7 @@ let main () = Arg.parse argspec anon_args_fun "lxr_restore: vxodnji";
                     path_chunks = !arg_chunkpath;
                     path_db     = !arg_dbpath;
                     my_id       = myid } in
-      let e0 = Environment.initial_environment conf in
+      let e0 = Environment.EnvironmentReadable.initial_environment conf in
       let%lwt relf = Relfiles.new_map conf in
       let%lwt relk = Relkeys.new_map conf in
       restore_files e0 relf relk !arg_files

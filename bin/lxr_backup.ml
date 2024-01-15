@@ -76,7 +76,7 @@ let execute_backup_fileblock e _anum (fname,blocks) =
               Cstdio.File.fread buf sz fptr |> function
                 | Ok _nread ->
                   let bplain = Buffer.BufferPlain.from_buffer buf in
-                  Environment.backup e0 fname fpos bplain
+                  EnvironmentWritable.backup e0 fname fpos bplain
                 | Error (errno,errstr) -> 
                   Printf.printf "read error no:%d err:%s\n" errno errstr; e0
               end
@@ -101,7 +101,7 @@ let rec run_backup_for_assembly e0 pid anum acount (bp : backup_plan) =
       let anum_p = Conversion.i2p anum in
       let fileblocks' = extract_fileblocks anum_p bp in
       let e1 = List.fold_left (fun env fb -> execute_backup_fileblock env anum fb) e0 fileblocks' in
-      let e2 = Environment.finalise_and_recreate_assembly e1 in
+      let e2 = Environment.EnvironmentWritable.finalise_and_recreate_assembly e1 in
       run_backup_for_assembly e2 pid (anum + 1) acount bp
   end
 
@@ -178,7 +178,7 @@ let main () = Arg.parse argspec anon_args_fun "lxr_backup: vyxdnji";
                   path_chunks = !arg_chunkpath;
                   path_db     = !arg_dbpath;
                   my_id       = myid } in
-    let e0 = Environment.initial_environment conf in
+    let e0 = Environment.EnvironmentWritable.initial_environment conf in
     let%lwt backup_plan = plan_backup e0 !arg_files in
     let fcount = List.map (fun bpf -> bpf.fhash) backup_plan.bp |> List.sort_uniq (compare) |> List.length
     and acount = List.map (fun bpf -> bpf.curbs) backup_plan.bp |> List.map (List.map BackupPlanner.fbanum) |>
@@ -189,7 +189,7 @@ let main () = Arg.parse argspec anon_args_fun "lxr_backup: vyxdnji";
                               List.flatten |> List.sort_uniq (compare) |> List.length in
                  Lwt_io.printlf "reference contains %d %s" rcount (Utils.pluralise2 "assembly" "assemblies" rcount) in
     let e1 = run_distributed_backup e0 !arg_nproc acount backup_plan in
-    let e2 = Environment.finalise_assembly e1 in
+    let e2 = Environment.EnvironmentWritable.finalise_assembly e1 in
     let%lwt () = output_relations e2 backup_plan in
     let%lwt () = Lwt_io.printl "done." in
     Lwt.return ()

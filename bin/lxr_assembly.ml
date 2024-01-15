@@ -49,7 +49,7 @@ let main () = Arg.parse argspec anon_args_fun "lxr_assembly: vaf";
     let%lwt () = Lwt_io.printlf "rnd256 %d" (Conversion.n2i @@ Utilities.rnd @@ Conversion.i2n 0) in
     let%lwt () = Lwt_io.printlf "sha256 of /bin/sh %s" (Fsutils.fchksum "/bin/sh") in
     let c : Configuration.configuration = { config_nchunks = (Nchunks.from_int 16); path_chunks = "./chunks"; path_db = "/tmp/db"; my_id = "16"} in
-    let e0 = Environment.initial_environment c in
+    let e0 = Environment.EnvironmentWritable.initial_environment c in
     let a = Environment.cur_assembly e0 in
     let b = Environment.cur_buffer e0 in
     let%lwt () = Lwt_io.printlf "assembly %s %d %d" a.aid (Conversion.p2i a.nchunks) (Conversion.n2i a.apos) in
@@ -59,8 +59,8 @@ let main () = Arg.parse argspec anon_args_fun "lxr_assembly: vaf";
     (* let msg = "testing some longer message." in *)
     let content = BufferPlain.buffer_create (Conversion.i2n 1024) in (*  (fun i -> if i < 28 then String.get msg i else '0') in *)
     let (a', bi) = Elykseer__Lxr.Assembly.backup a b (* "test1M" *) (Conversion.i2n 0) content in
-    let e1 = Environment.env_add_file_block "test1M" e0 bi in
-    let e2 = Environment.env_add_aid_key (aid a') e1 {pkey="abc97391af";ivec="323453";localnchunks=Nchunks.to_positive c.config_nchunks;localid=c.my_id} in
+    let e1 = Environment.EnvironmentWritable.env_add_file_block "test1M" e0 bi in
+    let e2 = Environment.EnvironmentWritable.env_add_aid_key (aid a') e1 {pkey="abc97391af";ivec="323453";localnchunks=Nchunks.to_positive c.config_nchunks;localid=c.my_id} in
     let relkeys = Environment.keys e2 in
     let relkey = List.assoc (aid a') relkeys in
     let (a'', b') = Elykseer__Lxr.Assembly.finish a' b in
