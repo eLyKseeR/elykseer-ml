@@ -14,7 +14,6 @@ From LXR Require Import Nchunks.
 
 Module Export Environment.
 
-(* Open Scope positive_scope. *)
 Open Scope N_scope.
 
 
@@ -63,7 +62,6 @@ Module EnvironmentWritable <: ENV.
         ;  keys := e.(keys AB)
         |}.
     Definition env_add_file_block (fname : string) (e : environment AB) (bi : Assembly.blockinformation) : environment AB :=
-        (* set (fblocks AB) (fun bs => (fname,bi) :: bs) e. *)
         {| cur_assembly := e.(cur_assembly AB)
         ;  cur_buffer := e.(cur_buffer AB)
         ;  config := e.(config AB)
@@ -71,7 +69,6 @@ Module EnvironmentWritable <: ENV.
         ;  keys := e.(keys AB)
         |}.
     Definition env_add_aid_key (aid : aid_t) (e : environment AB) (ki : keyinformation) : environment AB :=
-        (* set keys (fun ks => (aid,ki) :: ks) e. *)
         {| cur_assembly := e.(cur_assembly AB)
         ;  cur_buffer := e.(cur_buffer AB)
         ;  config := e.(config AB)
@@ -136,7 +133,6 @@ Module EnvironmentReadable <: ENV.
         ;  keys := nil
         |}.
     Definition env_add_aid_key (aid : aid_t) (e : environment AB) (ki : keyinformation) : environment AB :=
-        (* set keys (fun ks => (aid,ki) :: ks) e. *)
         {| cur_assembly := e.(cur_assembly AB)
         ;  cur_buffer := e.(cur_buffer AB)
         ;  config := e.(config AB)
