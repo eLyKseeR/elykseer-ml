@@ -305,13 +305,27 @@ module Assembly :
 
   val localnchunks : keyinformation -> positive
 
+  type blockinformation = { blockid : positive; bchecksum : string;
+                            blocksize : n; filepos : n; blockaid : aid_t;
+                            blockapos : n }
+
+  val blockid : blockinformation -> positive
+
+  val bchecksum : blockinformation -> string
+
+  val blocksize : blockinformation -> n
+
+  val filepos : blockinformation -> n
+
+  val blockaid : blockinformation -> aid_t
+
+  val blockapos : blockinformation -> n
+
   module type ASS =
    sig
-    type coq_H = assemblyinformation
-
     type coq_B
 
-    val create : Configuration.configuration -> coq_H * coq_B
+    val create : Configuration.configuration -> assemblyinformation * coq_B
 
     val buffer_len : coq_B -> n
 
@@ -327,15 +341,49 @@ module Assembly :
   module AssemblyPlainFull :
    ASS
 
+  val id_assembly_full_ainfo_from_writable :
+    assemblyinformation -> assemblyinformation
+
+  val id_assembly_full_buffer_from_writable :
+    AssemblyPlainWritable.coq_B -> AssemblyPlainFull.coq_B
+
+  val finish :
+    assemblyinformation -> AssemblyPlainWritable.coq_B ->
+    assemblyinformation * AssemblyPlainFull.coq_B
+
+  val assembly_add_content :
+    Buffer.BufferPlain.buffer_t -> n -> n -> AssemblyPlainWritable.coq_B -> n
+
+  val backup :
+    assemblyinformation -> AssemblyPlainWritable.coq_B -> n ->
+    Buffer.BufferPlain.buffer_t -> assemblyinformation * blockinformation
+
+  val id_buffer_t_from_full :
+    AssemblyPlainFull.coq_B -> Buffer.BufferPlain.buffer_t
+
+  val id_assembly_enc_buffer_t_from_buf :
+    Buffer.BufferEncrypted.buffer_t -> AssemblyEncrypted.coq_B
+
+  val encrypt :
+    assemblyinformation -> AssemblyPlainFull.coq_B -> keyinformation ->
+    (assemblyinformation * AssemblyEncrypted.coq_B) option
+
+  val assembly_get_content :
+    AssemblyPlainFull.coq_B -> n -> n -> Buffer.BufferPlain.buffer_t -> n
+
+  val restore :
+    AssemblyPlainFull.coq_B -> blockinformation ->
+    Buffer.BufferPlain.buffer_t option
+
   val id_buffer_t_from_enc :
     AssemblyEncrypted.coq_B -> Buffer.BufferEncrypted.buffer_t
 
   val id_assembly_plain_buffer_t_from_buf :
-    Buffer.BufferPlain.buffer_t -> AssemblyPlainWritable.coq_B
+    Buffer.BufferPlain.buffer_t -> AssemblyPlainFull.coq_B
 
   val decrypt :
-    AssemblyEncrypted.coq_H -> AssemblyEncrypted.coq_B -> keyinformation ->
-    (AssemblyPlainWritable.coq_H * AssemblyPlainWritable.coq_B) option
+    assemblyinformation -> AssemblyEncrypted.coq_B -> keyinformation ->
+    (assemblyinformation * AssemblyPlainFull.coq_B) option
 
   val chunk_identifier :
     Configuration.configuration -> aid_t -> positive -> string
@@ -350,110 +398,99 @@ module Assembly :
     Buffer.BufferEncrypted.buffer_t -> AssemblyEncrypted.coq_B
 
   val recall :
-    Configuration.configuration -> AssemblyEncrypted.coq_H ->
-    (AssemblyEncrypted.coq_H * AssemblyEncrypted.coq_B) option
+    Configuration.configuration -> assemblyinformation ->
+    (assemblyinformation * AssemblyEncrypted.coq_B) option
 
   val ext_store_chunk_to_path :
     string -> n -> n -> Buffer.BufferEncrypted.buffer_t -> n
 
   val extract :
-    Configuration.configuration -> AssemblyEncrypted.coq_H ->
+    Configuration.configuration -> assemblyinformation ->
     AssemblyEncrypted.coq_B -> n
-
-  val id_buffer_t_from_full :
-    AssemblyPlainFull.coq_B -> Buffer.BufferPlain.buffer_t
-
-  val id_assembly_enc_buffer_t_from_buf :
-    Buffer.BufferEncrypted.buffer_t -> AssemblyEncrypted.coq_B
-
-  val id_assembly_full_buffer_from_writable :
-    AssemblyPlainWritable.coq_B -> AssemblyPlainFull.coq_B
-
-  val finish :
-    AssemblyPlainWritable.coq_H -> AssemblyPlainWritable.coq_B ->
-    AssemblyPlainFull.coq_H * AssemblyPlainFull.coq_B
-
-  val encrypt :
-    AssemblyPlainFull.coq_H -> AssemblyPlainFull.coq_B -> keyinformation ->
-    (AssemblyEncrypted.coq_H * AssemblyEncrypted.coq_B) option
-
-  type blockinformation = { blockid : positive; bchecksum : string;
-                            blocksize : n; filepos : n; blockaid : string;
-                            blockapos : n }
-
-  val blockid : blockinformation -> positive
-
-  val bchecksum : blockinformation -> string
-
-  val blocksize : blockinformation -> n
-
-  val filepos : blockinformation -> n
-
-  val blockaid : blockinformation -> string
-
-  val blockapos : blockinformation -> n
-
-  val assembly_add_content :
-    Buffer.BufferPlain.buffer_t -> n -> n -> AssemblyPlainWritable.coq_B -> n
-
-  val backup :
-    AssemblyPlainWritable.coq_H -> AssemblyPlainWritable.coq_B -> n ->
-    Buffer.BufferPlain.buffer_t ->
-    AssemblyPlainWritable.coq_H * blockinformation
-
-  val assembly_get_content :
-    AssemblyPlainFull.coq_B -> n -> n -> Buffer.BufferPlain.buffer_t -> n
-
-  val restore :
-    AssemblyPlainFull.coq_B -> blockinformation ->
-    Buffer.BufferPlain.buffer_t option
  end
 
 module Environment :
  sig
-  type environment = { cur_assembly : Assembly.AssemblyPlainWritable.coq_H;
-                       cur_buffer : Assembly.AssemblyPlainWritable.coq_B;
-                       config : Configuration.configuration;
-                       fblocks : (string * Assembly.blockinformation) list;
-                       keys : (string * Assembly.keyinformation) list }
+  type 'aB environment = { cur_assembly : Assembly.assemblyinformation;
+                           cur_buffer : 'aB;
+                           config : Configuration.configuration;
+                           fblocks : (string * Assembly.blockinformation) list;
+                           keys : (Assembly.aid_t * Assembly.keyinformation)
+                                  list }
 
-  val cur_assembly : environment -> Assembly.AssemblyPlainWritable.coq_H
+  val cur_assembly : 'a1 environment -> Assembly.assemblyinformation
 
-  val cur_buffer : environment -> Assembly.AssemblyPlainWritable.coq_B
+  val cur_buffer : 'a1 environment -> 'a1
 
-  val config : environment -> Configuration.configuration
+  val config : 'a1 environment -> Configuration.configuration
 
-  val fblocks : environment -> (string * Assembly.blockinformation) list
+  val fblocks : 'a1 environment -> (string * Assembly.blockinformation) list
 
-  val keys : environment -> (string * Assembly.keyinformation) list
-
-  val etaX : environment settable
-
-  val initial_environment : Configuration.configuration -> environment
-
-  val recreate_assembly : environment -> environment
-
-  val env_add_file_block :
-    string -> environment -> Assembly.blockinformation -> environment
-
-  val env_add_aid_key :
-    string -> environment -> Assembly.keyinformation -> environment
-
-  val key_for_aid :
-    environment -> Assembly.aid_t -> Assembly.keyinformation option
-
-  val restore_assembly : environment -> Assembly.aid_t -> environment option
+  val keys :
+    'a1 environment -> (Assembly.aid_t * Assembly.keyinformation) list
 
   val cpp_mk_key256 : unit -> string
 
   val cpp_mk_key128 : unit -> string
 
-  val finalise_assembly : environment -> environment
+  module type ENV =
+   sig
+    type coq_AB
 
-  val finalise_and_recreate_assembly : environment -> environment
+    type coq_E = coq_AB environment
 
-  val backup :
-    environment -> string -> n -> Buffer.BufferPlain.buffer_t -> environment
+    val initial_environment : Configuration.configuration -> coq_E
+   end
+
+  module EnvironmentWritable :
+   sig
+    type coq_AB = Assembly.AssemblyPlainWritable.coq_B
+
+    type coq_E = coq_AB environment
+
+    val initial_environment : Configuration.configuration -> coq_E
+
+    val recreate_assembly : coq_AB environment -> coq_AB environment
+
+    val env_add_file_block :
+      string -> coq_AB environment -> Assembly.blockinformation -> coq_AB
+      environment
+
+    val env_add_aid_key :
+      Assembly.aid_t -> coq_AB environment -> Assembly.keyinformation ->
+      coq_AB environment
+
+    val key_for_aid :
+      coq_AB environment -> Assembly.aid_t -> Assembly.keyinformation option
+
+    val finalise_assembly : coq_AB environment -> coq_AB environment
+
+    val finalise_and_recreate_assembly :
+      coq_AB environment -> coq_AB environment
+
+    val backup :
+      coq_AB environment -> string -> n -> Buffer.BufferPlain.buffer_t ->
+      coq_AB environment
+   end
+
+  module EnvironmentReadable :
+   sig
+    type coq_AB = Assembly.AssemblyPlainFull.coq_B
+
+    type coq_E = coq_AB environment
+
+    val initial_environment : Configuration.configuration -> coq_E
+
+    val env_add_aid_key :
+      Assembly.aid_t -> coq_AB environment -> Assembly.keyinformation ->
+      coq_AB environment
+
+    val key_for_aid :
+      coq_AB environment -> Assembly.aid_t -> Assembly.keyinformation option
+
+    val restore_assembly :
+      coq_AB environment -> Assembly.aid_t -> coq_AB environment option
+   end
  end
 
 module AssemblyCache :
@@ -503,16 +540,17 @@ module AssemblyCache :
 
   val wqueuesz : writequeue -> positive
 
-  type assemblycache = { acenvs : Environment.environment list; acsize : 
-                         nat; acwriteenv : Environment.environment;
+  type assemblycache = { acenvs : Environment.EnvironmentReadable.coq_E list;
+                         acsize : nat;
+                         acwriteenv : Environment.EnvironmentWritable.coq_E;
                          acconfig : Configuration.configuration;
                          acwriteq : writequeue; acreadq : readqueue }
 
-  val acenvs : assemblycache -> Environment.environment list
+  val acenvs : assemblycache -> Environment.EnvironmentReadable.coq_E list
 
   val acsize : assemblycache -> nat
 
-  val acwriteenv : assemblycache -> Environment.environment
+  val acwriteenv : assemblycache -> Environment.EnvironmentWritable.coq_E
 
   val acconfig : assemblycache -> Configuration.configuration
 
@@ -530,15 +568,16 @@ module AssemblyCache :
     assemblycache -> readqueueentity -> bool * assemblycache
 
   val try_restore_assembly :
-    Configuration.configuration -> Assembly.aid_t -> Environment.environment
-    option
+    Configuration.configuration -> Assembly.aid_t ->
+    Environment.EnvironmentReadable.coq_E option
 
   val set_envs :
-    assemblycache -> Environment.environment list -> assemblycache
+    assemblycache -> Environment.EnvironmentReadable.coq_E list ->
+    assemblycache
 
   val ensure_assembly :
     assemblycache -> Assembly.aid_t ->
-    (Environment.environment * assemblycache) option
+    (Environment.EnvironmentReadable.coq_E * assemblycache) option
 
   val run_read_requests :
     assemblycache -> readqueueentity list -> readqueueresult list ->

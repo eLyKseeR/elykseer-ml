@@ -60,10 +60,10 @@ Record writequeue : Type :=
 
 Record assemblycache : Type :=
     mkassemblycache
-        { acenvs : list environment
+        { acenvs : list EnvironmentReadable.E
         ; acsize : nat
             (* ^ read environments of a fixed maximal size *)
-        ; acwriteenv : environment
+        ; acwriteenv : EnvironmentWritable.E
             (* ^ write environment, exactly one *)
         ; acconfig : configuration
             (* ^ configuration needed to create new assemblies *)
@@ -77,7 +77,7 @@ Record assemblycache : Type :=
 Definition prepare_assemblycache (c : configuration) (size : positive) : assemblycache :=
     {| acenvs := nil
      ; acsize := Pos.to_nat size
-     ; acwriteenv := Environment.initial_environment c
+     ; acwriteenv := EnvironmentWritable.initial_environment c
      ; acconfig := c
      ; acwriteq := (mkwritequeue nil qsize)
      ; acreadq := (mkreadqueue nil qsize)
@@ -101,17 +101,17 @@ Program Definition enqueue_read_request (ac : assemblycache) (req : readqueueent
                   acreadq := {| rqueue := List.app (rqueue ac.(acreadq)) (req :: nil); rqueuesz := rqueuesz ac.(acreadq) |};
                   acwriteq := ac.(acwriteq)  |}).
 
-Program Definition try_restore_assembly (config : Configuration.configuration) (sel_aid : Assembly.aid_t) : option environment :=
-    Environment.restore_assembly (Environment.initial_environment config) sel_aid.
+Program Definition try_restore_assembly (config : Configuration.configuration) (sel_aid : Assembly.aid_t) : option EnvironmentReadable.E :=
+    EnvironmentReadable.restore_assembly (EnvironmentReadable.initial_environment config) sel_aid.
 
-Program Definition set_envs (ac0 : assemblycache) (envs : list Environment.environment) : assemblycache :=
+Program Definition set_envs (ac0 : assemblycache) (envs : list EnvironmentReadable.E) : assemblycache :=
     {| acenvs := envs; acsize := ac0.(acsize);
        acwriteenv := ac0.(acwriteenv); acconfig := ac0.(acconfig);
        acreadq := ac0.(acreadq); acwriteq := ac0.(acwriteq) |}.
 
 (* ensure that an environment with assembly (by aid) is available
    and that it is in the head position of the list of envs *)
-Program Definition ensure_assembly (ac0 : assemblycache) (sel_aid : Assembly.aid_t) : option (environment * assemblycache) :=
+Program Definition ensure_assembly (ac0 : assemblycache) (sel_aid : Assembly.aid_t) : option (EnvironmentReadable.E * assemblycache) :=
     match ac0.(acenvs) with
     | nil => (* create first env *)
         match try_restore_assembly ac0.(acconfig) sel_aid with
@@ -120,7 +120,7 @@ Program Definition ensure_assembly (ac0 : assemblycache) (sel_aid : Assembly.aid
            Some (env, set_envs ac0 (env :: nil))
         end
     | e1 :: nil =>
-        if String.eqb (aid e1.(cur_assembly)) sel_aid then
+        if String.eqb (aid e1.(cur_assembly AssemblyPlainFull.B)) sel_aid then
             Some (e1, ac0)
         else
             match try_restore_assembly ac0.(acconfig) sel_aid with
@@ -131,15 +131,15 @@ Program Definition ensure_assembly (ac0 : assemblycache) (sel_aid : Assembly.aid
                 else Some (env, set_envs ac0 (env :: e1 :: nil))
             end
     | e1 :: r =>
-        if String.eqb (aid e1.(cur_assembly)) sel_aid then
+        if String.eqb (aid e1.(cur_assembly AssemblyPlainFull.B)) sel_aid then
             (* found in first position *)
             Some (e1, ac0)
         else
-            let found := List.filter (fun e => String.eqb (aid e.(cur_assembly)) sel_aid) r in
+            let found := List.filter (fun e => String.eqb (aid e.(cur_assembly AssemblyPlainFull.B)) sel_aid) r in
             match found with
             | efound :: _ =>
                 (* found further down -> move to first position *)
-                let r' := List.filter (fun e => negb (String.eqb (aid e.(cur_assembly)) sel_aid)) r in
+                let r' := List.filter (fun e => negb (String.eqb (aid e.(cur_assembly AssemblyPlainFull.B)) sel_aid)) r in
                 Some (efound, set_envs ac0 (efound :: e1 :: r'))
             | nil =>
                 match try_restore_assembly ac0.(acconfig) sel_aid with
@@ -163,7 +163,7 @@ Program Fixpoint run_read_requests (ac0 : assemblycache) (reqs : list readqueuee
         | None => (res, ac0)
         | Some (env, ac1) =>
             let buf := BufferPlain.buffer_create h.(qrlen) in
-            let _ := assembly_get_content (id_assembly_full_buffer_from_writable env.(cur_buffer)) h.(qrlen) h.(qapos) buf in
+            let _ := assembly_get_content env.(cur_buffer AssemblyPlainFull.B) h.(qrlen) h.(qapos) buf in
             run_read_requests ac1 r ({| readrequest := h; rresult := buf |} :: res)
         end
     end.
@@ -173,11 +173,11 @@ Program Fixpoint run_write_requests (ac0 : assemblycache) (reqs : list writequeu
     match reqs with
     | nil => (res, ac0)
     | h :: r =>
-        let env := Environment.backup ac0.(acwriteenv) h.(qfhash) h.(qfpos) h.(qbuffer) in
+        let env := EnvironmentWritable.backup ac0.(acwriteenv) h.(qfhash) h.(qfpos) h.(qbuffer) in
         let ac1 := {| acenvs := ac0.(acenvs); acsize := ac0.(acsize); acwriteenv := env; acconfig := ac0.(acconfig);
                       acreadq := ac0.(acreadq); acwriteq := {| wqueue := nil; wqueuesz := wqueuesz ac0.(acwriteq) |} |} in
         run_write_requests ac1 r ({| writerequest := h;
-                                     wresult := {| qaid := env.(cur_assembly).(aid); qapos := env.(cur_assembly).(apos);
+                                     wresult := {| qaid := env.(cur_assembly AssemblyPlainWritable.B).(aid); qapos := env.(cur_assembly AssemblyPlainWritable.B).(apos);
                                                    qrlen := buffer_len h.(qbuffer) |} |} :: res)
     end.
 
@@ -211,13 +211,13 @@ Program Definition iterate_write_queue (ac0 : assemblycache) : (list writequeuer
 
 (* finalise and recreate writable environment, and extract chunks from it *)
 Program Definition flush (ac0 : assemblycache) : assemblycache :=
-    let env := Environment.finalise_and_recreate_assembly ac0.(acwriteenv) in
+    let env := EnvironmentWritable.finalise_and_recreate_assembly ac0.(acwriteenv) in
     {| acenvs := nil; acsize := ac0.(acsize); acwriteenv := env; acconfig := ac0.(acconfig);
        acreadq := ac0.(acreadq); acwriteq := ac0.(acwriteq) |}.
 
 (* terminate cache: finalise writable environment and extract chunks from it *)
 Program Definition close (ac0 : assemblycache) : assemblycache :=
-    let env := Environment.finalise_assembly ac0.(acwriteenv) in
+    let env := EnvironmentWritable.finalise_assembly ac0.(acwriteenv) in
     {| acenvs := nil; acsize := ac0.(acsize); acwriteenv := env; acconfig := ac0.(acconfig);
        acreadq := ac0.(acreadq); acwriteq := ac0.(acwriteq) |}.
 
@@ -228,13 +228,13 @@ Section Validation.
 (* our database: the assembly with id "aid_found" exists and can be restored *)
 Axiom db_env_for_known_aid : forall e c,
     let env :=
-        {| fblocks := e.(fblocks); keys := e.(keys); config := e.(config); cur_buffer := e.(cur_buffer);
+        {| fblocks := e.(fblocks AssemblyPlainFull.B); keys := e.(keys AssemblyPlainFull.B); config := e.(config AssemblyPlainFull.B); cur_buffer := e.(cur_buffer AssemblyPlainFull.B);
         cur_assembly := mkassembly c.(config_nchunks) "aid_found" 0 |} in
     try_restore_assembly c "aid_found" = Some env.
 
 (* all other assemblies are not found. *)
 Axiom db_env_none_default : forall a c,
-    let env := initial_environment c in
+    let env := EnvironmentReadable.initial_environment c in
     try_restore_assembly c a = None.
 
 
@@ -275,7 +275,8 @@ Proof.
     induction reqs. simpl.
     - reflexivity.
     - apply run_read_requests_same_length. 
-Abort.
+Qed.
+
 End Unfinished.
 
 (* running the read queue with a single read request,
@@ -292,14 +293,14 @@ Proof.
     unfold iterate_read_queue.
     unfold filter. simpl.
     unfold ensure_assembly. simpl.
-    set (e0 := initial_environment Config).
+    set (e0 := EnvironmentReadable.initial_environment Config).
     rewrite db_env_for_known_aid with (e := e0).
     auto.
 Qed.
 
 Example first_env_for_empty_cache : forall c,
     let ac0 := prepare_assemblycache c 3 in
-    let e0 := Environment.initial_environment c in
+    let e0 := EnvironmentReadable.initial_environment c in
     let env1 := match try_restore_assembly c "aid_found" with
                | Some e => e
                | None => e0
@@ -310,7 +311,7 @@ Example first_env_for_empty_cache : forall c,
 Proof.
     intro Config.
     unfold ensure_assembly. simpl.
-    set (e0 := initial_environment Config).
+    set (e0 := EnvironmentReadable.initial_environment Config).
     rewrite db_env_for_known_aid with (e := e0).
     unfold set_envs. reflexivity.
 Qed.
@@ -319,18 +320,19 @@ Qed.
     aid (cur_assembly (initial_environment c)) = "". *)
 
 Example second_of3_env_for_not_filled_cache : forall c,
+    let AB := AssemblyPlainFull.B in
     let ac0 := prepare_assemblycache c 3 in
-    let e0 := Environment.initial_environment c in
-    let env1 := let e := Environment.initial_environment c in
-        {| fblocks := e.(fblocks); keys := e.(keys); config := e.(config); cur_buffer := e.(cur_buffer);
+    let e0 := EnvironmentReadable.initial_environment c in
+    let env1 := let e := EnvironmentReadable.initial_environment c in
+        {| fblocks := e.(fblocks AB); keys := e.(keys AB); config := e.(config AB); cur_buffer := e.(cur_buffer AB);
         cur_assembly := mkassembly c.(config_nchunks) "aid_some" 0 |} in
     (* from this assembly cache: *)
     let ac1 := set_envs ac0 (env1 :: nil) in
     let env2 := match try_restore_assembly c "aid_found" with
                 | Some e =>
-                    {| fblocks := e.(fblocks); keys := e.(keys); config := e.(config); cur_buffer := e.(cur_buffer);
+                    {| fblocks := e.(fblocks AB); keys := e.(keys AB); config := e.(config AB); cur_buffer := e.(cur_buffer AB);
                     cur_assembly := mkassembly c.(config_nchunks) "aid_found" 0 |}
-                | None => Environment.initial_environment c
+                | None => EnvironmentReadable.initial_environment c
                 end in
     (* to this assembly cache: env2 added to head *)
     let ac' := {| acenvs := env2 :: env1 :: nil; acsize := ac1.(acsize); acwriteenv := ac1.(acwriteenv); acconfig := ac1.(acconfig);
@@ -339,24 +341,25 @@ Example second_of3_env_for_not_filled_cache : forall c,
 Proof.
     intro Config.
     unfold ensure_assembly. simpl.
-    set (e0 := initial_environment Config).
+    set (e0 := EnvironmentReadable.initial_environment Config).
     rewrite db_env_for_known_aid with (e := e0).
     unfold set_envs. simpl. reflexivity.
 Qed.
 
 Example second_of2_env_for_not_filled_cache : forall c,
+    let AB := AssemblyPlainFull.B in
     let ac0 := prepare_assemblycache c 2 in
-    let e0 := Environment.initial_environment c in
-    let env1 := let e := Environment.initial_environment c in
-        {| fblocks := e.(fblocks); keys := e.(keys); config := e.(config); cur_buffer := e.(cur_buffer);
+    let e0 := EnvironmentReadable.initial_environment c in
+    let env1 := let e := EnvironmentReadable.initial_environment c in
+        {| fblocks := e.(fblocks AB); keys := e.(keys AB); config := e.(config AB); cur_buffer := e.(cur_buffer AB);
         cur_assembly := mkassembly c.(config_nchunks) "aid_some" 0 |} in
     (* from this assembly cache: *)
     let ac1 := set_envs ac0 (env1 :: nil) in
     let env2 := match try_restore_assembly c "aid_found" with
                 | Some e =>
-                    {| fblocks := e.(fblocks); keys := e.(keys); config := e.(config); cur_buffer := e.(cur_buffer);
+                    {| fblocks := e.(fblocks AB); keys := e.(keys AB); config := e.(config AB); cur_buffer := e.(cur_buffer AB);
                     cur_assembly := mkassembly c.(config_nchunks) "aid_found" 0 |}
-                | None => Environment.initial_environment c
+                | None => EnvironmentReadable.initial_environment c
                 end in
     (* to this assembly cache: env2 added to head *)
     let ac' := {| acenvs := env2 :: env1 :: nil; acsize := ac1.(acsize); acwriteenv := ac1.(acwriteenv); acconfig := ac1.(acconfig);
@@ -365,27 +368,28 @@ Example second_of2_env_for_not_filled_cache : forall c,
 Proof.
     intro Config.
     unfold ensure_assembly. simpl.
-    set (e0 := initial_environment Config).
+    set (e0 := EnvironmentReadable.initial_environment Config).
     rewrite db_env_for_known_aid with (e := e0).
     unfold set_envs. simpl. reflexivity.
 Qed.
 
 Example third_of2_env_for_filled_cache : forall c,
+    let AB := AssemblyPlainFull.B in
     let ac0 := prepare_assemblycache c 2 in
-    let e0 := Environment.initial_environment c in
-    let env1 := let e := Environment.initial_environment c in
-        {| fblocks := e.(fblocks); keys := e.(keys); config := e.(config); cur_buffer := e.(cur_buffer);
+    let e0 := EnvironmentReadable.initial_environment c in
+    let env1 := let e := EnvironmentReadable.initial_environment c in
+        {| fblocks := e.(fblocks AB); keys := e.(keys AB); config := e.(config AB); cur_buffer := e.(cur_buffer AB);
         cur_assembly := mkassembly c.(config_nchunks) "aid_some" 0 |} in
-    let env2 := let e := Environment.initial_environment c in
-        {| fblocks := e.(fblocks); keys := e.(keys); config := e.(config); cur_buffer := e.(cur_buffer);
+    let env2 := let e := EnvironmentReadable.initial_environment c in
+        {| fblocks := e.(fblocks AB); keys := e.(keys AB); config := e.(config AB); cur_buffer := e.(cur_buffer AB);
         cur_assembly := mkassembly c.(config_nchunks) "aid_other" 0 |} in
     (* from this "full" assembly cache: env3 at head, env1 dropped *)
     let ac1 := set_envs ac0 (env2 :: env1 :: nil) in
     let env3 := match try_restore_assembly c "aid_found" with
                 | Some e =>
-                    {| fblocks := e.(fblocks); keys := e.(keys); config := e.(config); cur_buffer := e.(cur_buffer);
+                    {| fblocks := e.(fblocks AB); keys := e.(keys AB); config := e.(config AB); cur_buffer := e.(cur_buffer AB);
                     cur_assembly := mkassembly c.(config_nchunks) "aid_found" 0 |}
-                | None => Environment.initial_environment c
+                | None => EnvironmentReadable.initial_environment c
                 end in
     (* to this "full" assembly cache: *)
     let ac' := {| acenvs := env3 :: env2 :: nil; acsize := ac1.(acsize); acwriteenv := ac1.(acwriteenv); acconfig := ac1.(acconfig);
@@ -394,19 +398,20 @@ Example third_of2_env_for_filled_cache : forall c,
 Proof.
     intro Config.
     unfold ensure_assembly. simpl.
-    set (e0 := initial_environment Config).
+    set (e0 := EnvironmentReadable.initial_environment Config).
     rewrite db_env_for_known_aid with (e := e0).
     unfold set_envs. simpl. reflexivity.
 Qed.
 
 Example found_assembly_in_filled_cache_of_size_2 : forall c,
+    let AB := AssemblyPlainFull.B in
     let ac0 := prepare_assemblycache c 2 in
-    let e0 := Environment.initial_environment c in
-    let env1 := let e := Environment.initial_environment c in
-        {| fblocks := e.(fblocks); keys := e.(keys); config := e.(config); cur_buffer := e.(cur_buffer);
+    let e0 := EnvironmentReadable.initial_environment c in
+    let env1 := let e := EnvironmentReadable.initial_environment c in
+        {| fblocks := e.(fblocks AB); keys := e.(keys AB); config := e.(config AB); cur_buffer := e.(cur_buffer AB);
         cur_assembly := mkassembly c.(config_nchunks) "aid_found" 0 |} in
-    let env2 := let e := Environment.initial_environment c in
-        {| fblocks := e.(fblocks); keys := e.(keys); config := e.(config); cur_buffer := e.(cur_buffer);
+    let env2 := let e := EnvironmentReadable.initial_environment c in
+        {| fblocks := e.(fblocks AB); keys := e.(keys AB); config := e.(config AB); cur_buffer := e.(cur_buffer AB);
         cur_assembly := mkassembly c.(config_nchunks) "aid_other" 0 |} in
     (* from this "full" assembly cache: *)
     let ac1 := set_envs ac0 (env2 :: env1 :: nil) in
@@ -417,21 +422,22 @@ Example found_assembly_in_filled_cache_of_size_2 : forall c,
 Proof.
     intro Config.
     unfold ensure_assembly. simpl.
-    set (e0 := initial_environment Config).
+    set (e0 := EnvironmentReadable.initial_environment Config).
     unfold set_envs. simpl. reflexivity.
 Qed.
 
 Example found_assembly_in_filled_cache_of_size_3 : forall c,
+    let AB := AssemblyPlainFull.B in
     let ac0 := prepare_assemblycache c 3 in
-    let e0 := Environment.initial_environment c in
-    let env1 := let e := Environment.initial_environment c in
-        {| fblocks := e.(fblocks); keys := e.(keys); config := e.(config); cur_buffer := e.(cur_buffer);
+    let e0 := EnvironmentReadable.initial_environment c in
+    let env1 := let e := EnvironmentReadable.initial_environment c in
+        {| fblocks := e.(fblocks AB); keys := e.(keys AB); config := e.(config AB); cur_buffer := e.(cur_buffer AB);
         cur_assembly := mkassembly c.(config_nchunks) "aid_found" 0 |} in
-    let env2 := let e := Environment.initial_environment c in
-        {| fblocks := e.(fblocks); keys := e.(keys); config := e.(config); cur_buffer := e.(cur_buffer);
+    let env2 := let e := EnvironmentReadable.initial_environment c in
+        {| fblocks := e.(fblocks AB); keys := e.(keys AB); config := e.(config AB); cur_buffer := e.(cur_buffer AB);
         cur_assembly := mkassembly c.(config_nchunks) "aid_other" 0 |} in
-    let env3 := let e := Environment.initial_environment c in
-        {| fblocks := e.(fblocks); keys := e.(keys); config := e.(config); cur_buffer := e.(cur_buffer);
+    let env3 := let e := EnvironmentReadable.initial_environment c in
+        {| fblocks := e.(fblocks AB); keys := e.(keys AB); config := e.(config AB); cur_buffer := e.(cur_buffer AB);
         cur_assembly := mkassembly c.(config_nchunks) "aid_latest" 0 |} in
     (* from this "full" assembly cache: *)
     let ac1 := set_envs ac0 (env3 :: env2 :: env1 :: nil) in
@@ -442,7 +448,7 @@ Example found_assembly_in_filled_cache_of_size_3 : forall c,
 Proof.
     intro Config.
     unfold ensure_assembly. simpl.
-    set (e0 := initial_environment Config).
+    set (e0 := EnvironmentReadable.initial_environment Config).
     unfold set_envs. simpl. reflexivity.
 Qed.
 
