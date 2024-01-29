@@ -409,14 +409,75 @@ module Assembly :
     AssemblyEncrypted.coq_B -> n
  end
 
+module Store :
+ sig
+  type 'kVs store = { config : Configuration.configuration; entries : 'kVs }
+
+  val config : 'a1 store -> Configuration.configuration
+
+  val entries : 'a1 store -> 'a1
+
+  val rec_find : string -> (string * 'a1) list -> 'a1 option
+
+  module type STORE =
+   sig
+    type coq_K
+
+    type coq_V
+
+    type coq_KVs
+
+    type coq_R
+
+    val init : Configuration.configuration -> coq_R
+
+    val add : coq_K -> coq_V -> coq_R -> coq_R
+
+    val find : coq_K -> coq_R -> coq_V option
+   end
+
+  module KeyListStore :
+   sig
+    type coq_K = string
+
+    type coq_V = Assembly.keyinformation
+
+    type coq_KVs = (coq_K * coq_V) list
+
+    type coq_R = coq_KVs store
+
+    val init : Configuration.configuration -> coq_R
+
+    val add : coq_K -> coq_V -> coq_R -> coq_R
+
+    val find : coq_K -> coq_R -> coq_V option
+   end
+
+  module FBlockListStore :
+   sig
+    type coq_K = Assembly.aid_t
+
+    type coq_V = Assembly.blockinformation
+
+    type coq_KVs = (coq_K * coq_V) list
+
+    type coq_R = coq_KVs store
+
+    val init : Configuration.configuration -> coq_R
+
+    val add : coq_K -> coq_V -> coq_R -> coq_R
+
+    val find : coq_K -> coq_R -> coq_V option
+   end
+ end
+
 module Environment :
  sig
   type 'aB environment = { cur_assembly : Assembly.assemblyinformation;
                            cur_buffer : 'aB;
                            config : Configuration.configuration;
-                           fblocks : (string * Assembly.blockinformation) list;
-                           keys : (Assembly.aid_t * Assembly.keyinformation)
-                                  list }
+                           fblocks : Store.FBlockListStore.coq_R;
+                           keys : Store.KeyListStore.coq_R }
 
   val cur_assembly : 'a1 environment -> Assembly.assemblyinformation
 
@@ -424,10 +485,9 @@ module Environment :
 
   val config : 'a1 environment -> Configuration.configuration
 
-  val fblocks : 'a1 environment -> (string * Assembly.blockinformation) list
+  val fblocks : 'a1 environment -> Store.FBlockListStore.coq_R
 
-  val keys :
-    'a1 environment -> (Assembly.aid_t * Assembly.keyinformation) list
+  val keys : 'a1 environment -> Store.KeyListStore.coq_R
 
   val cpp_mk_key256 : unit -> string
 

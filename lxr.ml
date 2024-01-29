@@ -1207,14 +1207,103 @@ module Assembly =
       (Utilities.make_list a.nchunks) N0
  end
 
+module Store =
+ struct
+  type 'kVs store = { config : Configuration.configuration; entries : 'kVs }
+
+  (** val config : 'a1 store -> Configuration.configuration **)
+
+  let config s =
+    s.config
+
+  (** val entries : 'a1 store -> 'a1 **)
+
+  let entries s =
+    s.entries
+
+  (** val rec_find : string -> (string * 'a1) list -> 'a1 option **)
+
+  let rec rec_find k = function
+  | [] -> None
+  | p :: r -> let (k', v') = p in if (=) k' k then Some v' else rec_find k r
+
+  module type STORE =
+   sig
+    type coq_K
+
+    type coq_V
+
+    type coq_KVs
+
+    type coq_R
+
+    val init : Configuration.configuration -> coq_R
+
+    val add : coq_K -> coq_V -> coq_R -> coq_R
+
+    val find : coq_K -> coq_R -> coq_V option
+   end
+
+  module KeyListStore =
+   struct
+    type coq_K = string
+
+    type coq_V = Assembly.keyinformation
+
+    type coq_KVs = (coq_K * coq_V) list
+
+    type coq_R = coq_KVs store
+
+    (** val init : Configuration.configuration -> coq_R **)
+
+    let init c =
+      { config = c; entries = [] }
+
+    (** val add : coq_K -> coq_V -> coq_R -> coq_R **)
+
+    let add k v r =
+      { config = r.config; entries = ((k, v) :: r.entries) }
+
+    (** val find : coq_K -> coq_R -> coq_V option **)
+
+    let find k r =
+      rec_find k r.entries
+   end
+
+  module FBlockListStore =
+   struct
+    type coq_K = Assembly.aid_t
+
+    type coq_V = Assembly.blockinformation
+
+    type coq_KVs = (coq_K * coq_V) list
+
+    type coq_R = coq_KVs store
+
+    (** val init : Configuration.configuration -> coq_R **)
+
+    let init c =
+      { config = c; entries = [] }
+
+    (** val add : coq_K -> coq_V -> coq_R -> coq_R **)
+
+    let add k v r =
+      { config = r.config; entries = ((k, v) :: r.entries) }
+
+    (** val find : coq_K -> coq_R -> coq_V option **)
+
+    let find k r =
+      rec_find k r.entries
+   end
+ end
+
 module Environment =
  struct
   type 'aB environment = { cur_assembly : Assembly.assemblyinformation;
                            cur_buffer : 'aB;
                            config : Configuration.configuration;
-                           fblocks : (string * Assembly.blockinformation) list;
-                           keys : (Assembly.aid_t * Assembly.keyinformation)
-                                  list }
+                           fblocks : Store.FBlockListStore.coq_R;
+                           keys : Store.KeyListStore.coq_R }
 
   (** val cur_assembly : 'a1 environment -> Assembly.assemblyinformation **)
 
@@ -1231,14 +1320,12 @@ module Environment =
   let config e =
     e.config
 
-  (** val fblocks :
-      'a1 environment -> (string * Assembly.blockinformation) list **)
+  (** val fblocks : 'a1 environment -> Store.FBlockListStore.coq_R **)
 
   let fblocks e =
     e.fblocks
 
-  (** val keys :
-      'a1 environment -> (Assembly.aid_t * Assembly.keyinformation) list **)
+  (** val keys : 'a1 environment -> Store.KeyListStore.coq_R **)
 
   let keys e =
     e.keys
@@ -1270,8 +1357,8 @@ module Environment =
 
     let initial_environment c =
       let (a, b) = Assembly.AssemblyPlainWritable.create c in
-      { cur_assembly = a; cur_buffer = b; config = c; fblocks = []; keys =
-      [] }
+      { cur_assembly = a; cur_buffer = b; config = c; fblocks =
+      (Store.FBlockListStore.init c); keys = (Store.KeyListStore.init c) }
 
     (** val recreate_assembly : coq_AB environment -> coq_AB environment **)
 
@@ -1286,7 +1373,8 @@ module Environment =
 
     let env_add_file_block fname0 e bi =
       { cur_assembly = e.cur_assembly; cur_buffer = e.cur_buffer; config =
-        e.config; fblocks = ((fname0, bi) :: e.fblocks); keys = e.keys }
+        e.config; fblocks = (Store.FBlockListStore.add fname0 bi e.fblocks);
+        keys = e.keys }
 
     (** val env_add_aid_key :
         Assembly.aid_t -> coq_AB environment -> Assembly.keyinformation ->
@@ -1294,15 +1382,14 @@ module Environment =
 
     let env_add_aid_key aid0 e ki =
       { cur_assembly = e.cur_assembly; cur_buffer = e.cur_buffer; config =
-        e.config; fblocks = e.fblocks; keys = ((aid0, ki) :: e.keys) }
+        e.config; fblocks = e.fblocks; keys =
+        (Store.KeyListStore.add aid0 ki e.keys) }
 
     (** val key_for_aid :
         coq_AB environment -> Assembly.aid_t -> Assembly.keyinformation option **)
 
     let key_for_aid e aid0 =
-      match filter (fun e0 -> (=) (fst e0) aid0) e.keys with
-      | [] -> None
-      | p :: _ -> let (_, ki) = p in Some ki
+      Store.KeyListStore.find aid0 e.keys
 
     (** val finalise_assembly : coq_AB environment -> coq_AB environment **)
 
@@ -1352,7 +1439,7 @@ module Environment =
         Assembly.backup e1.cur_assembly e1.cur_buffer fpos content
       in
       { cur_assembly = a'; cur_buffer = e1.cur_buffer; config = e1.config;
-      fblocks = ((fp, bi) :: e1.fblocks); keys = e1.keys }
+      fblocks = (Store.FBlockListStore.add fp bi e1.fblocks); keys = e1.keys }
    end
 
   module EnvironmentReadable =
@@ -1365,8 +1452,8 @@ module Environment =
 
     let initial_environment c =
       let (a, b) = Assembly.AssemblyPlainFull.create c in
-      { cur_assembly = a; cur_buffer = b; config = c; fblocks = []; keys =
-      [] }
+      { cur_assembly = a; cur_buffer = b; config = c; fblocks =
+      (Store.FBlockListStore.init c); keys = (Store.KeyListStore.init c) }
 
     (** val env_add_aid_key :
         Assembly.aid_t -> coq_AB environment -> Assembly.keyinformation ->
@@ -1374,15 +1461,14 @@ module Environment =
 
     let env_add_aid_key aid0 e ki =
       { cur_assembly = e.cur_assembly; cur_buffer = e.cur_buffer; config =
-        e.config; fblocks = e.fblocks; keys = ((aid0, ki) :: e.keys) }
+        e.config; fblocks = e.fblocks; keys =
+        (Store.KeyListStore.add aid0 ki e.keys) }
 
     (** val key_for_aid :
         coq_AB environment -> Assembly.aid_t -> Assembly.keyinformation option **)
 
     let key_for_aid e aid0 =
-      match filter (fun e0 -> (=) (fst e0) aid0) e.keys with
-      | [] -> None
-      | p :: _ -> let (_, ki) = p in Some ki
+      Store.KeyListStore.find aid0 e.keys
 
     (** val restore_assembly :
         coq_AB environment -> Assembly.aid_t -> coq_AB environment option **)
@@ -1894,7 +1980,7 @@ module Version =
   (** val build : string **)
 
   let build =
-    "6"
+    "7"
 
   (** val version : string **)
 

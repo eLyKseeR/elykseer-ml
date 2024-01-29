@@ -10,6 +10,7 @@ From RecordUpdate Require Import RecordUpdate.
 From LXR Require Import Assembly.
 From LXR Require Import Buffer.
 From LXR Require Import Configuration.
+From LXR Require Import Store.
 From LXR Require Import Nchunks.
 
 Module Export Environment.
@@ -23,8 +24,8 @@ Record environment (AB : Type) : RecordEnvironment :=
         { cur_assembly : assemblyinformation
         ; cur_buffer : AB
         ; config : configuration
-        ; fblocks : list (string * Assembly.blockinformation)
-        ; keys : list (aid_t * Assembly.keyinformation)
+        ; fblocks : FBlockListStore.R
+        ; keys : KeyListStore.R
         }.
 (* #[export] Instance etaX : Settable _ := settable! mkenvironment (AB) <cur_assembly; cur_buffer; config; fblocks; keys>. *)
 (* Print environment.
@@ -51,8 +52,8 @@ Module EnvironmentWritable <: ENV.
         {| cur_assembly := a
         ;  cur_buffer := b
         ;  config := c
-        ;  fblocks := nil
-        ;  keys := nil
+        ;  fblocks := FBlockListStore.init c
+        ;  keys := KeyListStore.init c
         |}.
     Definition recreate_assembly (e : environment AB) : environment AB :=
         let (a,b) := AssemblyPlainWritable.create (e.(config AB)) in
@@ -65,7 +66,7 @@ Module EnvironmentWritable <: ENV.
         {| cur_assembly := e.(cur_assembly AB)
         ;  cur_buffer := e.(cur_buffer AB)
         ;  config := e.(config AB)
-        ;  fblocks := (fname,bi) :: e.(fblocks AB)
+        ;  fblocks := FBlockListStore.add fname bi e.(fblocks AB)
         ;  keys := e.(keys AB)
         |}.
     Definition env_add_aid_key (aid : aid_t) (e : environment AB) (ki : keyinformation) : environment AB :=
@@ -73,13 +74,10 @@ Module EnvironmentWritable <: ENV.
         ;  cur_buffer := e.(cur_buffer AB)
         ;  config := e.(config AB)
         ;  fblocks := e.(fblocks AB)
-        ;  keys := (aid,ki) :: e.(keys AB)
+        ;  keys := KeyListStore.add aid ki e.(keys AB)
         |}.
     Definition key_for_aid (e : environment AB) (aid : Assembly.aid_t) : option keyinformation :=
-        match List.filter (fun e => String.eqb (fst e) aid) e.(keys AB) with
-        | nil => None
-        | (_,ki) :: _ => Some ki
-        end.
+        KeyListStore.find aid e.(keys AB).
     Definition finalise_assembly (e0 : environment AB) : environment AB :=
         let a0 := e0.(cur_assembly AB) in
         let apos := Assembly.apos a0 in
@@ -114,7 +112,7 @@ Module EnvironmentWritable <: ENV.
         {| cur_assembly := a'
         ;  cur_buffer := e1.(cur_buffer AB)
         ;  config := e1.(config AB)
-        ;  fblocks := (fp,bi) :: e1.(fblocks AB)
+        ;  fblocks := FBlockListStore.add fp bi e1.(fblocks AB)
         ;  keys := e1.(keys AB)
         |}.
 
@@ -129,21 +127,18 @@ Module EnvironmentReadable <: ENV.
         {| cur_assembly := a
         ;  cur_buffer := b
         ;  config := c
-        ;  fblocks := nil
-        ;  keys := nil
+        ;  fblocks := FBlockListStore.init c
+        ;  keys := KeyListStore.init c
         |}.
     Definition env_add_aid_key (aid : aid_t) (e : environment AB) (ki : keyinformation) : environment AB :=
         {| cur_assembly := e.(cur_assembly AB)
         ;  cur_buffer := e.(cur_buffer AB)
         ;  config := e.(config AB)
         ;  fblocks := e.(fblocks AB)
-        ;  keys := (aid,ki) :: e.(keys AB)
+        ;  keys := KeyListStore.add aid ki e.(keys AB)
         |}.
     Definition key_for_aid (e : environment AB) (aid : Assembly.aid_t) : option keyinformation :=
-        match List.filter (fun e => String.eqb (fst e) aid) e.(keys AB) with
-        | nil => None
-        | (_,ki) :: _ => Some ki
-        end.
+        KeyListStore.find aid e.(keys AB).
     Definition restore_assembly (e0 : environment AB) (aid : aid_t) : option (environment AB) :=
         match key_for_aid e0 aid with
         | None => None

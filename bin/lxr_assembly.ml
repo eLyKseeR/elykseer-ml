@@ -62,7 +62,7 @@ let main () = Arg.parse argspec anon_args_fun "lxr_assembly: vaf";
     let e1 = Environment.EnvironmentWritable.env_add_file_block "test1M" e0 bi in
     let e2 = Environment.EnvironmentWritable.env_add_aid_key (aid a') e1 {pkey="abc97391af";ivec="323453";localnchunks=Nchunks.to_positive c.config_nchunks;localid=c.my_id} in
     let relkeys = Environment.keys e2 in
-    let relkey = List.assoc (aid a') relkeys in
+    let relkey = List.assoc (aid a') relkeys.entries in
     let (a'', b') = Elykseer__Lxr.Assembly.finish a' b in
     match Elykseer__Lxr.Assembly.encrypt a'' b' relkey with
     | None -> Lwt_io.printl "failed to encrypt"
