@@ -7,6 +7,7 @@ Open Scope positive_scope.
 
 From LXR Require Import Assembly.
 From LXR Require Import AssemblyCache.
+From LXR Require Import Store.
 From LXR Require Import BackupPlanner.
 From LXR Require Import Buffer.
 From LXR Require Import Configuration.
@@ -195,6 +196,9 @@ Extract Constant get_file_information =>
           fchecksum = Elykseer_base.Fsutils.fchksum fn }
    ".
 
+Extract Constant sha256 => "Elykseer_crypto.Sha256.string".
+
+
 (* extract into "lxr.ml" all named modules and definitions, and their dependencies *)
 Extraction "lxr.ml"  Version Conversion Utilities Filesupport Nchunks Assembly
-                     Configuration Environment Buffer BackupPlanner AssemblyCache.
+                     Configuration Environment Buffer BackupPlanner AssemblyCache Store.

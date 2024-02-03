@@ -32,6 +32,10 @@ Axiom rnd : N -> N.
 *)
 Axiom rnd256 : string -> string.
 
+(* returns hash of a string
+*)
+Axiom sha256 : string -> string.
+
 End axioms.
 
 End Utilities.

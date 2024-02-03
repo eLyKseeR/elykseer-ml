@@ -45,6 +45,10 @@ Computes a plan to backup a file.
 
 Provides a cache of assemblies and recreates them on demand.
 
+### Store
+[Store](../theories/Store.v)
+
+Meta information about file blocks and encryption keys need to be stored in an accessible way. This module provides basic implementations using lists.
 
 ## Other modules
 

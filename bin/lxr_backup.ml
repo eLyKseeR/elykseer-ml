@@ -135,7 +135,7 @@ let validate_fileblocks fname fhash bis =
     else Lwt.return ()
 
 let output_rel_files e (bp : backup_plan) =
-  let fbis = Env.consolidate_files e.fblocks in
+  let fbis = Env.consolidate_files e.fblocks.entries in
   if !arg_dryrun then
     Lwt_list.iter_s (fun (fname, bis) -> let fhash = sha256 fname in
                        let%lwt () = validate_fileblocks fname fhash bis in
@@ -159,7 +159,7 @@ let output_rel_files e (bp : backup_plan) =
 let output_rel_keys e =
   let%lwt rel = Relkeys.new_map e.config in
   let%lwt () = Lwt_list.iter_s (fun (aid, ki) ->
-                                let%lwt _ = Relkeys.add aid ki rel in Lwt.return ()) e.keys in
+                                let%lwt _ = Relkeys.add aid ki rel in Lwt.return ()) e.keys.entries in
   Relkeys.close_map rel
 
 let output_relations e (bp : backup_plan) =
