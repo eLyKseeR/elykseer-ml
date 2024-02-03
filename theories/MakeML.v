@@ -196,6 +196,9 @@ Extract Constant get_file_information =>
           fchecksum = Elykseer_base.Fsutils.fchksum fn }
    ".
 
+Extract Constant sha256 => "Elykseer_crypto.Sha256.string".
+
+
 (* extract into "lxr.ml" all named modules and definitions, and their dependencies *)
 Extraction "lxr.ml"  Version Conversion Utilities Filesupport Nchunks Assembly
                      Configuration Environment Buffer BackupPlanner AssemblyCache Store.

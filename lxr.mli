@@ -267,6 +267,8 @@ module Utilities :
   val rnd : n -> n
 
   val rnd256 : string -> string
+
+  val sha256 : string -> string
  end
 
 module Assembly :

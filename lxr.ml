@@ -789,6 +789,10 @@ module Utilities =
      String.cat (Unix.gethostname ()) |> String.cat (Unix.gettimeofday () |> string_of_float) |>
      Elykseer_crypto.Sha256.string
    
+
+  (** val sha256 : string -> string **)
+
+  let sha256 = Elykseer_crypto.Sha256.string
  end
 
 module Assembly =
