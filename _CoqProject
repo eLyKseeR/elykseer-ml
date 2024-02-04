@@ -1,6 +1,6 @@
 -R theories LXR
 
-theories/Buffer.v
+theories/Cstdio.v
 theories/Filesupport.v
 theories/Environment.v
 theories/Nchunks.v
@@ -13,3 +13,4 @@ theories/AssemblyCache.v
 theories/Store.v
 theories/MakeML.v
 theories/Version.v
+theories/Processor.v
