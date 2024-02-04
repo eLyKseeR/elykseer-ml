@@ -10,9 +10,9 @@ Require Import ZArith NArith PArith.
 From Coq Require Import NArith.BinNat Program.Wf.
 
 From LXR Require Import Assembly.
-From LXR Require Import Buffer.
 From LXR Require Import Configuration.
 From LXR Require Import Conversion.
+From LXR Require Import Cstdio.
 From LXR Require Import Environment.
 From LXR Require Import Filesupport.
 

@@ -7,9 +7,9 @@ Require Import NArith PArith.
 From Coq Require Import NArith.BinNat Lists.List Strings.String Lia.
 
 From LXR Require Import Assembly.
-From LXR Require Import Buffer.
 From LXR Require Import Configuration.
 From LXR Require Import Conversion.
+From LXR Require Import Cstdio.
 From LXR Require Import Environment.
 From LXR Require Import Nchunks.
 From LXR Require Import Utilities.
@@ -173,11 +173,12 @@ Program Fixpoint run_write_requests (ac0 : assemblycache) (reqs : list writequeu
     match reqs with
     | nil => (res, ac0)
     | h :: r =>
-        let env := EnvironmentWritable.backup ac0.(acwriteenv) h.(qfhash) h.(qfpos) h.(qbuffer) in
+        let (apos, env) := EnvironmentWritable.backup ac0.(acwriteenv) h.(qfhash) h.(qfpos) h.(qbuffer) in
         let ac1 := {| acenvs := ac0.(acenvs); acsize := ac0.(acsize); acwriteenv := env; acconfig := ac0.(acconfig);
                       acreadq := ac0.(acreadq); acwriteq := {| wqueue := nil; wqueuesz := wqueuesz ac0.(acwriteq) |} |} in
         run_write_requests ac1 r ({| writerequest := h;
-                                     wresult := {| qaid := env.(cur_assembly AssemblyPlainWritable.B).(aid); qapos := env.(cur_assembly AssemblyPlainWritable.B).(apos);
+                                     wresult := {| qaid := env.(cur_assembly AssemblyPlainWritable.B).(aid);
+                                                   qapos := apos;
                                                    qrlen := buffer_len h.(qbuffer) |} |} :: res)
     end.
 

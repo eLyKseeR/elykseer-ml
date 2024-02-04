@@ -7,11 +7,11 @@ Require Import NArith.
 
 From LXR Require Import Conversion.
 
-Module Export Buffer.
+Module Export Cstdio.
 
 (**
- Module: Buffer
- Description: data buffer of specified length
+ Module: Cstdio
+ Description: interface to C stdio functions and abstraction of C buffers
  *)
 
 Set Implicit Arguments.
@@ -19,10 +19,29 @@ Unset Strict Implicit.
 Unset Printing Implicit Defensive.
  
 Open Scope N_scope.
+Open Scope string_scope.
 
 Inductive EncryptionState := Plain | Encrypted.
 
 Axiom cstdio_buffer : Type.
+
+Section Mlcpp_Cstdio.
+
+  Definition mode := string.
+  Definition read_mode : mode := "rb".
+  Definition write_mode : mode := "wb".
+  Definition append_mode : mode := "ab".
+
+  Axiom fptr : Type.
+  Axiom fopen : string -> mode -> option fptr.
+  Axiom fclose : fptr -> option unit.
+  Axiom fflush : fptr -> option unit.
+  Axiom fread : fptr -> N -> option (N * cstdio_buffer).
+  Axiom fwrite : fptr -> N -> cstdio_buffer -> option N.
+  Axiom ftell : fptr -> option N.
+  Axiom fseek : fptr -> N -> option unit.
+
+End Mlcpp_Cstdio.
 
 Module Type BUF.
   Axiom buffer_t : Type.
@@ -74,4 +93,4 @@ Program Definition ranbuf128 (_ : unit) : BufferPlain.buffer_t :=
   let rb := cpp_ranbuf128 tt in
   BufferPlain.from_buffer rb.
 
-End Buffer.
+End Cstdio.

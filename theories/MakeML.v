@@ -9,12 +9,13 @@ From LXR Require Import Assembly.
 From LXR Require Import AssemblyCache.
 From LXR Require Import Store.
 From LXR Require Import BackupPlanner.
-From LXR Require Import Buffer.
+From LXR Require Import Cstdio.
 From LXR Require Import Configuration.
 From LXR Require Import Conversion.
 From LXR Require Import Environment.
 From LXR Require Import Filesupport.
 From LXR Require Import Nchunks.
+From LXR Require Import Processor.
 From LXR Require Import Utilities.
 From LXR Require Import Version.
 
@@ -99,22 +100,65 @@ Extract Constant rnd256 =>
    ".
 
 Extract Constant chunk_identifier =>
-   "  
-    fun config aid cid -> let s =
-      (Configuration.my_id config) ^
-      (string_of_int (Conversion.p2i cid)) ^
-      aid in
+   "fun config aid cid ->
+      let s = (Configuration.my_id config) ^
+              (string_of_int (Conversion.p2i cid)) ^
+              aid in
       Elykseer_base.Hashing.sha256 s
    ".
 
 Extract Constant chunk_identifier_path =>
-   "  
-    fun config aid cid -> let cident = chunk_identifier config aid cid in
+   "fun config aid cid -> let cident = chunk_identifier config aid cid in
       let subd = Helper.mk_cid_subdir cident in 
       (Configuration.path_chunks config ^ ""/"" ^ subd ^ ""/"" ^ cident ^ "".lxr"")
    ".
 
-Extract Constant Buffer.cstdio_buffer => "Mlcpp_cstdio.Cstdio.File.Buffer.ta".
+Extract Constant Cstdio.fptr => "Mlcpp_cstdio.Cstdio.File.file".
+Extract Constant Cstdio.fopen =>
+   "fun fname mode ->
+      match Mlcpp_cstdio.Cstdio.File.fopen fname mode with
+      | Ok fptr -> Some fptr
+      | Error (errno, errstr) -> Printf.printf ""error: %d/%s\n"" errno errstr; None
+   ".
+Extract Constant Cstdio.fclose =>
+   "fun fptr ->
+      match Mlcpp_cstdio.Cstdio.File.fclose fptr with
+      | Ok () -> Some ()
+      | Error (errno, errstr) -> Printf.printf ""error: %d/%s\n"" errno errstr; None
+   ".
+Extract Constant Cstdio.fflush =>
+   "fun fptr ->
+      match Mlcpp_cstdio.Cstdio.File.fflush fptr with
+      | Ok () -> Some ()
+      | Error (errno, errstr) -> Printf.printf ""error: %d/%s\n"" errno errstr; None
+   ".
+Extract Constant Cstdio.ftell =>
+   "fun fptr ->
+      match Mlcpp_cstdio.Cstdio.File.ftell fptr with
+      | Ok pos -> Some (Conversion.i2n pos)
+      | Error (errno, errstr) -> Printf.printf ""error: %d/%s\n"" errno errstr; None
+   ".
+Extract Constant Cstdio.fseek =>
+   "fun fptr pos ->
+      match Mlcpp_cstdio.Cstdio.File.fseek fptr (Conversion.n2i pos) with
+      | Ok () -> Some ()
+      | Error (errno, errstr) -> Printf.printf ""error: %d/%s\n"" errno errstr; None
+   ".
+Extract Constant Cstdio.fread =>
+   "fun fptr sz ->
+      let b = Mlcpp_cstdio.Cstdio.File.Buffer.create (Conversion.n2i sz) in
+      match Mlcpp_cstdio.Cstdio.File.fread b (Conversion.n2i sz) fptr with
+      | Ok nread -> Some (Conversion.i2n nread, b)
+      | Error (errno, errstr) -> Printf.printf ""error: %d/%s\n"" errno errstr; None
+   ".
+Extract Constant Cstdio.fwrite =>
+   "fun fptr sz b ->
+      match Mlcpp_cstdio.Cstdio.File.fwrite b (Conversion.n2i sz) fptr with
+      | Ok nwritten -> Some (Conversion.i2n nwritten)
+      | Error (errno, errstr) -> Printf.printf ""error: %d/%s\n"" errno errstr; None
+   ".
+
+Extract Constant Cstdio.cstdio_buffer => "Mlcpp_cstdio.Cstdio.File.Buffer.ta".
 
 Extract Constant BufferEncrypted.buffer_t => "Mlcpp_cstdio.Cstdio.File.Buffer.ta".
 Extract Constant BufferEncrypted.buffer_create => "fun n -> Mlcpp_cstdio.Cstdio.File.Buffer.create (Conversion.n2i n)".
@@ -132,7 +176,6 @@ Extract Constant BufferPlain.to_buffer => "fun b -> Helper.cpp_buffer_id b".
 
 Extract Constant id_buffer_t_from_enc => "fun b -> Helper.cpp_buffer_id b".
 Extract Constant id_buffer_t_from_full => "fun b -> Helper.cpp_buffer_id b".
-(* Extract Constant id_buffer_t_from_writable => "fun b -> Helper.cpp_buffer_id b". *)
 Extract Constant id_assembly_plain_buffer_t_from_buf => "fun b -> Helper.cpp_buffer_id b".
 Extract Constant id_assembly_enc_buffer_t_from_buf => "fun b -> Helper.cpp_buffer_id b".
 Extract Constant id_enc_from_buffer_t => "fun b -> Helper.cpp_buffer_id b".
@@ -201,4 +244,5 @@ Extract Constant sha256 => "Elykseer_crypto.Sha256.string".
 
 (* extract into "lxr.ml" all named modules and definitions, and their dependencies *)
 Extraction "lxr.ml"  Version Conversion Utilities Filesupport Nchunks Assembly
-                     Configuration Environment Buffer BackupPlanner AssemblyCache Store.
+                     Configuration Environment Cstdio BackupPlanner AssemblyCache
+                     Processor Store.

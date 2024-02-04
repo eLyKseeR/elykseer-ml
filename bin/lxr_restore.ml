@@ -55,7 +55,7 @@ let restore_file_blocks e0 relk fptr (fb : Assembly.blockinformation) =
   | Ok (a,b) ->
       let sz = Conversion.n2i fb.blocksize in
       let fbuf = Cstdio.File.Buffer.create sz in
-      let abuf = Buffer.BufferPlain.to_buffer @@ Assembly.id_buffer_t_from_full b in
+      let abuf = Elykseer__Lxr.Cstdio.BufferPlain.to_buffer @@ Assembly.id_buffer_t_from_full b in
       let nread = Elykseer_base.Assembly.get_content ~src:abuf ~sz:sz ~pos:(Conversion.n2i fb.blockapos) ~tgt:fbuf in
       Cstdio.File.fseek fptr (Conversion.n2i fb.filepos) |> function
         | Error _ -> let%lwt () = Lwt_io.printlf "  failed to 'fseek'\n" in Lwt.return (0,e0)

@@ -192,7 +192,7 @@ module Nchunks :
   val to_N : Private.t -> n
  end
 
-module Buffer :
+module Cstdio :
  sig
   type coq_EncryptionState =
   | Plain
@@ -203,6 +203,30 @@ module Buffer :
   val coq_EncryptionState_rec : 'a1 -> 'a1 -> coq_EncryptionState -> 'a1
 
   type cstdio_buffer = Mlcpp_cstdio.Cstdio.File.Buffer.ta
+
+  type mode = string
+
+  val read_mode : mode
+
+  val write_mode : mode
+
+  val append_mode : mode
+
+  type fptr = Mlcpp_cstdio.Cstdio.File.file
+
+  val fopen : string -> mode -> fptr option
+
+  val fclose : fptr -> unit option
+
+  val fflush : fptr -> unit option
+
+  val fread : fptr -> n -> (n * cstdio_buffer) option
+
+  val fwrite : fptr -> n -> cstdio_buffer -> n option
+
+  val ftell : fptr -> n option
+
+  val fseek : fptr -> n -> unit option
 
   module type BUF =
    sig
@@ -354,34 +378,34 @@ module Assembly :
     assemblyinformation * AssemblyPlainFull.coq_B
 
   val assembly_add_content :
-    Buffer.BufferPlain.buffer_t -> n -> n -> AssemblyPlainWritable.coq_B -> n
+    Cstdio.BufferPlain.buffer_t -> n -> n -> AssemblyPlainWritable.coq_B -> n
 
   val backup :
     assemblyinformation -> AssemblyPlainWritable.coq_B -> n ->
-    Buffer.BufferPlain.buffer_t -> assemblyinformation * blockinformation
+    Cstdio.BufferPlain.buffer_t -> assemblyinformation * blockinformation
 
   val id_buffer_t_from_full :
-    AssemblyPlainFull.coq_B -> Buffer.BufferPlain.buffer_t
+    AssemblyPlainFull.coq_B -> Cstdio.BufferPlain.buffer_t
 
   val id_assembly_enc_buffer_t_from_buf :
-    Buffer.BufferEncrypted.buffer_t -> AssemblyEncrypted.coq_B
+    Cstdio.BufferEncrypted.buffer_t -> AssemblyEncrypted.coq_B
 
   val encrypt :
     assemblyinformation -> AssemblyPlainFull.coq_B -> keyinformation ->
     (assemblyinformation * AssemblyEncrypted.coq_B) option
 
   val assembly_get_content :
-    AssemblyPlainFull.coq_B -> n -> n -> Buffer.BufferPlain.buffer_t -> n
+    AssemblyPlainFull.coq_B -> n -> n -> Cstdio.BufferPlain.buffer_t -> n
 
   val restore :
     AssemblyPlainFull.coq_B -> blockinformation ->
-    Buffer.BufferPlain.buffer_t option
+    Cstdio.BufferPlain.buffer_t option
 
   val id_buffer_t_from_enc :
-    AssemblyEncrypted.coq_B -> Buffer.BufferEncrypted.buffer_t
+    AssemblyEncrypted.coq_B -> Cstdio.BufferEncrypted.buffer_t
 
   val id_assembly_plain_buffer_t_from_buf :
-    Buffer.BufferPlain.buffer_t -> AssemblyPlainFull.coq_B
+    Cstdio.BufferPlain.buffer_t -> AssemblyPlainFull.coq_B
 
   val decrypt :
     assemblyinformation -> AssemblyEncrypted.coq_B -> keyinformation ->
@@ -394,17 +418,17 @@ module Assembly :
     Configuration.configuration -> aid_t -> positive -> string
 
   val ext_load_chunk_from_path :
-    string -> Buffer.BufferEncrypted.buffer_t option
+    string -> Cstdio.BufferEncrypted.buffer_t option
 
   val id_enc_from_buffer_t :
-    Buffer.BufferEncrypted.buffer_t -> AssemblyEncrypted.coq_B
+    Cstdio.BufferEncrypted.buffer_t -> AssemblyEncrypted.coq_B
 
   val recall :
     Configuration.configuration -> assemblyinformation ->
     (assemblyinformation * AssemblyEncrypted.coq_B) option
 
   val ext_store_chunk_to_path :
-    string -> n -> n -> Buffer.BufferEncrypted.buffer_t -> n
+    string -> n -> n -> Cstdio.BufferEncrypted.buffer_t -> n
 
   val extract :
     Configuration.configuration -> assemblyinformation ->
@@ -531,8 +555,8 @@ module Environment :
       coq_AB environment -> coq_AB environment
 
     val backup :
-      coq_AB environment -> string -> n -> Buffer.BufferPlain.buffer_t ->
-      coq_AB environment
+      coq_AB environment -> string -> n -> Cstdio.BufferPlain.buffer_t ->
+      n * coq_AB environment
    end
 
   module EnvironmentReadable :
@@ -566,20 +590,20 @@ module AssemblyCache :
   val qrlen : readqueueentity -> n
 
   type readqueueresult = { readrequest : readqueueentity;
-                           rresult : Buffer.BufferPlain.buffer_t }
+                           rresult : Cstdio.BufferPlain.buffer_t }
 
   val readrequest : readqueueresult -> readqueueentity
 
-  val rresult : readqueueresult -> Buffer.BufferPlain.buffer_t
+  val rresult : readqueueresult -> Cstdio.BufferPlain.buffer_t
 
   type writequeueentity = { qfhash : string; qfpos : n;
-                            qbuffer : Buffer.BufferPlain.buffer_t }
+                            qbuffer : Cstdio.BufferPlain.buffer_t }
 
   val qfhash : writequeueentity -> string
 
   val qfpos : writequeueentity -> n
 
-  val qbuffer : writequeueentity -> Buffer.BufferPlain.buffer_t
+  val qbuffer : writequeueentity -> Cstdio.BufferPlain.buffer_t
 
   type writequeueresult = { writerequest : writequeueentity;
                             wresult : readqueueentity }
@@ -711,6 +735,58 @@ module BackupPlanner :
   val analyse_file :
     positive -> n -> positive -> string ->
     (positive * n) * fileblockinformation
+ end
+
+module Processor :
+ sig
+  type processor = { config : Configuration.configuration;
+                     cache : AssemblyCache.assemblycache }
+
+  val config : processor -> Configuration.configuration
+
+  val cache : processor -> AssemblyCache.assemblycache
+
+  val cache_sz : positive
+
+  val prepare_processor : Configuration.configuration -> processor
+
+  val update_cache : processor -> AssemblyCache.assemblycache -> processor
+
+  val backup_block :
+    processor -> AssemblyCache.writequeueentity ->
+    AssemblyCache.writequeueresult list * processor
+
+  val request_read :
+    processor -> AssemblyCache.readqueueentity ->
+    AssemblyCache.readqueueresult list * processor
+
+  val run_write_requests :
+    processor -> AssemblyCache.writequeueresult list * processor
+
+  val run_read_requests :
+    processor -> AssemblyCache.readqueueresult list * processor
+
+  val get_keys : processor -> Store.KeyListStore.coq_R
+
+  val get_fblocks : processor -> Store.FBlockListStore.coq_R
+
+  val close : processor -> processor
+
+  val block_sz : n
+
+  val r_file_backup_inner :
+    nat -> processor -> Filesupport.fileinformation -> n -> Cstdio.fptr ->
+    AssemblyCache.writequeueresult list -> AssemblyCache.writequeueresult
+    list * processor
+
+  val open_file_backup :
+    processor -> n -> Filesupport.fileinformation -> n ->
+    AssemblyCache.writequeueresult list * processor
+
+  val file_backup :
+    processor -> Filesupport.filename ->
+    Filesupport.fileinformation * (AssemblyCache.writequeueresult
+    list * processor)
  end
 
 module Version :

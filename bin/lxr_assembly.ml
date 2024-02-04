@@ -1,7 +1,6 @@
 (* open Lwt *)
 
 open Elykseer__Lxr
-open Elykseer__Lxr.Buffer
 open Elykseer__Lxr.Assembly
 open Elykseer__Lxr.Configuration
 (* open Elykseer__Lxr.Conversion *)
@@ -57,7 +56,7 @@ let main () = Arg.parse argspec anon_args_fun "lxr_assembly: vaf";
     let%lwt () = Lwt_io.printl (Utils.as2s a) in
     let%lwt () = Lwt_io.printlf "buffer sha256 = %s" (AssemblyPlainWritable.calc_checksum b) in
     (* let msg = "testing some longer message." in *)
-    let content = BufferPlain.buffer_create (Conversion.i2n 1024) in (*  (fun i -> if i < 28 then String.get msg i else '0') in *)
+    let content = Elykseer__Lxr.Cstdio.BufferPlain.buffer_create (Conversion.i2n 1024) in (*  (fun i -> if i < 28 then String.get msg i else '0') in *)
     let (a', bi) = Elykseer__Lxr.Assembly.backup a b (* "test1M" *) (Conversion.i2n 0) content in
     let e1 = Environment.EnvironmentWritable.env_add_file_block "test1M" e0 bi in
     let e2 = Environment.EnvironmentWritable.env_add_aid_key (aid a') e1 {pkey="abc97391af";ivec="323453";localnchunks=Nchunks.to_positive c.config_nchunks;localid=c.my_id} in
