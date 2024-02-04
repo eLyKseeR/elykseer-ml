@@ -75,8 +75,8 @@ let execute_backup_fileblock e _anum (fname,blocks) =
               let buf = Cstdio.File.Buffer.create sz in
               Cstdio.File.fread buf sz fptr |> function
                 | Ok _nread ->
-                  let bplain = Buffer.BufferPlain.from_buffer buf in
-                  EnvironmentWritable.backup e0 fname fpos bplain
+                  let bplain = Elykseer__Lxr.Cstdio.BufferPlain.from_buffer buf in
+                  let (_apos, newe) = EnvironmentWritable.backup e0 fname fpos bplain in newe
                 | Error (errno,errstr) -> 
                   Printf.printf "read error no:%d err:%s\n" errno errstr; e0
               end

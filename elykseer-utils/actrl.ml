@@ -21,7 +21,7 @@ let stop actrl =
 let addblock actrl fn (fb : Assembly.blockinformation) buf =
   (* let%lwt () = Lwt_io.printlf "adding block (%d@%d=%d) with buffer (%d)" (Conversion.p2i fb.blockid) (Conversion.n2i fb.filepos) (Conversion.n2i fb.blocksize)
                (Cstdio.File.Buffer.size buf) in *)
-  let bplain = Buffer.BufferPlain.from_buffer buf in
-  let env' = Environment.EnvironmentWritable.backup actrl.env fn fb.filepos bplain in
+  let bplain = Cstdio.BufferPlain.from_buffer buf in
+  let (_apos, env') = Environment.EnvironmentWritable.backup actrl.env fn fb.filepos bplain in
   let (_fname, fb') = List.hd @@ env'.fblocks.entries in
   Lwt.return ({actrl with env = env'}, {fb' with blockid = fb.blockid})

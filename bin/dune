@@ -8,6 +8,15 @@
 )
 
 (executable
+ (public_name lxr_processor)
+ (package elykseer)
+ (name lxr_processor)
+ (modules lxr_processor)
+ (preprocess (pps lwt_ppx))
+ (libraries elykseer elykseer_base elykseer_utils lwt.unix lwt_ppx)
+)
+
+(executable
  (public_name lxr_assembly)
  (name lxr_assembly)
  (package elykseer)
