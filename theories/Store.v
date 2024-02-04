@@ -22,10 +22,10 @@ Record store (KVs : Type): RecordStore :=
         { config : configuration
         ; entries : KVs
         }.
-Print RecordStore.
-Print store.
+(* Print RecordStore. *)
+(* Print store. *)
 
-Print option.
+(* Print option. *)
 
 Fixpoint rec_find {V : Type} (k : string) (es : list (string * V)) : option V :=
     match es with
@@ -43,7 +43,7 @@ Module Type STORE.
     Parameter add : K -> V -> R -> R.
     Parameter find : K -> R -> option V.
 End STORE.
-Print STORE.
+(* Print STORE. *)
 
 Module KeyListStore <: STORE.
     Definition K := String.string.
@@ -56,7 +56,7 @@ Module KeyListStore <: STORE.
     Definition find (k : K) (r : R) : option V :=
         rec_find k r.(entries KVs).
 End KeyListStore.
-Print KeyListStore.
+(* Print KeyListStore. *)
 
 Module FBlockListStore <: STORE.
     Definition K := Assembly.aid_t.
@@ -70,7 +70,7 @@ Module FBlockListStore <: STORE.
         rec_find k r.(entries KVs).
 
 End FBlockListStore.
-Print FBlockListStore.
+(* Print FBlockListStore. *)
 
 
 Example find_entry_in_empty : forall c,

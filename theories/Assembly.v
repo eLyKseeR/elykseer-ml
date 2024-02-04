@@ -8,7 +8,7 @@ From Coq Require Import NArith.BinNat.
 
 From RecordUpdate Require Import RecordUpdate.
 
-From LXR Require Import Nchunks Buffer Configuration Conversion Utilities.
+From LXR Require Import Nchunks Cstdio Configuration Conversion Utilities.
 
 Module Export Assembly.
 
@@ -42,7 +42,7 @@ Record assemblyinformation : RecordAssemblyInformation :=
         { nchunks : Nchunks.Private.t
         ; aid : aid_t
         ; apos : N }.
-Print assemblyinformation.
+(* Print assemblyinformation. *)
 
 #[export] Instance etaX : Settable _ := settable! mkassembly <nchunks; aid; apos>.
 (* Print set.
@@ -75,7 +75,7 @@ Module Type ASS.
     Axiom buffer_len : B -> N.
     Axiom calc_checksum : B -> string.
 End ASS.
-Print ASS.
+(* Print ASS. *)
 
 Module AssemblyPlainWritable : ASS.
     (* Definition H : RecordAssemblyInformation := assemblyinformation. *)
@@ -85,11 +85,11 @@ Module AssemblyPlainWritable : ASS.
     Definition create (c : configuration) : assemblyinformation * B :=
         let chunks := config_nchunks c in
         let b := BufferPlain.buffer_create (chunksize_N * Nchunks.to_N chunks) in
-        let rb := Buffer.ranbuf128 tt in
+        let rb := Cstdio.ranbuf128 tt in
         let nb := BufferPlain.copy_sz_pos rb 0 16 b 0 in
         (mkassembly chunks (Utilities.rnd256 (my_id c)) nb, b).
 End AssemblyPlainWritable.
-Print AssemblyPlainWritable.
+(* Print AssemblyPlainWritable. *)
 
 Module AssemblyEncrypted : ASS.
     (* Definition H : RecordAssemblyInformation := assemblyinformation. *)
@@ -101,7 +101,7 @@ Module AssemblyEncrypted : ASS.
         let b := BufferEncrypted.buffer_create (chunksize_N * Nchunks.to_N chunks) in
         (mkassembly chunks (Utilities.rnd256 (my_id c)) 0, b).
 End AssemblyEncrypted.
-Print AssemblyEncrypted.
+(* Print AssemblyEncrypted. *)
 
 Module AssemblyPlainFull : ASS.
     (* Definition H : RecordAssemblyInformation := assemblyinformation. *)
@@ -114,7 +114,7 @@ Module AssemblyPlainFull : ASS.
         let b := BufferPlain.buffer_create sz in
         (mkassembly chunks (Utilities.rnd256 (my_id c)) sz, b).
 End AssemblyPlainFull.
-Print AssemblyPlainFull.
+(* Print AssemblyPlainFull. *)
 
 
 Section Code_Writeable.
@@ -148,11 +148,10 @@ Section Code_Readable.
 (** operations on AssemblyPlainFull *)
 
 Axiom id_buffer_t_from_full : AssemblyPlainFull.B -> BufferPlain.buffer_t.
-(* Axiom id_buffer_t_from_writable : AssemblyPlainWritable.B -> BufferPlain.buffer_t. *)
 Axiom id_assembly_enc_buffer_t_from_buf : BufferEncrypted.buffer_t -> AssemblyEncrypted.B.
 Program Definition encrypt (a : assemblyinformation) (b : AssemblyPlainFull.B) (ki : keyinformation) : option (assemblyinformation * AssemblyEncrypted.B) :=
     let a' := set apos (const (assemblysize (nchunks a))) a in
-    let benc  := Buffer.encrypt (id_buffer_t_from_full b) (ivec ki) (pkey ki) in
+    let benc  := Cstdio.encrypt (id_buffer_t_from_full b) (ivec ki) (pkey ki) in
     let b' := id_assembly_enc_buffer_t_from_buf benc in
     Some (a', b').
 
@@ -179,7 +178,7 @@ Axiom id_buffer_t_from_enc : AssemblyEncrypted.B -> BufferEncrypted.buffer_t.
 Axiom id_assembly_plain_buffer_t_from_buf : BufferPlain.buffer_t -> AssemblyPlainFull.B.
 Program Definition decrypt (a : assemblyinformation) (b : AssemblyEncrypted.B) (ki : keyinformation) : option (assemblyinformation * AssemblyPlainFull.B) :=
     let a' := set apos (const 0) a in
-    let bdec := Buffer.decrypt (id_buffer_t_from_enc b) (ivec ki) (pkey ki) in
+    let bdec := Cstdio.decrypt (id_buffer_t_from_enc b) (ivec ki) (pkey ki) in
     let b' := id_assembly_plain_buffer_t_from_buf bdec in
     Some (a', b').
 
