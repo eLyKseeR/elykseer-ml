@@ -94,33 +94,3 @@ value cpp_get_content(value vsrc, value vsz, value vpos, value vtgt)
     CAMLreturn(Val_long(sz));
 }
 } // extern C
-
-/*
- *  cpp_b2s: return string of buffer
- */
-extern "C" {
-value cpp_b2s(value vbuf, value vsz, value vpos)
-{
-    CAMLparam3(vbuf, vsz, vpos);
-    long sz = Long_val(vsz);
-    if (sz < 1) { return caml_copy_string("E:wrong sz"); }
-    long pos = Long_val(vpos);
-    if (pos < 0) { return caml_copy_string("E:wrong pos"); }
-    unsigned long len = caml_ba_byte_size(Caml_ba_array_val(vbuf));
-    if (len < pos + sz) { return caml_copy_string("E:buf too short"); }
-    const char *src = (const char *)Caml_ba_data_val(vbuf);
-    CAMLreturn(caml_alloc_initialized_string(sz, src + pos));
-}
-} // extern C
-
-extern "C" {
-value cpp_date_ident(value unit)
-{
-    CAMLparam1(unit);
-    std::time_t now = std::time(nullptr);
-    char buf[64];
-    std::strftime(buf, sizeof(buf), "%F", std::gmtime(&now));
-    std::snprintf(buf+10, sizeof(buf)-10, "_%ld", now);
-    return caml_copy_string(buf);
-}
-} // extern C

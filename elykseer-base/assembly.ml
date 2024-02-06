@@ -13,8 +13,3 @@ let get_content ~src:src ~sz:sz ~pos:pos ~tgt:tgt =
       Printf.printf "get content returned: %d" res; 0
     end
   else res
-
-external cpp_b2s : b -> int -> int -> string = "cpp_b2s"
-let b2s ~src:buf ~sz:sz ~pos:pos = cpp_b2s buf sz pos
-
-external date_ident : unit -> string = "cpp_date_ident"

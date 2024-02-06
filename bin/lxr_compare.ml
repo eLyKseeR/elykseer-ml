@@ -9,7 +9,6 @@
 open Elykseer__Lxr
 open Elykseer__Lxr.Configuration
 
-open Elykseer_base.Hashing
 open Elykseer_utils
 
 open Mlcpp_cstdio
@@ -42,7 +41,7 @@ let verify_file fname (fblocks : Assembly.blockinformation list) =
               let buf = Cstdio.File.Buffer.create sz in
               Cstdio.File.fread buf sz fptr |> function
                 | Ok _nread ->
-                  let chk = fb.bchecksum = Elykseer_base.Buffer.sha256 buf in
+                  let chk = fb.bchecksum = Elykseer_crypto.Sha256.buffer buf in
                   if !arg_verbose then
                     let (res,res') = if chk then ("+","✅") else ("-","❌") in
                     let () = Lwt_io.printlf " %s%s block %d@%d=%d" res res' (Conversion.p2i fb.blockid) (Conversion.n2i fb.filepos) (Conversion.n2i fb.blocksize) |> ignore in chk
@@ -97,7 +96,7 @@ let main () = Arg.parse argspec anon_args_fun "lxr_compare: vdi";
     let%lwt relfiles = Relfiles.new_map conf in
     let%lwt res = Lwt_list.map_s (fun fn ->
           let%lwt () = if !arg_verbose then Lwt_io.printlf "comparing file %s against meta data" fn else Lwt.return_unit in
-          let fhash = sha256 fn in
+          let fhash = Elykseer_crypto.Sha256.string fn in
           let%lwt ref = Relfiles.find fhash relfiles in
           match ref with
           | None -> Lwt.return false

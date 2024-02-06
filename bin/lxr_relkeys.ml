@@ -3,7 +3,6 @@ open Elykseer__Lxr
 open Elykseer__Lxr.Configuration
 
 open Elykseer_utils
-open Elykseer_base.Hashing
 
 let def_myid = "1234567890"
 
@@ -25,7 +24,7 @@ let anon_args_fun fn = arg_files := fn :: !arg_files
 
 
 let filename2aidlist fn relfiles : string list Lwt.t =
-  let%lwt rel = Relfiles.find (sha256 fn) relfiles in
+  let%lwt rel = Relfiles.find (Elykseer_crypto.Sha256.string fn) relfiles in
   match rel with
   | None -> Lwt.return []
   | Some r -> Lwt.return @@ List.map (fun (e : Assembly.blockinformation) -> e.blockaid) r.rfbs

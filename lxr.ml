@@ -724,7 +724,7 @@ module Cstdio =
 
     (** val calc_checksum : buffer_t -> string **)
 
-    let calc_checksum = fun b -> Elykseer_base.Buffer.sha256 b
+    let calc_checksum = fun b -> Elykseer_crypto.Sha256.buffer b
 
     (** val copy_sz_pos : buffer_t -> n -> n -> buffer_t -> n -> n **)
 
@@ -761,7 +761,7 @@ module Cstdio =
 
     (** val calc_checksum : buffer_t -> string **)
 
-    let calc_checksum = fun b -> Elykseer_base.Buffer.sha256 b
+    let calc_checksum = fun b -> Elykseer_crypto.Sha256.buffer b
 
     (** val copy_sz_pos : buffer_t -> n -> n -> buffer_t -> n -> n **)
 
@@ -1202,7 +1202,7 @@ module Assembly =
       let s = (Configuration.my_id config) ^
               (string_of_int (Conversion.p2i cid)) ^
               aid in
-      Elykseer_base.Hashing.sha256 s
+      Elykseer_crypto.Sha256.string s
    
 
   (** val chunk_identifier_path :

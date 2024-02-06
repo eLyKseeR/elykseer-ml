@@ -3,7 +3,6 @@ open Elykseer__Lxr
 open Elykseer__Lxr.Configuration
 
 open Elykseer_base.Fsutils
-open Elykseer_base.Hashing
 open Elykseer_utils
 
 open Mlcpp_cstdio
@@ -64,7 +63,7 @@ let restore_file_blocks e0 relk fptr (fb : Assembly.blockinformation) =
           | Ok _nwritten -> Lwt.return (nread,{ e0 with cur_assembly=a; cur_buffer=b })
 
 let restore_file e0 relf relk fname =
-  let%lwt ofbs = Relfiles.find (sha256 fname) relf in
+  let%lwt ofbs = Relfiles.find (Elykseer_crypto.Sha256.string fname) relf in
   match ofbs with
   | None -> let%lwt () = Lwt_io.printlf "  cannot restore file '%s'" fname in Lwt.return (0,e0)
   | Some rfbs ->
@@ -95,7 +94,7 @@ let restore_file e0 relf relk fname =
 
 let ensure_all_available (e : Environment.EnvironmentReadable.coq_E) fns =
   let%lwt rel = Relfiles.new_map e.config in
-  let%lwt ls = Lwt_list.map_s (fun fname -> let fhash = sha256 fname in
+  let%lwt ls = Lwt_list.map_s (fun fname -> let fhash = Elykseer_crypto.Sha256.string fname in
                   match%lwt Relfiles.find fhash rel with None -> Lwt.return 0 | Some _ -> Lwt.return 1) fns in
   Lwt.return @@ ((List.fold_left ((+)) 0 ls) == List.length fns)
 

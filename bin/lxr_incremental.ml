@@ -9,7 +9,6 @@
 open Elykseer__Lxr
 open Elykseer__Lxr.Configuration
 
-open Elykseer_base.Hashing
 open Elykseer_utils
 
 open Mlcpp_cstdio
@@ -49,7 +48,7 @@ let verify_file acontroller fname (fblocks : Assembly.blockinformation list) =
               Cstdio.File.fread buf sz fptr |> function
                 | Ok nread -> begin
                   if nread = sz then
-                    let newchksum = Elykseer_base.Buffer.sha256 buf in
+                    let newchksum = Elykseer_crypto.Sha256.buffer buf in
                     let chk = fb.bchecksum = newchksum in
                     let prtverbose = if !arg_verbose then
                         let (res,res') = if chk then ("+","✅") else ("-","❌") in
@@ -118,7 +117,7 @@ let main () = Arg.parse argspec anon_args_fun "lxr_incremental: vyxdin";
       let%lwt acontroller = Actrl.create conf in
       let%lwt (res, actrl') = Lwt_list.fold_left_s (fun (res,actrl) fn ->
             let%lwt () = if !arg_verbose then Lwt_io.printlf "comparing file %s against meta data" fn else Lwt.return_unit in
-            let fhash = sha256 fn in
+            let fhash = Elykseer_crypto.Sha256.string fn in
             let%lwt ref = Relfiles.find fhash relfiles in
             match ref with
             | None -> 

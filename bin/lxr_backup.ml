@@ -4,7 +4,6 @@ open Elykseer__Lxr
 open Elykseer__Lxr.Configuration
 open Elykseer__Lxr.Environment
 
-open Elykseer_base.Hashing
 open Elykseer_utils
 
 open Mlcpp_cstdio
@@ -55,7 +54,7 @@ let plan_backup e0 fns =
   let afree = curr_assembly_sz a.nchunks - (Conversion.n2i a.apos) in
   let%lwt relfiles = Relfiles.new_map e0.config in
   let%lwt (_anum', _afree', bpfs) = Lwt_list.fold_left_s (fun (anum,afree,acc) fn ->
-        let fhash = sha256 fn in
+        let fhash = Elykseer_crypto.Sha256.string fn in
         let ((anum',afree'),fbs) = BackupPlanner.analyse_file a.nchunks afree anum fn in
         let%lwt ref = Relfiles.find fhash relfiles in
         let oreffi = match ref with None -> None | Some r -> Some r.rfi in
@@ -137,7 +136,7 @@ let validate_fileblocks fname fhash bis =
 let output_rel_files e (bp : backup_plan) =
   let fbis = Env.consolidate_files e.fblocks.entries in
   if !arg_dryrun then
-    Lwt_list.iter_s (fun (fname, bis) -> let fhash = sha256 fname in
+    Lwt_list.iter_s (fun (fname, bis) -> let fhash = Elykseer_crypto.Sha256.string fname in
                        let%lwt () = validate_fileblocks fname fhash bis in
                        let%lwt () = Lwt_io.printlf "%s" fhash in
                        Lwt_list.iter_s (fun (fb : Assembly.blockinformation) ->
@@ -150,7 +149,7 @@ let output_rel_files e (bp : backup_plan) =
                     ) fbis
   else
     let%lwt rel = Relfiles.new_map e.config in
-    let%lwt () = Lwt_list.iter_s (fun (fname, bis) -> let fhash = sha256 fname in
+    let%lwt () = Lwt_list.iter_s (fun (fname, bis) -> let fhash = Elykseer_crypto.Sha256.string fname in
                                     let%lwt () = validate_fileblocks fname fhash bis in
                                     let bpf = List.find (fun bpf -> bpf.fhash = fhash) bp.bp in
                                     let%lwt _rel' = Relfiles.add fhash {rfi=bpf.curfi; rfbs=bis} rel in Lwt.return ()) fbis in
