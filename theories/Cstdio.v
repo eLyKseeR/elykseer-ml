@@ -5,8 +5,6 @@
 From Coq Require Import Strings.String.
 Require Import NArith.
 
-From LXR Require Import Conversion.
-
 Module Export Cstdio.
 
 (**
