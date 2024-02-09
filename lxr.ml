@@ -787,7 +787,7 @@ module Cstdio =
   (** val cpp_encrypt_buffer :
       BufferPlain.buffer_t -> string -> string -> BufferEncrypted.buffer_t **)
 
-  let cpp_encrypt_buffer = fun b iv pw -> Helper.cpp_encrypt_buffer b iv pw
+  let cpp_encrypt_buffer = fun b siv spk -> Elykseer_crypto.Aes256.encrypt (Elykseer_crypto.Key128.from_hex siv) (Elykseer_crypto.Key256.from_hex spk) b
 
   (** val encrypt :
       BufferPlain.buffer_t -> string -> string -> BufferEncrypted.buffer_t **)
@@ -798,7 +798,7 @@ module Cstdio =
   (** val cpp_decrypt_buffer :
       BufferEncrypted.buffer_t -> string -> string -> BufferPlain.buffer_t **)
 
-  let cpp_decrypt_buffer = fun b iv pw -> Helper.cpp_decrypt_buffer b iv pw
+  let cpp_decrypt_buffer = fun b siv spk -> Elykseer_crypto.Aes256.decrypt (Elykseer_crypto.Key128.from_hex siv) (Elykseer_crypto.Key256.from_hex spk) b
 
   (** val decrypt :
       BufferEncrypted.buffer_t -> string -> string -> BufferPlain.buffer_t **)
@@ -840,6 +840,215 @@ module Configuration =
 
   let my_id c =
     c.my_id
+ end
+
+module Filesystem =
+ struct
+  type path = Mlcpp_filesystem.Filesystem.path
+
+  module Path =
+   struct
+    (** val to_string : path -> string **)
+
+    let to_string = Mlcpp_filesystem.Filesystem.Path.to_string
+
+    (** val from_string : string -> path **)
+
+    let from_string = Mlcpp_filesystem.Filesystem.Path.from_string
+
+    (** val temp_directory : unit -> path **)
+
+    let temp_directory = Mlcpp_filesystem.Filesystem.Path.temp_directory
+
+    (** val file_exists : path -> bool **)
+
+    let file_exists = Mlcpp_filesystem.Filesystem.Path.exists
+
+    (** val file_size : path -> n **)
+
+    let file_size = fun p -> Conversion.i2n (Mlcpp_filesystem.Filesystem.Path.file_size p)
+
+    (** val filename : path -> path **)
+
+    let filename = Mlcpp_filesystem.Filesystem.Path.filename
+
+    (** val extension : path -> path **)
+
+    let extension = Mlcpp_filesystem.Filesystem.Path.extension
+
+    (** val parent : path -> path **)
+
+    let parent = Mlcpp_filesystem.Filesystem.Path.parent
+
+    (** val root : path -> path **)
+
+    let root = Mlcpp_filesystem.Filesystem.Path.root
+
+    (** val absolute : path -> path option **)
+
+    let absolute = Mlcpp_filesystem.Filesystem.Path.absolute
+
+    (** val relative : path -> path option **)
+
+    let relative = Mlcpp_filesystem.Filesystem.Path.relative
+
+    (** val proximate : path -> path option **)
+
+    let proximate = Mlcpp_filesystem.Filesystem.Path.proximate
+
+    (** val canonical : path -> path option **)
+
+    let canonical = Mlcpp_filesystem.Filesystem.Path.canonical
+
+    (** val weakly_canonical : path -> path option **)
+
+    let weakly_canonical = Mlcpp_filesystem.Filesystem.Path.weakly_canonical
+
+    (** val path_type : path -> string **)
+
+    let path_type = Mlcpp_filesystem.Filesystem.Path.path_type
+
+    (** val is_regular_file : path -> bool **)
+
+    let is_regular_file = Mlcpp_filesystem.Filesystem.Path.is_regular_file
+
+    (** val is_directory : path -> bool **)
+
+    let is_directory = Mlcpp_filesystem.Filesystem.Path.is_directory
+
+    (** val is_fifo : path -> bool **)
+
+    let is_fifo = Mlcpp_filesystem.Filesystem.Path.is_fifo
+
+    (** val is_block_file : path -> bool **)
+
+    let is_block_file = Mlcpp_filesystem.Filesystem.Path.is_block_file
+
+    (** val is_character_file : path -> bool **)
+
+    let is_character_file = Mlcpp_filesystem.Filesystem.Path.is_character_file
+
+    (** val is_socket : path -> bool **)
+
+    let is_socket = Mlcpp_filesystem.Filesystem.Path.is_socket
+
+    (** val is_symlink : path -> bool **)
+
+    let is_symlink = Mlcpp_filesystem.Filesystem.Path.is_symlink
+
+    (** val is_other : path -> bool **)
+
+    let is_other = Mlcpp_filesystem.Filesystem.Path.is_other
+   end
+
+  module Permissions =
+   struct
+    type permissions = Mlcpp_filesystem.Filesystem.Permissions.permissions
+
+    (** val get : path -> permissions option **)
+
+    let get = Mlcpp_filesystem.Filesystem.Permissions.get
+
+    (** val set : path -> permissions -> bool **)
+
+    let set = Mlcpp_filesystem.Filesystem.Permissions.set
+
+    (** val add : path -> permissions -> bool **)
+
+    let add = Mlcpp_filesystem.Filesystem.Permissions.add
+
+    (** val remove : path -> permissions -> bool **)
+
+    let remove = Mlcpp_filesystem.Filesystem.Permissions.remove
+
+    (** val to_string : permissions -> string **)
+
+    let to_string = Mlcpp_filesystem.Filesystem.Permissions.to_string
+
+    (** val to_dec : permissions -> positive **)
+
+    let to_dec = fun p -> Conversion.i2p (Mlcpp_filesystem.Filesystem.Permissions.to_dec p)
+
+    (** val to_oct : permissions -> positive **)
+
+    let to_oct = fun p -> Conversion.i2p (Mlcpp_filesystem.Filesystem.Permissions.to_oct p)
+
+    (** val from_oct : positive -> permissions **)
+
+    let from_oct = fun o -> Mlcpp_filesystem.Filesystem.Permissions.from_oct (Conversion.p2i o)
+   end
+
+  (** val get_cwd : unit -> path **)
+
+  let get_cwd = Mlcpp_filesystem.Filesystem.get_cwd
+
+  (** val set_cwd : path -> bool **)
+
+  let set_cwd = Mlcpp_filesystem.Filesystem.set_cwd
+
+  (** val copy : path -> path -> bool **)
+
+  let copy = Mlcpp_filesystem.Filesystem.copy
+
+  (** val copy_file : path -> path -> bool **)
+
+  let copy_file = Mlcpp_filesystem.Filesystem.copy_file
+
+  (** val copy_symlink : path -> path -> bool **)
+
+  let copy_symlink = Mlcpp_filesystem.Filesystem.copy_symlink
+
+  (** val create_directory : path -> bool **)
+
+  let create_directory = Mlcpp_filesystem.Filesystem.create_directory
+
+  (** val create_directories : path -> bool **)
+
+  let create_directories = Mlcpp_filesystem.Filesystem.create_directories
+
+  (** val create_hard_link : path -> path -> bool **)
+
+  let create_hard_link = Mlcpp_filesystem.Filesystem.create_hard_link
+
+  (** val create_symlink : path -> path -> bool **)
+
+  let create_symlink = Mlcpp_filesystem.Filesystem.create_symlink
+
+  (** val create_directory_symlink : path -> path -> bool **)
+
+  let create_directory_symlink = Mlcpp_filesystem.Filesystem.create_directory_symlink
+
+  (** val equivalent : path -> path -> bool **)
+
+  let equivalent = Mlcpp_filesystem.Filesystem.equivalent
+
+  (** val hard_link_count : path -> positive **)
+
+  let hard_link_count = fun p -> Conversion.i2p (Mlcpp_filesystem.Filesystem.hard_link_count p)
+
+  (** val read_symlink : path -> path option **)
+
+  let read_symlink = Mlcpp_filesystem.Filesystem.read_symlink
+
+  (** val remove : path -> bool **)
+
+  let remove = Mlcpp_filesystem.Filesystem.remove
+
+  (** val remove_all : path -> positive **)
+
+  let remove_all = fun p -> Conversion.i2p (Mlcpp_filesystem.Filesystem.remove_all p)
+
+  (** val rename : path -> path -> bool **)
+
+  let rename = Mlcpp_filesystem.Filesystem.rename
+
+  (** val resize_file : path -> n -> bool **)
+
+  let resize_file = fun p sz -> Mlcpp_filesystem.Filesystem.resize_file p (Conversion.n2i sz)
+
+  (** val space : path -> n list **)
+
+  let space = fun p -> List.map (fun i -> Conversion.i2n i) (Mlcpp_filesystem.Filesystem.space p)
  end
 
 module Utilities =
@@ -1213,12 +1422,24 @@ module Assembly =
       (Configuration.path_chunks config ^ "/" ^ subd ^ "/" ^ cident ^ ".lxr")
    
 
-  (** val ext_load_chunk_from_path :
+  (** val load_chunk_from_path :
       string -> Cstdio.BufferEncrypted.buffer_t option **)
 
-  let ext_load_chunk_from_path = 
-    fun fp -> Helper.load_chunk_from_path (Mlcpp_filesystem.Filesystem.Path.from_string fp)
-   
+  let load_chunk_from_path sfp =
+    if Filesystem.Path.file_exists (Filesystem.Path.from_string sfp)
+    then let filtered_var = Cstdio.fopen sfp "rx" in
+         (match filtered_var with
+          | Some fptr0 ->
+            let filtered_var0 = Cstdio.fread fptr0 chunksize_N in
+            (match filtered_var0 with
+             | Some p ->
+               let (cnt, b) = p in
+               if N.eqb cnt chunksize_N
+               then Some (Cstdio.BufferEncrypted.from_buffer b)
+               else None
+             | None -> None)
+          | None -> None)
+    else None
 
   (** val id_enc_from_buffer_t :
       Cstdio.BufferEncrypted.buffer_t -> AssemblyEncrypted.coq_B **)
@@ -1240,7 +1461,7 @@ module Assembly =
     let nread =
       fold_left (fun nread cid ->
         let cpath = chunk_identifier_path c aid0 cid in
-        let filtered_var = ext_load_chunk_from_path cpath in
+        let filtered_var = load_chunk_from_path cpath in
         (match filtered_var with
          | Some cb ->
            let apos0 =
@@ -1262,13 +1483,24 @@ module Assembly =
     let b' = id_enc_from_buffer_t b in
     if N.eqb nread blen then Some (a', b') else None
 
-  (** val ext_store_chunk_to_path :
+  (** val store_chunk_to_path :
       string -> n -> n -> Cstdio.BufferEncrypted.buffer_t -> n **)
 
-  let ext_store_chunk_to_path = 
-    fun fp nsz npos b -> Conversion.i2n @@
-      Helper.store_chunk_to_path (Mlcpp_filesystem.Filesystem.Path.from_string fp) (Conversion.n2i nsz) (Conversion.n2i npos) b
-   
+  let store_chunk_to_path sfp sz _ _ =
+    let fp = Filesystem.Path.from_string sfp in
+    if Filesystem.Path.file_exists fp
+    then N0
+    else let filtered_var = Cstdio.fopen sfp "wx" in
+         (match filtered_var with
+          | Some fptr0 ->
+            let buf = Cstdio.BufferEncrypted.buffer_create sz in
+            let filtered_var0 =
+              Cstdio.fwrite fptr0 sz (Cstdio.BufferEncrypted.to_buffer buf)
+            in
+            (match filtered_var0 with
+             | Some cnt -> cnt
+             | None -> N0)
+          | None -> N0)
 
   (** val extract :
       Configuration.configuration -> assemblyinformation ->
@@ -1281,7 +1513,7 @@ module Assembly =
       let cpath = chunk_identifier_path c aid0 cid in
       let apos0 = N.mul chunksize_N (N.sub (Conversion.pos2N cid) (Npos XH))
       in
-      N.add nwritten (ext_store_chunk_to_path cpath chunksize_N apos0 buf))
+      N.add nwritten (store_chunk_to_path cpath chunksize_N apos0 buf))
       (Utilities.make_list a.nchunks) N0
  end
 
@@ -1410,11 +1642,11 @@ module Environment =
 
   (** val cpp_mk_key256 : unit -> string **)
 
-  let cpp_mk_key256 = fun () -> Helper.mk_key256 ()
+  let cpp_mk_key256 = fun () -> Elykseer_crypto.Key256.mk () |> Elykseer_crypto.Key256.to_hex
 
   (** val cpp_mk_key128 : unit -> string **)
 
-  let cpp_mk_key128 = fun () -> Helper.mk_key128 ()
+  let cpp_mk_key128 = fun () -> Elykseer_crypto.Key128.mk () |> Elykseer_crypto.Key128.to_hex
 
   module type ENV =
    sig

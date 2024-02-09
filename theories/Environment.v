@@ -84,9 +84,9 @@ Module EnvironmentWritable <: ENV.
         if N.ltb 0 apos then
             let (a,b) := Assembly.finish a0 e0.(cur_buffer AB) in
             let ki := {| pkey := cpp_mk_key256 tt
-                    ; ivec := cpp_mk_key128 tt
-                    ; localnchunks := e0.(config AB).(Configuration.config_nchunks)
-                    ; localid := e0.(config AB).(Configuration.my_id) |} in
+                       ; ivec := cpp_mk_key128 tt
+                       ; localnchunks := e0.(config AB).(Configuration.config_nchunks)
+                       ; localid := e0.(config AB).(Configuration.my_id) |} in
             let e1 := env_add_aid_key (aid a) e0 ki in
             match Assembly.encrypt a b ki with
             | None => e0

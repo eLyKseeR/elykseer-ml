@@ -284,6 +284,117 @@ module Configuration :
   val my_id : configuration -> string
  end
 
+module Filesystem :
+ sig
+  type path = Mlcpp_filesystem.Filesystem.path
+
+  module Path :
+   sig
+    val to_string : path -> string
+
+    val from_string : string -> path
+
+    val temp_directory : unit -> path
+
+    val file_exists : path -> bool
+
+    val file_size : path -> n
+
+    val filename : path -> path
+
+    val extension : path -> path
+
+    val parent : path -> path
+
+    val root : path -> path
+
+    val absolute : path -> path option
+
+    val relative : path -> path option
+
+    val proximate : path -> path option
+
+    val canonical : path -> path option
+
+    val weakly_canonical : path -> path option
+
+    val path_type : path -> string
+
+    val is_regular_file : path -> bool
+
+    val is_directory : path -> bool
+
+    val is_fifo : path -> bool
+
+    val is_block_file : path -> bool
+
+    val is_character_file : path -> bool
+
+    val is_socket : path -> bool
+
+    val is_symlink : path -> bool
+
+    val is_other : path -> bool
+   end
+
+  module Permissions :
+   sig
+    type permissions = Mlcpp_filesystem.Filesystem.Permissions.permissions
+
+    val get : path -> permissions option
+
+    val set : path -> permissions -> bool
+
+    val add : path -> permissions -> bool
+
+    val remove : path -> permissions -> bool
+
+    val to_string : permissions -> string
+
+    val to_dec : permissions -> positive
+
+    val to_oct : permissions -> positive
+
+    val from_oct : positive -> permissions
+   end
+
+  val get_cwd : unit -> path
+
+  val set_cwd : path -> bool
+
+  val copy : path -> path -> bool
+
+  val copy_file : path -> path -> bool
+
+  val copy_symlink : path -> path -> bool
+
+  val create_directory : path -> bool
+
+  val create_directories : path -> bool
+
+  val create_hard_link : path -> path -> bool
+
+  val create_symlink : path -> path -> bool
+
+  val create_directory_symlink : path -> path -> bool
+
+  val equivalent : path -> path -> bool
+
+  val hard_link_count : path -> positive
+
+  val read_symlink : path -> path option
+
+  val remove : path -> bool
+
+  val remove_all : path -> positive
+
+  val rename : path -> path -> bool
+
+  val resize_file : path -> n -> bool
+
+  val space : path -> n list
+ end
+
 module Utilities :
  sig
   val make_list : positive -> positive list
@@ -417,8 +528,7 @@ module Assembly :
   val chunk_identifier_path :
     Configuration.configuration -> aid_t -> positive -> string
 
-  val ext_load_chunk_from_path :
-    string -> Cstdio.BufferEncrypted.buffer_t option
+  val load_chunk_from_path : string -> Cstdio.BufferEncrypted.buffer_t option
 
   val id_enc_from_buffer_t :
     Cstdio.BufferEncrypted.buffer_t -> AssemblyEncrypted.coq_B
@@ -427,7 +537,7 @@ module Assembly :
     Configuration.configuration -> assemblyinformation ->
     (assemblyinformation * AssemblyEncrypted.coq_B) option
 
-  val ext_store_chunk_to_path :
+  val store_chunk_to_path :
     string -> n -> n -> Cstdio.BufferEncrypted.buffer_t -> n
 
   val extract :

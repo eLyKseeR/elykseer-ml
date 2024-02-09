@@ -1,6 +1,7 @@
 -R theories LXR
 
 theories/Cstdio.v
+theories/Filesystem.v
 theories/Filesupport.v
 theories/Environment.v
 theories/Nchunks.v
