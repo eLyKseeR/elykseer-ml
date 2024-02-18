@@ -20,12 +20,13 @@
 open Elykseer__Lxr
 open Elykseer__Lxr.Configuration
 
-open Elykseer_base.Hashing
 open Elykseer_utils
 
 let def_myid = "1234567890"
 
 let arg_verbose = ref false
+let arg_recursive = ref false
+let arg_directory = ref ""
 let arg_files = ref []
 let arg_dbpath = ref "/tmp/db"
 let arg_chunkpath = ref "lxr"
@@ -39,6 +40,8 @@ let argspec =
     ("-d", Arg.Set_string arg_dbpath, "sets database path");
     ("-n", Arg.Set_int arg_nchunks, "sets number of chunks (16-256) per assembly");
     ("-i", Arg.Set_string arg_myid, "sets own identifier");
+    ("-R", Arg.Set arg_recursive, "recursively backup the directory");
+    ("-D", Arg.Set_string arg_directory, "directory to backup");
   ]
 
 let anon_args_fun fn = arg_files := fn :: !arg_files
@@ -47,7 +50,7 @@ let output_relfiles proc fis =
   let fbis = Env.consolidate_files (Processor.get_fblocks proc).entries in
   let%lwt rel = Relfiles.new_map (Processor.config proc) in
   let%lwt () = Lwt_list.iter_s (fun (fhash, bis) ->
-                                  let fi = List.find (fun (fi : Filesupport.fileinformation) -> sha256 fi.fname = fhash) fis in
+                                  let fi = List.find (fun (fi : Filesupport.fileinformation) -> Elykseer_crypto.Sha256.string fi.fname = fhash) fis in
                                   let%lwt _rel' = Relfiles.add fhash {rfi=fi; rfbs=bis} rel in Lwt.return ())
                                fbis in
   Relfiles.close_map rel
@@ -60,9 +63,9 @@ let output_relkeys proc =
   
 let main () = Arg.parse argspec anon_args_fun "lxr_processor: vxdni";
   let nchunks = Nchunks.from_int !arg_nchunks in
-  if List.length !arg_files <= 0
+  if List.length !arg_files <= 0 && !arg_directory = ""
   then
-    let%lwt () = Lwt_io.printl "no files to backup given in command line arguments." in
+    let%lwt () = Lwt_io.printl "no directory or no files to backup given in command line arguments." in
     Lwt.return ()
   else
     let myid = !arg_myid in
@@ -72,15 +75,29 @@ let main () = Arg.parse argspec anon_args_fun "lxr_processor: vxdni";
                   path_db     = !arg_dbpath;
                   my_id       = myid } in
 
-    (* backup each file *)
-    let (proc0, fis) = List.fold_left (fun (proc, fis) filename -> let (fi, (_, proc')) = Processor.file_backup proc filename in (proc', fi :: fis))
-                                      ((Processor.prepare_processor conf), []) !arg_files in
+    let proc0 = Processor.prepare_processor conf in
+    let (fis, proc1) = 
+      if !arg_directory = ""
+      then
+        (* backup each file *)
+        List.map (fun fn -> Filesystem.Path.from_string fn) !arg_files |>
+        List.fold_left (fun (fis, proc) filename -> let (fi', proc') = Processor.file_backup proc filename in (fi' :: fis, proc'))
+                        ([], proc0)
+      else begin
+        if !arg_recursive
+        then
+          (* let (fis, (_, proc')) = Processor.recursive_backup proc0 (Conversion.i2n 4) (Filesystem.Path.from_string !arg_directory) in (fis, proc') *)
+          Processor.recursive_backup proc0 (Conversion.i2n 4) (Filesystem.Path.from_string !arg_directory)
+        else
+          Processor.directory_backup proc0 (Filesystem.Path.from_string !arg_directory)
+      end
+    in
     (* close the processor - will extract chunks from current writable environment *)
-    let proc1 = Processor.close proc0 in
+    let proc2 = Processor.close proc1 in
 
     (* access meta data and output to irmin database *)
-    let%lwt () = output_relkeys proc1 in
-    let%lwt () = output_relfiles proc1 fis in
+    let%lwt () = output_relkeys proc2 in
+    let%lwt () = output_relfiles proc2 fis in
 
     (* output the collected file informations when in verbose mode *)
     let%lwt () = if !arg_verbose then

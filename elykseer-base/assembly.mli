@@ -10,7 +10,3 @@ val add_content : src:b -> sz:int -> pos:int -> tgt:b -> int
     source buffer is required to have size a multiple of 256*1024
  *)
 val get_content : src:b -> sz:int -> pos:int -> tgt:b -> int
-
-val b2s : src:b -> sz:int -> pos:int -> string
-
-val date_ident : unit -> string

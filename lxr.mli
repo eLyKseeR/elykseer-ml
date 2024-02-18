@@ -210,6 +210,8 @@ module Cstdio :
 
   val write_mode : mode
 
+  val write_new_mode : mode
+
   val append_mode : mode
 
   type fptr = Mlcpp_cstdio.Cstdio.File.file
@@ -218,7 +220,7 @@ module Cstdio :
 
   val fclose : fptr -> unit option
 
-  val fflush : fptr -> unit option
+  val fflush : fptr -> fptr option
 
   val fread : fptr -> n -> (n * cstdio_buffer) option
 
@@ -226,7 +228,7 @@ module Cstdio :
 
   val ftell : fptr -> n option
 
-  val fseek : fptr -> n -> unit option
+  val fseek : fptr -> n -> fptr option
 
   module type BUF =
    sig
@@ -282,6 +284,152 @@ module Configuration :
   val path_db : configuration -> string
 
   val my_id : configuration -> string
+ end
+
+module Filesystem :
+ sig
+  type path = Mlcpp_filesystem.Filesystem.path
+
+  module Path :
+   sig
+    val to_string : path -> string
+
+    val from_string : string -> path
+
+    val append : path -> path -> path
+
+    val temp_directory : unit -> path
+
+    val file_exists : path -> bool
+
+    val file_size : path -> n
+
+    val filename : path -> path
+
+    val extension : path -> path
+
+    val parent : path -> path
+
+    val root : path -> path
+
+    val absolute : path -> path option
+
+    val relative : path -> path option
+
+    val proximate : path -> path option
+
+    val canonical : path -> path option
+
+    val weakly_canonical : path -> path option
+
+    val path_type : path -> string
+
+    val is_regular_file : path -> bool
+
+    val is_directory : path -> bool
+
+    val is_fifo : path -> bool
+
+    val is_block_file : path -> bool
+
+    val is_character_file : path -> bool
+
+    val is_socket : path -> bool
+
+    val is_symlink : path -> bool
+
+    val is_other : path -> bool
+   end
+
+  module Permissions :
+   sig
+    type permissions = Mlcpp_filesystem.Filesystem.Permissions.permissions
+
+    val get : path -> permissions option
+
+    val set : path -> permissions -> bool
+
+    val add : path -> permissions -> bool
+
+    val remove : path -> permissions -> bool
+
+    val to_string : permissions -> string
+
+    val to_dec : permissions -> positive
+
+    val to_oct : permissions -> positive
+
+    val from_oct : positive -> permissions
+   end
+
+  val get_cwd : unit -> path
+
+  val set_cwd : path -> bool
+
+  val copy : path -> path -> bool
+
+  val copy_file : path -> path -> bool
+
+  val copy_symlink : path -> path -> bool
+
+  val create_directory : path -> bool
+
+  val create_directories : path -> bool
+
+  val create_hard_link : path -> path -> bool
+
+  val create_symlink : path -> path -> bool
+
+  val create_directory_symlink : path -> path -> bool
+
+  val equivalent : path -> path -> bool
+
+  val hard_link_count : path -> positive
+
+  val read_symlink : path -> path option
+
+  val remove : path -> bool
+
+  val remove_all : path -> positive
+
+  val rename : path -> path -> bool
+
+  val resize_file : path -> n -> bool
+
+  val space : path -> n list
+
+  type direntry = Mlcpp_filesystem.Filesystem.direntry
+
+  module Direntry :
+   sig
+    val as_path : direntry -> path
+
+    val as_string : direntry -> string
+
+    val direntry_exists : direntry -> bool
+
+    val is_regular_file : direntry -> bool
+
+    val is_block_file : direntry -> bool
+
+    val is_character_file : direntry -> bool
+
+    val is_directory : direntry -> bool
+
+    val is_fifo : direntry -> bool
+
+    val is_other : direntry -> bool
+
+    val is_socket : direntry -> bool
+
+    val is_symlink : direntry -> bool
+
+    val file_size : direntry -> n
+
+    val hard_link_count : direntry -> n
+   end
+
+  val list_directory : path -> 'a1 -> (direntry -> 'a1 -> 'a1) -> 'a1
  end
 
 module Utilities :
@@ -417,8 +565,7 @@ module Assembly :
   val chunk_identifier_path :
     Configuration.configuration -> aid_t -> positive -> string
 
-  val ext_load_chunk_from_path :
-    string -> Cstdio.BufferEncrypted.buffer_t option
+  val load_chunk_from_path : string -> Cstdio.BufferEncrypted.buffer_t option
 
   val id_enc_from_buffer_t :
     Cstdio.BufferEncrypted.buffer_t -> AssemblyEncrypted.coq_B
@@ -427,7 +574,7 @@ module Assembly :
     Configuration.configuration -> assemblyinformation ->
     (assemblyinformation * AssemblyEncrypted.coq_B) option
 
-  val ext_store_chunk_to_path :
+  val store_chunk_to_path :
     string -> n -> n -> Cstdio.BufferEncrypted.buffer_t -> n
 
   val extract :
@@ -752,9 +899,7 @@ module Processor :
 
   val update_cache : processor -> AssemblyCache.assemblycache -> processor
 
-  val backup_block :
-    processor -> AssemblyCache.writequeueentity ->
-    AssemblyCache.writequeueresult list * processor
+  val backup_block : processor -> AssemblyCache.writequeueentity -> processor
 
   val request_read :
     processor -> AssemblyCache.readqueueentity ->
@@ -774,19 +919,37 @@ module Processor :
 
   val block_sz : n
 
-  val r_file_backup_inner :
+  val rec_file_backup_inner :
     nat -> processor -> Filesupport.fileinformation -> n -> Cstdio.fptr ->
-    AssemblyCache.writequeueresult list -> AssemblyCache.writequeueresult
-    list * processor
+    processor
 
   val open_file_backup :
-    processor -> n -> Filesupport.fileinformation -> n ->
-    AssemblyCache.writequeueresult list * processor
+    processor -> n -> Filesupport.fileinformation -> n -> processor
 
   val file_backup :
-    processor -> Filesupport.filename ->
-    Filesupport.fileinformation * (AssemblyCache.writequeueresult
-    list * processor)
+    processor -> Filesystem.path -> Filesupport.fileinformation * processor
+
+  val internal_directory_entries :
+    Filesystem.path -> Filesystem.path list * Filesystem.path list
+
+  val directory_backup :
+    processor -> Filesystem.path -> Filesupport.fileinformation
+    list * processor
+
+  val directory_backup_0 : processor -> Filesystem.path -> processor
+
+  val internal_recursive_backup :
+    nat -> processor -> Filesupport.fileinformation list -> Filesystem.path
+    -> Filesupport.fileinformation list * processor
+
+  val recursive_backup :
+    processor -> n -> Filesystem.path -> Filesupport.fileinformation
+    list * processor
+
+  val internal_recursive_backup_0 :
+    nat -> processor -> Filesystem.path -> processor
+
+  val recursive_backup_0 : processor -> n -> Filesystem.path -> processor
  end
 
 module Version :

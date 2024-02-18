@@ -14,6 +14,7 @@ From LXR Require Import Configuration.
 From LXR Require Import Conversion.
 From LXR Require Import Environment.
 From LXR Require Import Filesupport.
+From LXR Require Import Filesystem.
 From LXR Require Import Nchunks.
 From LXR Require Import Processor.
 From LXR Require Import Utilities.
@@ -104,7 +105,7 @@ Extract Constant chunk_identifier =>
       let s = (Configuration.my_id config) ^
               (string_of_int (Conversion.p2i cid)) ^
               aid in
-      Elykseer_base.Hashing.sha256 s
+      Elykseer_crypto.Sha256.string s
    ".
 
 Extract Constant chunk_identifier_path =>
@@ -113,49 +114,128 @@ Extract Constant chunk_identifier_path =>
       (Configuration.path_chunks config ^ ""/"" ^ subd ^ ""/"" ^ cident ^ "".lxr"")
    ".
 
+Extract Constant Filesystem.path => "Mlcpp_filesystem.Filesystem.path".
+Extract Constant Filesystem.Path.to_string => "Mlcpp_filesystem.Filesystem.Path.to_string".
+Extract Constant Filesystem.Path.from_string => "Mlcpp_filesystem.Filesystem.Path.from_string".
+Extract Constant Filesystem.Path.append => "Mlcpp_filesystem.Filesystem.Path.append".
+Extract Constant Filesystem.Path.temp_directory => "Mlcpp_filesystem.Filesystem.Path.temp_directory".
+Extract Constant Filesystem.Path.file_exists => "Mlcpp_filesystem.Filesystem.Path.exists".
+Extract Constant Filesystem.Path.file_size => "fun p -> Conversion.i2n (Mlcpp_filesystem.Filesystem.Path.file_size p)".
+Extract Constant Filesystem.Path.filename => "Mlcpp_filesystem.Filesystem.Path.filename".
+Extract Constant Filesystem.Path.extension => "Mlcpp_filesystem.Filesystem.Path.extension".
+Extract Constant Filesystem.Path.parent => "Mlcpp_filesystem.Filesystem.Path.parent".
+Extract Constant Filesystem.Path.root => "Mlcpp_filesystem.Filesystem.Path.root".
+Extract Constant Filesystem.Path.absolute => "Mlcpp_filesystem.Filesystem.Path.absolute".
+Extract Constant Filesystem.Path.relative => "Mlcpp_filesystem.Filesystem.Path.relative".
+Extract Constant Filesystem.Path.proximate => "Mlcpp_filesystem.Filesystem.Path.proximate".
+Extract Constant Filesystem.Path.canonical => "Mlcpp_filesystem.Filesystem.Path.canonical".
+Extract Constant Filesystem.Path.weakly_canonical => "Mlcpp_filesystem.Filesystem.Path.weakly_canonical".
+Extract Constant Filesystem.Path.path_type => "Mlcpp_filesystem.Filesystem.Path.path_type".
+Extract Constant Filesystem.Path.is_regular_file => "Mlcpp_filesystem.Filesystem.Path.is_regular_file".
+Extract Constant Filesystem.Path.is_directory => "Mlcpp_filesystem.Filesystem.Path.is_directory".
+Extract Constant Filesystem.Path.is_fifo => "Mlcpp_filesystem.Filesystem.Path.is_fifo".
+Extract Constant Filesystem.Path.is_block_file => "Mlcpp_filesystem.Filesystem.Path.is_block_file".
+Extract Constant Filesystem.Path.is_character_file => "Mlcpp_filesystem.Filesystem.Path.is_character_file".
+Extract Constant Filesystem.Path.is_socket => "Mlcpp_filesystem.Filesystem.Path.is_socket".
+Extract Constant Filesystem.Path.is_symlink => "Mlcpp_filesystem.Filesystem.Path.is_symlink".
+Extract Constant Filesystem.Path.is_other => "Mlcpp_filesystem.Filesystem.Path.is_other".
+Extract Constant Filesystem.Permissions.permissions => "Mlcpp_filesystem.Filesystem.Permissions.permissions".
+Extract Constant Filesystem.Permissions.get => "Mlcpp_filesystem.Filesystem.Permissions.get".
+Extract Constant Filesystem.Permissions.set => "Mlcpp_filesystem.Filesystem.Permissions.set".
+Extract Constant Filesystem.Permissions.add => "Mlcpp_filesystem.Filesystem.Permissions.add".
+Extract Constant Filesystem.Permissions.remove => "Mlcpp_filesystem.Filesystem.Permissions.remove".
+Extract Constant Filesystem.Permissions.to_string => "Mlcpp_filesystem.Filesystem.Permissions.to_string".
+Extract Constant Filesystem.Permissions.to_string => "Mlcpp_filesystem.Filesystem.Permissions.to_string".
+Extract Constant Filesystem.Permissions.to_dec => "fun p -> Conversion.i2p (Mlcpp_filesystem.Filesystem.Permissions.to_dec p)".
+Extract Constant Filesystem.Permissions.to_oct => "fun p -> Conversion.i2p (Mlcpp_filesystem.Filesystem.Permissions.to_oct p)".
+Extract Constant Filesystem.Permissions.from_oct => "fun o -> Mlcpp_filesystem.Filesystem.Permissions.from_oct (Conversion.p2i o)".
+Extract Constant Filesystem.get_cwd => "Mlcpp_filesystem.Filesystem.get_cwd".
+Extract Constant Filesystem.set_cwd => "Mlcpp_filesystem.Filesystem.set_cwd".
+Extract Constant Filesystem.copy => "Mlcpp_filesystem.Filesystem.copy".
+Extract Constant Filesystem.copy_file => "Mlcpp_filesystem.Filesystem.copy_file".
+Extract Constant Filesystem.copy_symlink => "Mlcpp_filesystem.Filesystem.copy_symlink".
+Extract Constant Filesystem.create_directory => "Mlcpp_filesystem.Filesystem.create_directory".
+Extract Constant Filesystem.create_directories => "Mlcpp_filesystem.Filesystem.create_directories".
+Extract Constant Filesystem.create_hard_link => "Mlcpp_filesystem.Filesystem.create_hard_link".
+Extract Constant Filesystem.create_symlink => "Mlcpp_filesystem.Filesystem.create_symlink".
+Extract Constant Filesystem.create_directory_symlink => "Mlcpp_filesystem.Filesystem.create_directory_symlink".
+Extract Constant Filesystem.equivalent => "Mlcpp_filesystem.Filesystem.equivalent".
+Extract Constant Filesystem.hard_link_count => "fun p -> Conversion.i2p (Mlcpp_filesystem.Filesystem.hard_link_count p)".
+Extract Constant Filesystem.read_symlink => "Mlcpp_filesystem.Filesystem.read_symlink".
+Extract Constant Filesystem.remove => "Mlcpp_filesystem.Filesystem.remove".
+Extract Constant Filesystem.remove_all => "fun p -> Conversion.i2p (Mlcpp_filesystem.Filesystem.remove_all p)".
+Extract Constant Filesystem.rename => "Mlcpp_filesystem.Filesystem.rename".
+Extract Constant Filesystem.resize_file => "fun p sz -> Mlcpp_filesystem.Filesystem.resize_file p (Conversion.n2i sz)".
+Extract Constant Filesystem.space => "fun p -> List.map (fun i -> Conversion.i2n i) (Mlcpp_filesystem.Filesystem.space p)".
+Extract Constant Filesystem.direntry => "Mlcpp_filesystem.Filesystem.direntry".
+Extract Constant Filesystem.Direntry.as_path => "Mlcpp_filesystem.Filesystem.Direntry.as_path".
+Extract Constant Filesystem.Direntry.direntry_exists => "Mlcpp_filesystem.Filesystem.Direntry.direntry_exists".
+Extract Constant Filesystem.Direntry.is_regular_file => "Mlcpp_filesystem.Filesystem.Direntry.is_regular_file".
+Extract Constant Filesystem.Direntry.is_block_file => "Mlcpp_filesystem.Filesystem.Direntry.is_block_file".
+Extract Constant Filesystem.Direntry.is_character_file => "Mlcpp_filesystem.Filesystem.Direntry.is_character_file".
+Extract Constant Filesystem.Direntry.is_directory => "Mlcpp_filesystem.Filesystem.Direntry.is_directory".
+Extract Constant Filesystem.Direntry.is_fifo => "Mlcpp_filesystem.Filesystem.Direntry.is_fifo".
+Extract Constant Filesystem.Direntry.is_other => "Mlcpp_filesystem.Filesystem.Direntry.is_other".
+Extract Constant Filesystem.Direntry.is_socket => "Mlcpp_filesystem.Filesystem.Direntry.is_socket".
+Extract Constant Filesystem.Direntry.is_symlink => "Mlcpp_filesystem.Filesystem.Direntry.is_symlink".
+Extract Constant Filesystem.Direntry.file_size => "fun de -> Mlcpp_filesystem.Filesystem.Direntry.file_size de |> Conversion.i2n".
+Extract Constant Filesystem.Direntry.hard_link_count => "fun de -> Mlcpp_filesystem.Filesystem.Direntry.hard_link_count de |> Conversion.i2n".
+Extract Constant Filesystem.list_directory => "Mlcpp_filesystem.Filesystem.list_directory".
+(* Extract Constant Filesystem.list_directory =>
+   "fun fp ->
+      if Mlcpp_filesystem.Filesystem.Path.is_directory fp
+      then
+         let direntries = ref [] in
+         let _ = Mlcpp_filesystem.Filesystem.list_directory fp (fun de ->
+            direntries := de :: !direntries) in
+         !direntries
+      else
+         []
+   ". *)
+
 Extract Constant Cstdio.fptr => "Mlcpp_cstdio.Cstdio.File.file".
 Extract Constant Cstdio.fopen =>
    "fun fname mode ->
       match Mlcpp_cstdio.Cstdio.File.fopen fname mode with
       | Ok fptr -> Some fptr
-      | Error (errno, errstr) -> Printf.printf ""error: %d/%s\n"" errno errstr; None
+      | Error (errno, errstr) -> Printf.printf ""fopen '%s' error: %d/%s\n"" fname errno errstr; None
    ".
 Extract Constant Cstdio.fclose =>
    "fun fptr ->
       match Mlcpp_cstdio.Cstdio.File.fclose fptr with
       | Ok () -> Some ()
-      | Error (errno, errstr) -> Printf.printf ""error: %d/%s\n"" errno errstr; None
+      | Error (errno, errstr) -> Printf.printf ""fclose error: %d/%s\n"" errno errstr; None
    ".
 Extract Constant Cstdio.fflush =>
    "fun fptr ->
       match Mlcpp_cstdio.Cstdio.File.fflush fptr with
-      | Ok () -> Some ()
-      | Error (errno, errstr) -> Printf.printf ""error: %d/%s\n"" errno errstr; None
+      | Ok () -> Some fptr
+      | Error (errno, errstr) -> Printf.printf ""fflush error: %d/%s\n"" errno errstr; None
    ".
 Extract Constant Cstdio.ftell =>
    "fun fptr ->
       match Mlcpp_cstdio.Cstdio.File.ftell fptr with
       | Ok pos -> Some (Conversion.i2n pos)
-      | Error (errno, errstr) -> Printf.printf ""error: %d/%s\n"" errno errstr; None
+      | Error (errno, errstr) -> Printf.printf ""ftell error: %d/%s\n"" errno errstr; None
    ".
 Extract Constant Cstdio.fseek =>
    "fun fptr pos ->
       match Mlcpp_cstdio.Cstdio.File.fseek fptr (Conversion.n2i pos) with
-      | Ok () -> Some ()
-      | Error (errno, errstr) -> Printf.printf ""error: %d/%s\n"" errno errstr; None
+      | Ok () -> Some fptr
+      | Error (errno, errstr) -> Printf.printf ""fseek error: %d/%s\n"" errno errstr; None
    ".
 Extract Constant Cstdio.fread =>
    "fun fptr sz ->
       let b = Mlcpp_cstdio.Cstdio.File.Buffer.create (Conversion.n2i sz) in
       match Mlcpp_cstdio.Cstdio.File.fread b (Conversion.n2i sz) fptr with
       | Ok nread -> Some (Conversion.i2n nread, b)
-      | Error (errno, errstr) -> Printf.printf ""error: %d/%s\n"" errno errstr; None
+      | Error (errno, errstr) -> Printf.printf ""fread error: %d/%s\n"" errno errstr; None
    ".
 Extract Constant Cstdio.fwrite =>
    "fun fptr sz b ->
       match Mlcpp_cstdio.Cstdio.File.fwrite b (Conversion.n2i sz) fptr with
       | Ok nwritten -> Some (Conversion.i2n nwritten)
-      | Error (errno, errstr) -> Printf.printf ""error: %d/%s\n"" errno errstr; None
+      | Error (errno, errstr) -> Printf.printf ""fwrite error: %d/%s\n"" errno errstr; None
    ".
 
 Extract Constant Cstdio.cstdio_buffer => "Mlcpp_cstdio.Cstdio.File.Buffer.ta".
@@ -163,14 +243,14 @@ Extract Constant Cstdio.cstdio_buffer => "Mlcpp_cstdio.Cstdio.File.Buffer.ta".
 Extract Constant BufferEncrypted.buffer_t => "Mlcpp_cstdio.Cstdio.File.Buffer.ta".
 Extract Constant BufferEncrypted.buffer_create => "fun n -> Mlcpp_cstdio.Cstdio.File.Buffer.create (Conversion.n2i n)".
 Extract Constant BufferEncrypted.buffer_len => "fun b -> Conversion.i2n (Mlcpp_cstdio.Cstdio.File.Buffer.size b)".
-Extract Constant BufferEncrypted.calc_checksum => "fun b -> Elykseer_base.Buffer.sha256 b".
+Extract Constant BufferEncrypted.calc_checksum => "fun b -> Elykseer_crypto.Sha256.buffer b".
 Extract Constant BufferEncrypted.from_buffer => "fun b -> Helper.cpp_buffer_id b".
 Extract Constant BufferEncrypted.to_buffer => "fun b -> Helper.cpp_buffer_id b".
 
 Extract Constant BufferPlain.buffer_t => "Mlcpp_cstdio.Cstdio.File.Buffer.ta".
 Extract Constant BufferPlain.buffer_create => "fun n -> Mlcpp_cstdio.Cstdio.File.Buffer.create (Conversion.n2i n)".
 Extract Constant BufferPlain.buffer_len => "fun b -> Conversion.i2n (Mlcpp_cstdio.Cstdio.File.Buffer.size b)".
-Extract Constant BufferPlain.calc_checksum => "fun b -> Elykseer_base.Buffer.sha256 b".
+Extract Constant BufferPlain.calc_checksum => "fun b -> Elykseer_crypto.Sha256.buffer b".
 Extract Constant BufferPlain.from_buffer => "fun b -> Helper.cpp_buffer_id b".
 Extract Constant BufferPlain.to_buffer => "fun b -> Helper.cpp_buffer_id b".
 
@@ -182,11 +262,11 @@ Extract Constant id_enc_from_buffer_t => "fun b -> Helper.cpp_buffer_id b".
 Extract Constant id_assembly_full_buffer_from_writable => "fun b -> Helper.cpp_buffer_id b".
 Extract Constant id_assembly_full_ainfo_from_writable => "fun b -> Helper.cpp_buffer_id b".
 
-Extract Constant cpp_encrypt_buffer => "fun b iv pw -> Helper.cpp_encrypt_buffer b iv pw".
-Extract Constant cpp_decrypt_buffer => "fun b iv pw -> Helper.cpp_decrypt_buffer b iv pw".
+Extract Constant cpp_encrypt_buffer => "fun b siv spk -> Elykseer_crypto.Aes256.encrypt (Elykseer_crypto.Key128.from_hex siv) (Elykseer_crypto.Key256.from_hex spk) b".
+Extract Constant cpp_decrypt_buffer => "fun b siv spk -> Elykseer_crypto.Aes256.decrypt (Elykseer_crypto.Key128.from_hex siv) (Elykseer_crypto.Key256.from_hex spk) b".
 
-Extract Constant cpp_mk_key256 => "fun () -> Helper.mk_key256 ()".
-Extract Constant cpp_mk_key128 => "fun () -> Helper.mk_key128 ()".
+Extract Constant cpp_mk_key256 => "fun () -> Elykseer_crypto.Key256.mk () |> Elykseer_crypto.Key256.to_hex".
+Extract Constant cpp_mk_key128 => "fun () -> Elykseer_crypto.Key128.mk () |> Elykseer_crypto.Key128.to_hex".
 Extract Constant cpp_ranbuf128 => "fun () -> Helper.ranbuf128 ()".
 
 Extract Constant assembly_add_content => (* BufferPlain.buffer_t -> N -> N -> AssemblyPlainWritable.B -> N. *)
@@ -217,17 +297,6 @@ Extract Constant BufferPlain.copy_sz_pos =>
       Mlcpp_cstdio.Cstdio.File.Buffer.copy_sz_pos bsrc ~pos1:(Conversion.n2i npos1) ~sz:(Conversion.n2i nsz) btgt ~pos2:(Conversion.n2i npos2)
    ".
 
-Extract Constant ext_store_chunk_to_path =>
-   "
-    fun fp nsz npos b -> Conversion.i2n @@
-      Helper.store_chunk_to_path (Mlcpp_filesystem.Filesystem.Path.from_string fp) (Conversion.n2i nsz) (Conversion.n2i npos) b
-   ".
-
-Extract Constant ext_load_chunk_from_path =>
-   "
-    fun fp -> Helper.load_chunk_from_path (Mlcpp_filesystem.Filesystem.Path.from_string fp)
-   ".
-
 Extract Constant get_file_information =>
    "  
     fun fn ->
@@ -241,8 +310,16 @@ Extract Constant get_file_information =>
 
 Extract Constant sha256 => "Elykseer_crypto.Sha256.string".
 
+(*
+Axiom messageN : string -> N -> unit.
+*)
+(* Extract Constant messageN =>
+   "
+    fun s n -> Printf.printf ""%s %d\n"" s (Conversion.n2i n)
+   ".
+*)
 
 (* extract into "lxr.ml" all named modules and definitions, and their dependencies *)
 Extraction "lxr.ml"  Version Conversion Utilities Filesupport Nchunks Assembly
-                     Configuration Environment Cstdio BackupPlanner AssemblyCache
-                     Processor Store.
+                     Configuration Environment Cstdio Filesystem BackupPlanner
+                     AssemblyCache Processor Store.

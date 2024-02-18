@@ -2,7 +2,6 @@
 
 open Elykseer__Lxr
 
-open Elykseer_base.Hashing
 open Elykseer_utils
 
 open Mlcpp_chrono
@@ -42,7 +41,7 @@ let mk_rel n aid rel =
   let fi : Filesupport.fileinformation = {fname = fname
            ;fsize = Conversion.i2n @@ List.fold_left (fun acc (e : Assembly.blockinformation) -> (Conversion.n2i e.blocksize) + acc) 0 blocks
            ;fowner = ""; fpermissions = Conversion.i2n 644; fmodified = ""; fchecksum = ""} in
-  let fhash = sha256 fname in
+  let fhash = Elykseer_crypto.Sha256.string fname in
   (* let%lwt () = Lwt_io.printlf "   %s <- %s" fhash fname in *)
   let%lwt _ = Relfiles.add fhash {rfi=fi; rfbs=blocks} rel in
   Lwt.return rel
@@ -54,7 +53,7 @@ let rec prepare_bm cnt rel =
          prepare_bm (n - 1) rel
 
 let check_bm i rel =
-  let fhash = Printf.sprintf "test_%04d.dat" i |> sha256 in
+  let fhash = Printf.sprintf "test_%04d.dat" i |> Elykseer_crypto.Sha256.string in
   let%lwt blocksopt = Relfiles.find fhash rel in
   match blocksopt with
   | None -> Lwt.return 0
@@ -120,8 +119,8 @@ let example_output () =
              ; rfbs=blocks1 } in
   let rel2 : Relfiles.relation = { rfi={fname="testfile02.data";fsize=Conversion.i2n 324;fowner="";fpermissions=Conversion.i2n 644;fmodified="";fchecksum=""}
              ; rfbs=blocks2 } in
-  let%lwt _ = Relfiles.add (sha256 "testfile01.data") rel1 rel in
-  let%lwt _ = Relfiles.add (sha256 "testfile02.data") rel2 rel in
+  let%lwt _ = Relfiles.add (Elykseer_crypto.Sha256.string "testfile01.data") rel1 rel in
+  let%lwt _ = Relfiles.add (Elykseer_crypto.Sha256.string "testfile02.data") rel2 rel in
   Lwt_io.printl "done."
 
 

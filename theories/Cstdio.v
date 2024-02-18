@@ -5,8 +5,6 @@
 From Coq Require Import Strings.String.
 Require Import NArith.
 
-From LXR Require Import Conversion.
-
 Module Export Cstdio.
 
 (**
@@ -30,16 +28,17 @@ Section Mlcpp_Cstdio.
   Definition mode := string.
   Definition read_mode : mode := "rb".
   Definition write_mode : mode := "wb".
+  Definition write_new_mode : mode := "wx".
   Definition append_mode : mode := "ab".
 
   Axiom fptr : Type.
   Axiom fopen : string -> mode -> option fptr.
   Axiom fclose : fptr -> option unit.
-  Axiom fflush : fptr -> option unit.
+  Axiom fflush : fptr -> option fptr.
   Axiom fread : fptr -> N -> option (N * cstdio_buffer).
   Axiom fwrite : fptr -> N -> cstdio_buffer -> option N.
   Axiom ftell : fptr -> option N.
-  Axiom fseek : fptr -> N -> option unit.
+  Axiom fseek : fptr -> N -> option fptr.
 
 End Mlcpp_Cstdio.
 

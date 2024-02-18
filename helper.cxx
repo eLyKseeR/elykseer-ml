@@ -3,9 +3,7 @@ extern "C" {
 #include <caml/mlvalues.h>
 #include <caml/memory.h>
 #include <caml/alloc.h>
-#include <caml/bigarray.h>
 #include <caml/custom.h>
-// #include <caml/callback.h>
 #include <caml/fail.h>
 
 #include <sys/errno.h>
@@ -54,11 +52,3 @@ static struct custom_operations cpp_cstdio_buffer_ops = {
     custom_serialize_default,
     custom_deserialize_default
 };
-
-extern "C" {
-extern value cpp_encrypt_aes256(value viv, value vk, value varr);
-} // extern C
-
-extern "C" {
-extern value cpp_decrypt_aes256(value viv, value vk, value varr);
-} // extern C

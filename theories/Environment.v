@@ -36,7 +36,6 @@ Print Setter.  *)
 Axiom cpp_mk_key256 : unit -> string.
 Axiom cpp_mk_key128 : unit -> string.
 
-
 Module Type ENV.
     Parameter AB : Type.
     Definition E : RecordEnvironment := environment AB.
@@ -84,15 +83,15 @@ Module EnvironmentWritable <: ENV.
         if N.ltb 0 apos then
             let (a,b) := Assembly.finish a0 e0.(cur_buffer AB) in
             let ki := {| pkey := cpp_mk_key256 tt
-                    ; ivec := cpp_mk_key128 tt
-                    ; localnchunks := e0.(config AB).(Configuration.config_nchunks)
-                    ; localid := e0.(config AB).(Configuration.my_id) |} in
+                       ; ivec := cpp_mk_key128 tt
+                       ; localnchunks := e0.(config AB).(Configuration.config_nchunks)
+                       ; localid := e0.(config AB).(Configuration.my_id) |} in
             let e1 := env_add_aid_key (aid a) e0 ki in
             match Assembly.encrypt a b ki with
             | None => e0
             | Some (a',b') =>
                 let n := Assembly.extract e1.(config AB) a' b' in
-                if N.eqb n (Assembly.assemblysize e0.(config AB).(Configuration.config_nchunks))
+                if N.ltb 0 n
                 then e1
                 else e0
             end

@@ -8,7 +8,7 @@ From Coq Require Import NArith.BinNat.
 
 From RecordUpdate Require Import RecordUpdate.
 
-From LXR Require Import Nchunks Cstdio Configuration Conversion Utilities.
+From LXR Require Import Nchunks Cstdio Configuration Conversion Filesystem Utilities.
 
 Module Export Assembly.
 
@@ -184,7 +184,29 @@ Program Definition decrypt (a : assemblyinformation) (b : AssemblyEncrypted.B) (
 
 Axiom chunk_identifier : configuration -> aid_t -> positive -> string.
 Axiom chunk_identifier_path : configuration -> aid_t -> positive -> string.
-Axiom ext_load_chunk_from_path : string -> option BufferEncrypted.buffer_t.
+Local Program Definition load_chunk_from_path (sfp : string) : option BufferEncrypted.buffer_t :=
+    if Filesystem.Path.file_exists (Filesystem.Path.from_string sfp)
+    then
+        match Cstdio.fopen sfp Cstdio.read_mode with
+        | None => None
+        | Some fptr =>
+            match Cstdio.fread fptr (chunksize_N) with
+            | None => let _ := Cstdio.fclose fptr in None
+            | Some (cnt, b) => match Cstdio.fclose fptr with
+                | None => None
+                | Some unit =>
+                    if N.eqb cnt chunksize_N
+                    then
+                        Some (BufferEncrypted.from_buffer b)
+                    else
+                        None
+                end
+            end
+        end
+    else
+        None.
+
+
 Axiom id_enc_from_buffer_t : BufferEncrypted.buffer_t -> AssemblyEncrypted.B.
 Program Definition recall (c : configuration) (a : assemblyinformation) : option (assemblyinformation * AssemblyEncrypted.B) :=
     let cidlist := Utilities.make_list (nchunks a) in
@@ -194,7 +216,7 @@ Program Definition recall (c : configuration) (a : assemblyinformation) : option
     let nread := List.fold_left
                     (fun nread cid =>
                         let cpath := chunk_identifier_path c aid cid in
-                        match ext_load_chunk_from_path cpath with
+                        match load_chunk_from_path cpath with
                         | None => nread
                         | Some cb =>
                             let apos := chunksize_N * ((Conversion.pos2N cid) - 1) in
@@ -211,7 +233,41 @@ Program Definition recall (c : configuration) (a : assemblyinformation) : option
     then Some (a', b')
     else None.
 
-Axiom ext_store_chunk_to_path : string -> N -> N -> BufferEncrypted.buffer_t -> N.
+Local Program Definition store_chunk_to_path (sfp : string) (sz : N) (pos : N) (b : BufferEncrypted.buffer_t) : N :=
+    let fp := Filesystem.Path.from_string sfp in
+    if Filesystem.Path.file_exists fp
+    then
+        0
+    else
+        let dir := Filesystem.Path.parent fp in
+        if orb (Filesystem.Path.is_directory dir) (Filesystem.create_directories dir) then
+            match Cstdio.fopen sfp Cstdio.write_new_mode with
+            | None => 0
+            | Some fptr =>
+                let buf := Cstdio.BufferEncrypted.buffer_create sz in
+                if N.ltb 0 (Cstdio.BufferEncrypted.copy_sz_pos b pos sz buf 0)
+                then
+                    let res := match Cstdio.fwrite fptr sz (Cstdio.BufferEncrypted.to_buffer buf) with
+                               | None => 0
+                               | Some cnt => cnt
+                               end
+                    in
+                    match Cstdio.fflush fptr with
+                    | None => res
+                    | Some fptr2 => match Cstdio.fclose fptr2 with
+                                 | None => 0
+                                 | Some unit => res
+                                 end
+                    end
+                else
+                    match Cstdio.fclose fptr with
+                    | None => 0
+                    | Some unit => (2 - 1 - 1)
+                    end
+            end
+        else
+            0.
+
 Program Definition extract (c : configuration) (a : assemblyinformation) (b : AssemblyEncrypted.B) : N :=
     let aid := aid a in
     let buf := id_buffer_t_from_enc b in
@@ -219,7 +275,7 @@ Program Definition extract (c : configuration) (a : assemblyinformation) (b : As
         ( fun nwritten cid =>
             let cpath := chunk_identifier_path c aid cid in
             let apos := chunksize_N * ((Conversion.pos2N cid) - 1) in
-            nwritten + ext_store_chunk_to_path cpath chunksize_N apos buf
+            nwritten + store_chunk_to_path cpath chunksize_N apos buf
         )
         (Utilities.make_list (nchunks a))
         0.
