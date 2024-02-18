@@ -84,21 +84,23 @@ Definition prepare_assemblycache (c : configuration) (size : positive) : assembl
     |}.
 
 Program Definition enqueue_write_request (ac : assemblycache) (req : writequeueentity) : (bool * assemblycache) :=
-    let ln := List.length (wqueue ac.(acwriteq)) in
+    let wq := wqueue ac.(acwriteq) in
+    let ln := List.length wq in
     if N.leb (pos2N qsize) (nat2N ln) then
         (false, ac)
     else
         (true, {| acenvs := ac.(acenvs); acsize := ac.(acsize); acwriteenv := ac.(acwriteenv); acconfig := ac.(acconfig);
-                  acwriteq := {| wqueue := List.app (wqueue ac.(acwriteq)) (req :: nil); wqueuesz := wqueuesz ac.(acwriteq) |};
+                  acwriteq := {| wqueue := req :: wq; wqueuesz := wqueuesz ac.(acwriteq) |};
                   acreadq := ac.(acreadq)  |}).
 
 Program Definition enqueue_read_request (ac : assemblycache) (req : readqueueentity) : (bool * assemblycache) :=
-    let ln := List.length (rqueue ac.(acreadq)) in
+    let rq := rqueue ac.(acreadq) in
+    let ln := List.length rq in
     if N.leb (pos2N qsize) (nat2N ln) then
         (false, ac)
     else
         (true, {| acenvs := ac.(acenvs); acsize := ac.(acsize); acwriteenv := ac.(acwriteenv); acconfig := ac.(acconfig);
-                  acreadq := {| rqueue := List.app (rqueue ac.(acreadq)) (req :: nil); rqueuesz := rqueuesz ac.(acreadq) |};
+                  acreadq := {| rqueue := req :: rq; rqueuesz := rqueuesz ac.(acreadq) |};
                   acwriteq := ac.(acwriteq)  |}).
 
 Program Definition try_restore_assembly (config : Configuration.configuration) (sel_aid : Assembly.aid_t) : option EnvironmentReadable.E :=

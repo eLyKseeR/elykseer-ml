@@ -627,6 +627,11 @@ module Cstdio =
   let write_mode =
     "wb"
 
+  (** val write_new_mode : mode **)
+
+  let write_new_mode =
+    "wx"
+
   (** val append_mode : mode **)
 
   let append_mode =
@@ -639,7 +644,7 @@ module Cstdio =
   let fopen = fun fname mode ->
       match Mlcpp_cstdio.Cstdio.File.fopen fname mode with
       | Ok fptr -> Some fptr
-      | Error (errno, errstr) -> Printf.printf "error: %d/%s\n" errno errstr; None
+      | Error (errno, errstr) -> Printf.printf "fopen '%s' error: %d/%s\n" fname errno errstr; None
    
 
   (** val fclose : fptr -> unit option **)
@@ -647,15 +652,15 @@ module Cstdio =
   let fclose = fun fptr ->
       match Mlcpp_cstdio.Cstdio.File.fclose fptr with
       | Ok () -> Some ()
-      | Error (errno, errstr) -> Printf.printf "error: %d/%s\n" errno errstr; None
+      | Error (errno, errstr) -> Printf.printf "fclose error: %d/%s\n" errno errstr; None
    
 
-  (** val fflush : fptr -> unit option **)
+  (** val fflush : fptr -> fptr option **)
 
   let fflush = fun fptr ->
       match Mlcpp_cstdio.Cstdio.File.fflush fptr with
-      | Ok () -> Some ()
-      | Error (errno, errstr) -> Printf.printf "error: %d/%s\n" errno errstr; None
+      | Ok () -> Some fptr
+      | Error (errno, errstr) -> Printf.printf "fflush error: %d/%s\n" errno errstr; None
    
 
   (** val fread : fptr -> n -> (n * cstdio_buffer) option **)
@@ -664,7 +669,7 @@ module Cstdio =
       let b = Mlcpp_cstdio.Cstdio.File.Buffer.create (Conversion.n2i sz) in
       match Mlcpp_cstdio.Cstdio.File.fread b (Conversion.n2i sz) fptr with
       | Ok nread -> Some (Conversion.i2n nread, b)
-      | Error (errno, errstr) -> Printf.printf "error: %d/%s\n" errno errstr; None
+      | Error (errno, errstr) -> Printf.printf "fread error: %d/%s\n" errno errstr; None
    
 
   (** val fwrite : fptr -> n -> cstdio_buffer -> n option **)
@@ -672,7 +677,7 @@ module Cstdio =
   let fwrite = fun fptr sz b ->
       match Mlcpp_cstdio.Cstdio.File.fwrite b (Conversion.n2i sz) fptr with
       | Ok nwritten -> Some (Conversion.i2n nwritten)
-      | Error (errno, errstr) -> Printf.printf "error: %d/%s\n" errno errstr; None
+      | Error (errno, errstr) -> Printf.printf "fwrite error: %d/%s\n" errno errstr; None
    
 
   (** val ftell : fptr -> n option **)
@@ -680,15 +685,15 @@ module Cstdio =
   let ftell = fun fptr ->
       match Mlcpp_cstdio.Cstdio.File.ftell fptr with
       | Ok pos -> Some (Conversion.i2n pos)
-      | Error (errno, errstr) -> Printf.printf "error: %d/%s\n" errno errstr; None
+      | Error (errno, errstr) -> Printf.printf "ftell error: %d/%s\n" errno errstr; None
    
 
-  (** val fseek : fptr -> n -> unit option **)
+  (** val fseek : fptr -> n -> fptr option **)
 
   let fseek = fun fptr pos ->
       match Mlcpp_cstdio.Cstdio.File.fseek fptr (Conversion.n2i pos) with
-      | Ok () -> Some ()
-      | Error (errno, errstr) -> Printf.printf "error: %d/%s\n" errno errstr; None
+      | Ok () -> Some fptr
+      | Error (errno, errstr) -> Printf.printf "fseek error: %d/%s\n" errno errstr; None
    
 
   module type BUF =
@@ -855,6 +860,10 @@ module Filesystem =
     (** val from_string : string -> path **)
 
     let from_string = Mlcpp_filesystem.Filesystem.Path.from_string
+
+    (** val append : path -> path -> path **)
+
+    let append = Mlcpp_filesystem.Filesystem.Path.append
 
     (** val temp_directory : unit -> path **)
 
@@ -1049,6 +1058,68 @@ module Filesystem =
   (** val space : path -> n list **)
 
   let space = fun p -> List.map (fun i -> Conversion.i2n i) (Mlcpp_filesystem.Filesystem.space p)
+
+  type direntry = Mlcpp_filesystem.Filesystem.direntry
+
+  module Direntry =
+   struct
+    (** val as_path : direntry -> path **)
+
+    let as_path = Mlcpp_filesystem.Filesystem.Direntry.as_path
+
+    (** val as_string : direntry -> string **)
+
+    let as_string de =
+      Path.to_string (as_path de)
+
+    (** val direntry_exists : direntry -> bool **)
+
+    let direntry_exists = Mlcpp_filesystem.Filesystem.Direntry.direntry_exists
+
+    (** val is_regular_file : direntry -> bool **)
+
+    let is_regular_file = Mlcpp_filesystem.Filesystem.Direntry.is_regular_file
+
+    (** val is_block_file : direntry -> bool **)
+
+    let is_block_file = Mlcpp_filesystem.Filesystem.Direntry.is_block_file
+
+    (** val is_character_file : direntry -> bool **)
+
+    let is_character_file = Mlcpp_filesystem.Filesystem.Direntry.is_character_file
+
+    (** val is_directory : direntry -> bool **)
+
+    let is_directory = Mlcpp_filesystem.Filesystem.Direntry.is_directory
+
+    (** val is_fifo : direntry -> bool **)
+
+    let is_fifo = Mlcpp_filesystem.Filesystem.Direntry.is_fifo
+
+    (** val is_other : direntry -> bool **)
+
+    let is_other = Mlcpp_filesystem.Filesystem.Direntry.is_other
+
+    (** val is_socket : direntry -> bool **)
+
+    let is_socket = Mlcpp_filesystem.Filesystem.Direntry.is_socket
+
+    (** val is_symlink : direntry -> bool **)
+
+    let is_symlink = Mlcpp_filesystem.Filesystem.Direntry.is_symlink
+
+    (** val file_size : direntry -> n **)
+
+    let file_size = fun de -> Mlcpp_filesystem.Filesystem.Direntry.file_size de |> Conversion.i2n
+
+    (** val hard_link_count : direntry -> n **)
+
+    let hard_link_count = fun de -> Mlcpp_filesystem.Filesystem.Direntry.hard_link_count de |> Conversion.i2n
+   end
+
+  (** val list_directory : path -> 'a1 -> (direntry -> 'a1 -> 'a1) -> 'a1 **)
+
+  let list_directory = Mlcpp_filesystem.Filesystem.list_directory
  end
 
 module Utilities =
@@ -1427,16 +1498,20 @@ module Assembly =
 
   let load_chunk_from_path sfp =
     if Filesystem.Path.file_exists (Filesystem.Path.from_string sfp)
-    then let filtered_var = Cstdio.fopen sfp "rx" in
+    then let filtered_var = Cstdio.fopen sfp Cstdio.read_mode in
          (match filtered_var with
           | Some fptr0 ->
             let filtered_var0 = Cstdio.fread fptr0 chunksize_N in
             (match filtered_var0 with
              | Some p ->
                let (cnt, b) = p in
-               if N.eqb cnt chunksize_N
-               then Some (Cstdio.BufferEncrypted.from_buffer b)
-               else None
+               let filtered_var1 = Cstdio.fclose fptr0 in
+               (match filtered_var1 with
+                | Some _ ->
+                  if N.eqb cnt chunksize_N
+                  then Some (Cstdio.BufferEncrypted.from_buffer b)
+                  else None
+                | None -> None)
              | None -> None)
           | None -> None)
     else None
@@ -1486,21 +1561,43 @@ module Assembly =
   (** val store_chunk_to_path :
       string -> n -> n -> Cstdio.BufferEncrypted.buffer_t -> n **)
 
-  let store_chunk_to_path sfp sz _ _ =
+  let store_chunk_to_path sfp sz pos b =
     let fp = Filesystem.Path.from_string sfp in
     if Filesystem.Path.file_exists fp
     then N0
-    else let filtered_var = Cstdio.fopen sfp "wx" in
-         (match filtered_var with
-          | Some fptr0 ->
-            let buf = Cstdio.BufferEncrypted.buffer_create sz in
-            let filtered_var0 =
-              Cstdio.fwrite fptr0 sz (Cstdio.BufferEncrypted.to_buffer buf)
-            in
-            (match filtered_var0 with
-             | Some cnt -> cnt
-             | None -> N0)
-          | None -> N0)
+    else let dir = Filesystem.Path.parent fp in
+         if (||) (Filesystem.Path.is_directory dir)
+              (Filesystem.create_directories dir)
+         then let filtered_var = Cstdio.fopen sfp Cstdio.write_new_mode in
+              (match filtered_var with
+               | Some fptr0 ->
+                 let buf = Cstdio.BufferEncrypted.buffer_create sz in
+                 if N.ltb N0
+                      (Cstdio.BufferEncrypted.copy_sz_pos b pos sz buf N0)
+                 then let res =
+                        let filtered_var0 =
+                          Cstdio.fwrite fptr0 sz
+                            (Cstdio.BufferEncrypted.to_buffer buf)
+                        in
+                        (match filtered_var0 with
+                         | Some cnt -> cnt
+                         | None -> N0)
+                      in
+                      let filtered_var0 = Cstdio.fflush fptr0 in
+                      (match filtered_var0 with
+                       | Some fptr2 ->
+                         let filtered_var1 = Cstdio.fclose fptr2 in
+                         (match filtered_var1 with
+                          | Some _ -> res
+                          | None -> N0)
+                       | None -> res)
+                 else let filtered_var0 = Cstdio.fclose fptr0 in
+                      (match filtered_var0 with
+                       | Some _ ->
+                         N.sub (N.sub (Npos (XO XH)) (Npos XH)) (Npos XH)
+                       | None -> N0)
+               | None -> N0)
+         else N0
 
   (** val extract :
       Configuration.configuration -> assemblyinformation ->
@@ -1718,11 +1815,7 @@ module Environment =
             | Some p ->
               let (a', b') = p in
               let n0 = Assembly.extract e1.config a' b' in
-              if N.eqb n0
-                   (Assembly.assemblysize
-                     e0.config.Configuration.config_nchunks)
-              then e1
-              else e0
+              if N.ltb N0 n0 then e1 else e0
             | None -> e0)
       else e0
 
@@ -1947,25 +2040,27 @@ module AssemblyCache =
       assemblycache -> writequeueentity -> bool * assemblycache **)
 
   let enqueue_write_request ac req =
-    let ln = length ac.acwriteq.wqueue in
+    let wq = ac.acwriteq.wqueue in
+    let ln = length wq in
     if N.leb (Conversion.pos2N qsize) (Conversion.nat2N ln)
     then (false, ac)
     else (true, { acenvs = ac.acenvs; acsize = ac.acsize; acwriteenv =
            ac.acwriteenv; acconfig = ac.acconfig; acwriteq = { wqueue =
-           (app ac.acwriteq.wqueue (req :: [])); wqueuesz =
-           ac.acwriteq.wqueuesz }; acreadq = ac.acreadq })
+           (req :: wq); wqueuesz = ac.acwriteq.wqueuesz }; acreadq =
+           ac.acreadq })
 
   (** val enqueue_read_request :
       assemblycache -> readqueueentity -> bool * assemblycache **)
 
   let enqueue_read_request ac req =
-    let ln = length ac.acreadq.rqueue in
+    let rq = ac.acreadq.rqueue in
+    let ln = length rq in
     if N.leb (Conversion.pos2N qsize) (Conversion.nat2N ln)
     then (false, ac)
     else (true, { acenvs = ac.acenvs; acsize = ac.acsize; acwriteenv =
            ac.acwriteenv; acconfig = ac.acconfig; acwriteq = ac.acwriteq;
-           acreadq = { rqueue = (app ac.acreadq.rqueue (req :: []));
-           rqueuesz = ac.acreadq.rqueuesz } })
+           acreadq = { rqueue = (req :: rq); rqueuesz =
+           ac.acreadq.rqueuesz } })
 
   (** val try_restore_assembly :
       Configuration.configuration -> Assembly.aid_t ->
@@ -2308,19 +2403,18 @@ module Processor =
     { config = this.config; cache = ac }
 
   (** val backup_block :
-      processor -> AssemblyCache.writequeueentity ->
-      AssemblyCache.writequeueresult list * processor **)
+      processor -> AssemblyCache.writequeueentity -> processor **)
 
   let backup_block this wqe =
     let filtered_var = AssemblyCache.enqueue_write_request this.cache wqe in
     let (b, cache') = filtered_var in
     if b
-    then ([], (update_cache this cache'))
-    else let (wres, cache'0) = AssemblyCache.iterate_write_queue this.cache in
+    then update_cache this cache'
+    else let (_, cache'0) = AssemblyCache.iterate_write_queue this.cache in
          let filtered_var0 = AssemblyCache.enqueue_write_request cache'0 wqe
          in
          let (b0, cache'') = filtered_var0 in
-         if b0 then (wres, (update_cache this cache'')) else ([], this)
+         if b0 then update_cache this cache'' else this
 
   (** val request_read :
       processor -> AssemblyCache.readqueueentity ->
@@ -2371,53 +2465,143 @@ module Processor =
     Npos (XO (XO (XO (XO (XO (XO (XO (XO (XO (XO (XO (XO (XO (XO (XO
       XH)))))))))))))))
 
-  (** val r_file_backup_inner :
+  (** val rec_file_backup_inner :
       nat -> processor -> Filesupport.fileinformation -> n -> Cstdio.fptr ->
-      AssemblyCache.writequeueresult list -> AssemblyCache.writequeueresult
-      list * processor **)
+      processor **)
 
-  let rec r_file_backup_inner n_blocks this fi fpos fptr0 results =
+  let rec rec_file_backup_inner n_blocks this fi fpos fptr0 =
     match n_blocks with
-    | O -> (results, this)
+    | O -> this
     | S n_blocks' ->
-      let dsz = N.sub fi.Filesupport.fsize fpos in
-      let sz = if N.ltb block_sz dsz then block_sz else dsz in
-      let filtered_var = Cstdio.fread fptr0 sz in
-      (match filtered_var with
-       | Some p ->
-         let (_, b) = p in
-         let b' = Cstdio.BufferPlain.from_buffer b in
-         let wqe = { AssemblyCache.qfhash =
-           (Utilities.sha256 fi.Filesupport.fname); AssemblyCache.qfpos =
-           fpos; AssemblyCache.qbuffer = b' }
-         in
-         let (results', this') = backup_block this wqe in
-         r_file_backup_inner n_blocks' this' fi (N.add fpos sz) fptr0
-           (app results' results)
-       | None -> (results, this))
+      if N.ltb fpos fi.Filesupport.fsize
+      then let dsz = N.sub fi.Filesupport.fsize fpos in
+           let sz = if N.ltb block_sz dsz then block_sz else dsz in
+           let filtered_var = Cstdio.fread fptr0 sz in
+           (match filtered_var with
+            | Some p ->
+              let (_, b) = p in
+              let b' = Cstdio.BufferPlain.from_buffer b in
+              let wqe = { AssemblyCache.qfhash =
+                (Utilities.sha256 fi.Filesupport.fname);
+                AssemblyCache.qfpos = fpos; AssemblyCache.qbuffer = b' }
+              in
+              let this' = backup_block this wqe in
+              rec_file_backup_inner n_blocks' this' fi (N.add fpos sz) fptr0
+            | None -> this)
+      else this
 
   (** val open_file_backup :
-      processor -> n -> Filesupport.fileinformation -> n ->
-      AssemblyCache.writequeueresult list * processor **)
+      processor -> n -> Filesupport.fileinformation -> n -> processor **)
 
   let open_file_backup this n_blocks fi fpos =
     let filtered_var = Cstdio.fopen fi.Filesupport.fname Cstdio.read_mode in
     (match filtered_var with
      | Some fptr0 ->
-       r_file_backup_inner (N.to_nat n_blocks) this fi fpos fptr0 []
-     | None -> ([], this))
+       rec_file_backup_inner (N.to_nat n_blocks) this fi fpos fptr0
+     | None -> this)
 
   (** val file_backup :
-      processor -> Filesupport.filename ->
-      Filesupport.fileinformation * (AssemblyCache.writequeueresult
-      list * processor) **)
+      processor -> Filesystem.path -> Filesupport.fileinformation * processor **)
 
-  let file_backup this fn =
-    let fi = Filesupport.get_file_information fn in
-    let n_blocks = N.add (Npos XH) (N.div fi.Filesupport.fsize block_sz) in
-    let (res1, proc1) = open_file_backup this n_blocks fi N0 in
-    let (res2, proc2) = run_write_requests proc1 in
-    (fi, ((app res1 res2), proc2))
+  let file_backup this fp =
+    let fi = Filesupport.get_file_information (Filesystem.Path.to_string fp)
+    in
+    let n_blocks =
+      N.add (Npos XH)
+        (N.div
+          (N.sub (N.add fi.Filesupport.fsize (N.div block_sz (Npos (XO XH))))
+            (Npos XH)) block_sz)
+    in
+    let proc1 = open_file_backup this n_blocks fi N0 in
+    let (_, proc2) = run_write_requests proc1 in (fi, proc2)
+
+  (** val internal_directory_entries :
+      Filesystem.path -> Filesystem.path list * Filesystem.path list **)
+
+  let internal_directory_entries fp =
+    Filesystem.list_directory fp ([], []) (fun de pat ->
+      let (lfiles, ldirs) = pat in
+      if Filesystem.Direntry.is_directory de
+      then let defp = Filesystem.Direntry.as_path de in
+           (lfiles, (defp :: ldirs))
+      else if Filesystem.Direntry.is_regular_file de
+           then let defp = Filesystem.Direntry.as_path de in
+                ((defp :: lfiles), ldirs)
+           else (lfiles, ldirs))
+
+  (** val directory_backup :
+      processor -> Filesystem.path -> Filesupport.fileinformation
+      list * processor **)
+
+  let directory_backup this fp =
+    let filtered_var = internal_directory_entries fp in
+    let (lfiles, _) = filtered_var in
+    fold_left (fun pat filepath ->
+      let (fis, proc0) = pat in
+      let (fi, proc1) = file_backup proc0 filepath in ((fi :: fis), proc1))
+      lfiles ([], this)
+
+  (** val directory_backup_0 : processor -> Filesystem.path -> processor **)
+
+  let directory_backup_0 this fp =
+    let filtered_var = internal_directory_entries fp in
+    let (lfiles, _) = filtered_var in
+    fold_left (fun proc0 filepath ->
+      let (_, proc1) = file_backup proc0 filepath in proc1) lfiles this
+
+  (** val internal_recursive_backup :
+      nat -> processor -> Filesupport.fileinformation list -> Filesystem.path
+      -> Filesupport.fileinformation list * processor **)
+
+  let rec internal_recursive_backup maxdepth this fis0 fp =
+    match maxdepth with
+    | O -> (fis0, this)
+    | S depth ->
+      Filesystem.list_directory fp (fis0, this) (fun de pat ->
+        let (fis, proc) = pat in
+        if Filesystem.Direntry.is_directory de
+        then let defp = Filesystem.Direntry.as_path de in
+             let filtered_var = internal_recursive_backup depth proc fis0 defp
+             in
+             let (fis', proc') = filtered_var in ((app fis' fis), proc')
+        else if Filesystem.Direntry.is_regular_file de
+             then let defp = Filesystem.Direntry.as_path de in
+                  let filtered_var = file_backup proc defp in
+                  let (fi, proc') = filtered_var in ((fi :: fis), proc')
+             else (fis, proc))
+
+  (** val recursive_backup :
+      processor -> n -> Filesystem.path -> Filesupport.fileinformation
+      list * processor **)
+
+  let recursive_backup this maxdepth fp =
+    if Filesystem.Path.is_directory fp
+    then internal_recursive_backup (N.to_nat maxdepth) this [] fp
+    else ([], this)
+
+  (** val internal_recursive_backup_0 :
+      nat -> processor -> Filesystem.path -> processor **)
+
+  let rec internal_recursive_backup_0 maxdepth this fp =
+    match maxdepth with
+    | O -> this
+    | S depth ->
+      let filtered_var = internal_directory_entries fp in
+      let (lfiles, ldirs) = filtered_var in
+      let proc' =
+        fold_left (fun proc0 filepath ->
+          let (_, proc1) = file_backup proc0 filepath in proc1) lfiles this
+      in
+      fold_left (fun proc0 dirpath ->
+        internal_recursive_backup_0 depth proc0 dirpath) ldirs proc'
+
+  (** val recursive_backup_0 :
+      processor -> n -> Filesystem.path -> processor **)
+
+  let recursive_backup_0 this maxdepth fp =
+    if Filesystem.Path.is_directory fp
+    then internal_recursive_backup_0 (N.to_nat maxdepth) this fp
+    else this
  end
 
 module Version =
@@ -2435,7 +2619,7 @@ module Version =
   (** val build : string **)
 
   let build =
-    "8"
+    "9"
 
   (** val version : string **)
 

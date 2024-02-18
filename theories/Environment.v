@@ -36,7 +36,6 @@ Print Setter.  *)
 Axiom cpp_mk_key256 : unit -> string.
 Axiom cpp_mk_key128 : unit -> string.
 
-
 Module Type ENV.
     Parameter AB : Type.
     Definition E : RecordEnvironment := environment AB.
@@ -92,7 +91,7 @@ Module EnvironmentWritable <: ENV.
             | None => e0
             | Some (a',b') =>
                 let n := Assembly.extract e1.(config AB) a' b' in
-                if N.eqb n (Assembly.assemblysize e0.(config AB).(Configuration.config_nchunks))
+                if N.ltb 0 n
                 then e1
                 else e0
             end

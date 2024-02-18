@@ -210,6 +210,8 @@ module Cstdio :
 
   val write_mode : mode
 
+  val write_new_mode : mode
+
   val append_mode : mode
 
   type fptr = Mlcpp_cstdio.Cstdio.File.file
@@ -218,7 +220,7 @@ module Cstdio :
 
   val fclose : fptr -> unit option
 
-  val fflush : fptr -> unit option
+  val fflush : fptr -> fptr option
 
   val fread : fptr -> n -> (n * cstdio_buffer) option
 
@@ -226,7 +228,7 @@ module Cstdio :
 
   val ftell : fptr -> n option
 
-  val fseek : fptr -> n -> unit option
+  val fseek : fptr -> n -> fptr option
 
   module type BUF =
    sig
@@ -293,6 +295,8 @@ module Filesystem :
     val to_string : path -> string
 
     val from_string : string -> path
+
+    val append : path -> path -> path
 
     val temp_directory : unit -> path
 
@@ -393,6 +397,39 @@ module Filesystem :
   val resize_file : path -> n -> bool
 
   val space : path -> n list
+
+  type direntry = Mlcpp_filesystem.Filesystem.direntry
+
+  module Direntry :
+   sig
+    val as_path : direntry -> path
+
+    val as_string : direntry -> string
+
+    val direntry_exists : direntry -> bool
+
+    val is_regular_file : direntry -> bool
+
+    val is_block_file : direntry -> bool
+
+    val is_character_file : direntry -> bool
+
+    val is_directory : direntry -> bool
+
+    val is_fifo : direntry -> bool
+
+    val is_other : direntry -> bool
+
+    val is_socket : direntry -> bool
+
+    val is_symlink : direntry -> bool
+
+    val file_size : direntry -> n
+
+    val hard_link_count : direntry -> n
+   end
+
+  val list_directory : path -> 'a1 -> (direntry -> 'a1 -> 'a1) -> 'a1
  end
 
 module Utilities :
@@ -862,9 +899,7 @@ module Processor :
 
   val update_cache : processor -> AssemblyCache.assemblycache -> processor
 
-  val backup_block :
-    processor -> AssemblyCache.writequeueentity ->
-    AssemblyCache.writequeueresult list * processor
+  val backup_block : processor -> AssemblyCache.writequeueentity -> processor
 
   val request_read :
     processor -> AssemblyCache.readqueueentity ->
@@ -884,19 +919,37 @@ module Processor :
 
   val block_sz : n
 
-  val r_file_backup_inner :
+  val rec_file_backup_inner :
     nat -> processor -> Filesupport.fileinformation -> n -> Cstdio.fptr ->
-    AssemblyCache.writequeueresult list -> AssemblyCache.writequeueresult
-    list * processor
+    processor
 
   val open_file_backup :
-    processor -> n -> Filesupport.fileinformation -> n ->
-    AssemblyCache.writequeueresult list * processor
+    processor -> n -> Filesupport.fileinformation -> n -> processor
 
   val file_backup :
-    processor -> Filesupport.filename ->
-    Filesupport.fileinformation * (AssemblyCache.writequeueresult
-    list * processor)
+    processor -> Filesystem.path -> Filesupport.fileinformation * processor
+
+  val internal_directory_entries :
+    Filesystem.path -> Filesystem.path list * Filesystem.path list
+
+  val directory_backup :
+    processor -> Filesystem.path -> Filesupport.fileinformation
+    list * processor
+
+  val directory_backup_0 : processor -> Filesystem.path -> processor
+
+  val internal_recursive_backup :
+    nat -> processor -> Filesupport.fileinformation list -> Filesystem.path
+    -> Filesupport.fileinformation list * processor
+
+  val recursive_backup :
+    processor -> n -> Filesystem.path -> Filesupport.fileinformation
+    list * processor
+
+  val internal_recursive_backup_0 :
+    nat -> processor -> Filesystem.path -> processor
+
+  val recursive_backup_0 : processor -> n -> Filesystem.path -> processor
  end
 
 module Version :

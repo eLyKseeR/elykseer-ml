@@ -187,18 +187,20 @@ Axiom chunk_identifier_path : configuration -> aid_t -> positive -> string.
 Local Program Definition load_chunk_from_path (sfp : string) : option BufferEncrypted.buffer_t :=
     if Filesystem.Path.file_exists (Filesystem.Path.from_string sfp)
     then
-        match Cstdio.fopen sfp "rx" with
+        match Cstdio.fopen sfp Cstdio.read_mode with
         | None => None
         | Some fptr =>
             match Cstdio.fread fptr (chunksize_N) with
             | None => let _ := Cstdio.fclose fptr in None
-            | Some (cnt, b) => let _ :=
-                Cstdio.fclose fptr in
-                if N.eqb cnt chunksize_N
-                then
-                    Some (BufferEncrypted.from_buffer b)
-                else
-                    None
+            | Some (cnt, b) => match Cstdio.fclose fptr with
+                | None => None
+                | Some unit =>
+                    if N.eqb cnt chunksize_N
+                    then
+                        Some (BufferEncrypted.from_buffer b)
+                    else
+                        None
+                end
             end
         end
     else
@@ -238,21 +240,33 @@ Local Program Definition store_chunk_to_path (sfp : string) (sz : N) (pos : N) (
         0
     else
         let dir := Filesystem.Path.parent fp in
-        let _ := Filesystem.create_directories dir in
-        match Cstdio.fopen sfp "wx" with
-        | None => 0
-        | Some fptr =>
-            let buf := Cstdio.BufferEncrypted.buffer_create sz in
-            let _n := Cstdio.BufferEncrypted.copy_sz_pos b pos sz buf in
-            let res := match Cstdio.fwrite fptr sz (Cstdio.BufferEncrypted.to_buffer buf) with
-                       | None => 0
-                       | Some cnt => cnt
-                       end
-            in
-            let _ := Cstdio.fflush fptr in
-            let _ := Cstdio.fclose fptr in
-            res
-        end.
+        if orb (Filesystem.Path.is_directory dir) (Filesystem.create_directories dir) then
+            match Cstdio.fopen sfp Cstdio.write_new_mode with
+            | None => 0
+            | Some fptr =>
+                let buf := Cstdio.BufferEncrypted.buffer_create sz in
+                if N.ltb 0 (Cstdio.BufferEncrypted.copy_sz_pos b pos sz buf 0)
+                then
+                    let res := match Cstdio.fwrite fptr sz (Cstdio.BufferEncrypted.to_buffer buf) with
+                               | None => 0
+                               | Some cnt => cnt
+                               end
+                    in
+                    match Cstdio.fflush fptr with
+                    | None => res
+                    | Some fptr2 => match Cstdio.fclose fptr2 with
+                                 | None => 0
+                                 | Some unit => res
+                                 end
+                    end
+                else
+                    match Cstdio.fclose fptr with
+                    | None => 0
+                    | Some unit => (2 - 1 - 1)
+                    end
+            end
+        else
+            0.
 
 Program Definition extract (c : configuration) (a : assemblyinformation) (b : AssemblyEncrypted.B) : N :=
     let aid := aid a in

@@ -117,6 +117,7 @@ Extract Constant chunk_identifier_path =>
 Extract Constant Filesystem.path => "Mlcpp_filesystem.Filesystem.path".
 Extract Constant Filesystem.Path.to_string => "Mlcpp_filesystem.Filesystem.Path.to_string".
 Extract Constant Filesystem.Path.from_string => "Mlcpp_filesystem.Filesystem.Path.from_string".
+Extract Constant Filesystem.Path.append => "Mlcpp_filesystem.Filesystem.Path.append".
 Extract Constant Filesystem.Path.temp_directory => "Mlcpp_filesystem.Filesystem.Path.temp_directory".
 Extract Constant Filesystem.Path.file_exists => "Mlcpp_filesystem.Filesystem.Path.exists".
 Extract Constant Filesystem.Path.file_size => "fun p -> Conversion.i2n (Mlcpp_filesystem.Filesystem.Path.file_size p)".
@@ -166,50 +167,75 @@ Extract Constant Filesystem.remove_all => "fun p -> Conversion.i2p (Mlcpp_filesy
 Extract Constant Filesystem.rename => "Mlcpp_filesystem.Filesystem.rename".
 Extract Constant Filesystem.resize_file => "fun p sz -> Mlcpp_filesystem.Filesystem.resize_file p (Conversion.n2i sz)".
 Extract Constant Filesystem.space => "fun p -> List.map (fun i -> Conversion.i2n i) (Mlcpp_filesystem.Filesystem.space p)".
+Extract Constant Filesystem.direntry => "Mlcpp_filesystem.Filesystem.direntry".
+Extract Constant Filesystem.Direntry.as_path => "Mlcpp_filesystem.Filesystem.Direntry.as_path".
+Extract Constant Filesystem.Direntry.direntry_exists => "Mlcpp_filesystem.Filesystem.Direntry.direntry_exists".
+Extract Constant Filesystem.Direntry.is_regular_file => "Mlcpp_filesystem.Filesystem.Direntry.is_regular_file".
+Extract Constant Filesystem.Direntry.is_block_file => "Mlcpp_filesystem.Filesystem.Direntry.is_block_file".
+Extract Constant Filesystem.Direntry.is_character_file => "Mlcpp_filesystem.Filesystem.Direntry.is_character_file".
+Extract Constant Filesystem.Direntry.is_directory => "Mlcpp_filesystem.Filesystem.Direntry.is_directory".
+Extract Constant Filesystem.Direntry.is_fifo => "Mlcpp_filesystem.Filesystem.Direntry.is_fifo".
+Extract Constant Filesystem.Direntry.is_other => "Mlcpp_filesystem.Filesystem.Direntry.is_other".
+Extract Constant Filesystem.Direntry.is_socket => "Mlcpp_filesystem.Filesystem.Direntry.is_socket".
+Extract Constant Filesystem.Direntry.is_symlink => "Mlcpp_filesystem.Filesystem.Direntry.is_symlink".
+Extract Constant Filesystem.Direntry.file_size => "fun de -> Mlcpp_filesystem.Filesystem.Direntry.file_size de |> Conversion.i2n".
+Extract Constant Filesystem.Direntry.hard_link_count => "fun de -> Mlcpp_filesystem.Filesystem.Direntry.hard_link_count de |> Conversion.i2n".
+Extract Constant Filesystem.list_directory => "Mlcpp_filesystem.Filesystem.list_directory".
+(* Extract Constant Filesystem.list_directory =>
+   "fun fp ->
+      if Mlcpp_filesystem.Filesystem.Path.is_directory fp
+      then
+         let direntries = ref [] in
+         let _ = Mlcpp_filesystem.Filesystem.list_directory fp (fun de ->
+            direntries := de :: !direntries) in
+         !direntries
+      else
+         []
+   ". *)
 
 Extract Constant Cstdio.fptr => "Mlcpp_cstdio.Cstdio.File.file".
 Extract Constant Cstdio.fopen =>
    "fun fname mode ->
       match Mlcpp_cstdio.Cstdio.File.fopen fname mode with
       | Ok fptr -> Some fptr
-      | Error (errno, errstr) -> Printf.printf ""error: %d/%s\n"" errno errstr; None
+      | Error (errno, errstr) -> Printf.printf ""fopen '%s' error: %d/%s\n"" fname errno errstr; None
    ".
 Extract Constant Cstdio.fclose =>
    "fun fptr ->
       match Mlcpp_cstdio.Cstdio.File.fclose fptr with
       | Ok () -> Some ()
-      | Error (errno, errstr) -> Printf.printf ""error: %d/%s\n"" errno errstr; None
+      | Error (errno, errstr) -> Printf.printf ""fclose error: %d/%s\n"" errno errstr; None
    ".
 Extract Constant Cstdio.fflush =>
    "fun fptr ->
       match Mlcpp_cstdio.Cstdio.File.fflush fptr with
-      | Ok () -> Some ()
-      | Error (errno, errstr) -> Printf.printf ""error: %d/%s\n"" errno errstr; None
+      | Ok () -> Some fptr
+      | Error (errno, errstr) -> Printf.printf ""fflush error: %d/%s\n"" errno errstr; None
    ".
 Extract Constant Cstdio.ftell =>
    "fun fptr ->
       match Mlcpp_cstdio.Cstdio.File.ftell fptr with
       | Ok pos -> Some (Conversion.i2n pos)
-      | Error (errno, errstr) -> Printf.printf ""error: %d/%s\n"" errno errstr; None
+      | Error (errno, errstr) -> Printf.printf ""ftell error: %d/%s\n"" errno errstr; None
    ".
 Extract Constant Cstdio.fseek =>
    "fun fptr pos ->
       match Mlcpp_cstdio.Cstdio.File.fseek fptr (Conversion.n2i pos) with
-      | Ok () -> Some ()
-      | Error (errno, errstr) -> Printf.printf ""error: %d/%s\n"" errno errstr; None
+      | Ok () -> Some fptr
+      | Error (errno, errstr) -> Printf.printf ""fseek error: %d/%s\n"" errno errstr; None
    ".
 Extract Constant Cstdio.fread =>
    "fun fptr sz ->
       let b = Mlcpp_cstdio.Cstdio.File.Buffer.create (Conversion.n2i sz) in
       match Mlcpp_cstdio.Cstdio.File.fread b (Conversion.n2i sz) fptr with
       | Ok nread -> Some (Conversion.i2n nread, b)
-      | Error (errno, errstr) -> Printf.printf ""error: %d/%s\n"" errno errstr; None
+      | Error (errno, errstr) -> Printf.printf ""fread error: %d/%s\n"" errno errstr; None
    ".
 Extract Constant Cstdio.fwrite =>
    "fun fptr sz b ->
       match Mlcpp_cstdio.Cstdio.File.fwrite b (Conversion.n2i sz) fptr with
       | Ok nwritten -> Some (Conversion.i2n nwritten)
-      | Error (errno, errstr) -> Printf.printf ""error: %d/%s\n"" errno errstr; None
+      | Error (errno, errstr) -> Printf.printf ""fwrite error: %d/%s\n"" errno errstr; None
    ".
 
 Extract Constant Cstdio.cstdio_buffer => "Mlcpp_cstdio.Cstdio.File.Buffer.ta".
@@ -284,6 +310,14 @@ Extract Constant get_file_information =>
 
 Extract Constant sha256 => "Elykseer_crypto.Sha256.string".
 
+(*
+Axiom messageN : string -> N -> unit.
+*)
+(* Extract Constant messageN =>
+   "
+    fun s n -> Printf.printf ""%s %d\n"" s (Conversion.n2i n)
+   ".
+*)
 
 (* extract into "lxr.ml" all named modules and definitions, and their dependencies *)
 Extraction "lxr.ml"  Version Conversion Utilities Filesupport Nchunks Assembly

@@ -26,6 +26,8 @@ Module Path.
     Axiom to_string : path -> string.
     Axiom from_string : string -> path.
 
+    Axiom append : path -> path -> path.
+
     Axiom temp_directory : unit -> path.
 
     Axiom file_exists : path -> bool.
@@ -99,5 +101,30 @@ Axiom rename : path -> path -> bool.
 Axiom resize_file : path -> N -> bool.
 
 Axiom space : path -> list N.
+
+Axiom direntry : Type.
+
+Module Direntry.
+
+    Axiom as_path : direntry -> path.
+    Definition as_string (de: direntry) : string := Filesystem.Path.to_string (Filesystem.Direntry.as_path de).
+
+    Axiom direntry_exists : direntry -> bool.
+
+    Axiom is_regular_file : direntry -> bool.
+    Axiom is_block_file : direntry -> bool.
+    Axiom is_character_file : direntry -> bool.
+    Axiom is_directory : direntry -> bool.
+    Axiom is_fifo : direntry -> bool.
+    Axiom is_other : direntry -> bool.
+    Axiom is_socket : direntry -> bool.
+    Axiom is_symlink : direntry -> bool.
+
+    Axiom file_size : direntry -> N.
+    Axiom hard_link_count : direntry -> N.
+    
+End Direntry.
+
+Axiom list_directory : forall A, path -> A -> (direntry -> A -> A) -> A.
 
 End Filesystem.
