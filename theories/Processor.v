@@ -7,6 +7,7 @@ From Coq Require Import NArith.BinNat Lists.List Strings.String Program.Basics.
 
 From RecordUpdate Require Import RecordUpdate.
 
+From LXR Require Import Assembly.
 From LXR Require Import AssemblyCache.
 From LXR Require Import Configuration.
 From LXR Require Import Cstdio.
@@ -36,7 +37,7 @@ Print processor. *)
 Definition cache_sz : positive := 3.
 Definition prepare_processor (c : configuration) : processor :=
     {| config := c
-    ; cache := prepare_assemblycache c cache_sz
+     ; cache := prepare_assemblycache c cache_sz
     |}.
 
 Section Methods.
@@ -77,10 +78,10 @@ Program Definition run_read_requests : (list readqueueresult * processor) :=
     (rres, update_cache cache').
 
 Program Definition get_keys : KeyListStore.R :=
-    this.(cache).(acwriteenv).(keys EnvironmentWritable.AB).
+    this.(cache).(ackstore).
 
 Program Definition get_fblocks : FBlockListStore.R :=
-    this.(cache).(acwriteenv).(fblocks EnvironmentWritable.AB).
+    this.(cache).(acfbstore).
 
 Program Definition close : processor :=
     let ac := AssemblyCache.close this.(cache) in
@@ -108,8 +109,8 @@ Local Program Fixpoint rec_file_backup_inner (n_blocks : nat) (this : processor)
                     let b' := BufferPlain.from_buffer b in
                     let wqe : writequeueentity :=
                         {| qfhash := Utilities.sha256 fi.(fname)
-                        ; qfpos := fpos
-                        ; qbuffer := b'
+                         ; qfpos := fpos
+                         ; qbuffer := b'
                         |} in
                     let this' := backup_block this wqe in
                     rec_file_backup_inner n_blocks' this' fi (fpos + sz) fptr
@@ -128,12 +129,65 @@ Local Program Definition open_file_backup (n_blocks : N) (fi : fileinformation) 
     end.
 (* Obligations of open_file_backup. *)
 
+Local Program Definition internal_restore_to (fptr: Cstdio.fptr) (lrres : list readqueueresult) : N :=
+    List.fold_left (fun acc rres =>
+        match Cstdio.fseek fptr rres.(readrequest).(rqfpos) with
+        | None => 0
+        | Some fptr' =>
+            match Cstdio.fwrite fptr' rres.(readrequest).(rqrlen) (to_buffer rres.(rresult)) with
+            | None => 0
+            | Some n => n + acc
+            end
+        end
+    ) lrres 0.
+
+Local Program Definition restore_block_to (fptr: Cstdio.fptr) (ac : assemblycache) (block : blockinformation) : N * assemblycache :=
+    let rreq := mkreadqueueentity block.(blockaid) block.(blockapos) block.(blocksize) block.(filepos) in
+    match enqueue_read_request ac rreq with
+    | (false, ac') =>
+        let (lrres, ac'') := iterate_read_queue ac' in
+        let n := internal_restore_to fptr lrres in
+        let (_, ac''') := enqueue_read_request ac'' rreq in
+        if N.ltb 0 n then  (* 0 < n *)
+            (n, ac''')
+        else
+            (0, ac''')
+    | (true, ac') => (0, ac')
+    end.
+
+Local Program Definition restore_file_to (fptr: Cstdio.fptr) (blocks : list blockinformation) : N * assemblycache :=
+    let '(res, ac') := List.fold_left (fun '(acc, ac) block =>
+            let (n, ac') := restore_block_to fptr ac block in (acc + n, ac')
+        ) blocks (0, this.(cache)) in
+    let (lrres, ac'') := iterate_read_queue ac' in
+    let n := internal_restore_to fptr lrres in
+    (n + res, ac'').
+
 Program Definition file_backup (fp : Filesystem.path) : (fileinformation * processor) :=
     let fi := get_file_information (Filesystem.Path.to_string fp) in
     let n_blocks := 1 + (fi.(fsize) + (block_sz / 2) - 1) / block_sz in
     let proc1 := open_file_backup n_blocks fi 0 in
     let (_, proc2) := run_write_requests proc1 in
     (fi, proc2).
+
+Program Definition file_restore (basep : Filesystem.path) (fp : Filesystem.path) (blocks : list blockinformation) : (N * processor) :=
+    let targetp := Filesystem.Path.append basep fp in
+    if Filesystem.Path.file_exists targetp then
+        (0, this)
+    else
+        let mkdir :=
+            if Filesystem.Path.is_directory basep then true
+            else Filesystem.create_directories basep in
+        match Cstdio.fopen (Filesystem.Path.to_string targetp) Cstdio.write_new_mode with
+        | None => (0, this)
+        | Some fptr =>
+            let '(n, ac') := restore_file_to fptr blocks in
+            let proc' := update_cache this ac' in
+            match Cstdio.fclose fptr with
+            | None => (0, proc')
+            | Some _ => (n, proc')
+            end
+        end.
 
 End FileProcessor.
 

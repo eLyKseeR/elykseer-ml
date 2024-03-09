@@ -582,11 +582,34 @@ module Assembly :
     AssemblyEncrypted.coq_B -> n
  end
 
+module Filesupport :
+ sig
+  type filename = string
+
+  type fileinformation = { fname : filename; fsize : n; fowner : string;
+                           fpermissions : n; fmodified : string;
+                           fchecksum : string }
+
+  val fname : fileinformation -> filename
+
+  val fsize : fileinformation -> n
+
+  val fowner : fileinformation -> string
+
+  val fpermissions : fileinformation -> n
+
+  val fmodified : fileinformation -> string
+
+  val fchecksum : fileinformation -> string
+
+  val get_file_information : filename -> fileinformation
+ end
+
 module Store :
  sig
-  type 'kVs store = { config : Configuration.configuration; entries : 'kVs }
+  type 'kVs store = { sconfig : Configuration.configuration; entries : 'kVs }
 
-  val config : 'a1 store -> Configuration.configuration
+  val sconfig : 'a1 store -> Configuration.configuration
 
   val entries : 'a1 store -> 'a1
 
@@ -642,25 +665,36 @@ module Store :
 
     val find : coq_K -> coq_R -> coq_V option
    end
+
+  module FileinformationStore :
+   sig
+    type coq_K = string
+
+    type coq_V = Filesupport.fileinformation
+
+    type coq_KVs = (coq_K * coq_V) list
+
+    type coq_R = coq_KVs store
+
+    val init : Configuration.configuration -> coq_R
+
+    val add : coq_K -> coq_V -> coq_R -> coq_R
+
+    val find : coq_K -> coq_R -> coq_V option
+   end
  end
 
 module Environment :
  sig
   type 'aB environment = { cur_assembly : Assembly.assemblyinformation;
                            cur_buffer : 'aB;
-                           config : Configuration.configuration;
-                           fblocks : Store.FBlockListStore.coq_R;
-                           keys : Store.KeyListStore.coq_R }
+                           econfig : Configuration.configuration }
 
   val cur_assembly : 'a1 environment -> Assembly.assemblyinformation
 
   val cur_buffer : 'a1 environment -> 'a1
 
-  val config : 'a1 environment -> Configuration.configuration
-
-  val fblocks : 'a1 environment -> Store.FBlockListStore.coq_R
-
-  val keys : 'a1 environment -> Store.KeyListStore.coq_R
+  val econfig : 'a1 environment -> Configuration.configuration
 
   val cpp_mk_key256 : unit -> string
 
@@ -685,25 +719,18 @@ module Environment :
 
     val recreate_assembly : coq_AB environment -> coq_AB environment
 
-    val env_add_file_block :
-      string -> coq_AB environment -> Assembly.blockinformation -> coq_AB
-      environment
-
-    val env_add_aid_key :
-      Assembly.aid_t -> coq_AB environment -> Assembly.keyinformation ->
-      coq_AB environment
-
-    val key_for_aid :
-      coq_AB environment -> Assembly.aid_t -> Assembly.keyinformation option
-
-    val finalise_assembly : coq_AB environment -> coq_AB environment
+    val finalise_assembly :
+      coq_AB environment -> (Assembly.aid_t * Assembly.keyinformation) option
 
     val finalise_and_recreate_assembly :
-      coq_AB environment -> coq_AB environment
+      coq_AB environment -> (coq_AB
+      environment * (Assembly.aid_t * Assembly.keyinformation)) option
 
     val backup :
       coq_AB environment -> string -> n -> Cstdio.BufferPlain.buffer_t ->
-      n * coq_AB environment
+      coq_AB
+      environment * (Assembly.blockinformation * (Assembly.aid_t * Assembly.keyinformation)
+      option)
    end
 
   module EnvironmentReadable :
@@ -714,27 +741,24 @@ module Environment :
 
     val initial_environment : Configuration.configuration -> coq_E
 
-    val env_add_aid_key :
-      Assembly.aid_t -> coq_AB environment -> Assembly.keyinformation ->
-      coq_AB environment
-
-    val key_for_aid :
-      coq_AB environment -> Assembly.aid_t -> Assembly.keyinformation option
-
     val restore_assembly :
-      coq_AB environment -> Assembly.aid_t -> coq_AB environment option
+      coq_AB environment -> Assembly.aid_t -> Assembly.keyinformation ->
+      coq_AB environment option
    end
  end
 
 module AssemblyCache :
  sig
-  type readqueueentity = { qaid : Assembly.aid_t; qapos : n; qrlen : n }
+  type readqueueentity = { rqaid : Assembly.aid_t; rqapos : n; rqrlen : 
+                           n; rqfpos : n }
 
-  val qaid : readqueueentity -> Assembly.aid_t
+  val rqaid : readqueueentity -> Assembly.aid_t
 
-  val qapos : readqueueentity -> n
+  val rqapos : readqueueentity -> n
 
-  val qrlen : readqueueentity -> n
+  val rqrlen : readqueueentity -> n
+
+  val rqfpos : readqueueentity -> n
 
   type readqueueresult = { readrequest : readqueueentity;
                            rresult : Cstdio.BufferPlain.buffer_t }
@@ -777,7 +801,9 @@ module AssemblyCache :
                          acsize : nat;
                          acwriteenv : Environment.EnvironmentWritable.coq_E;
                          acconfig : Configuration.configuration;
-                         acwriteq : writequeue; acreadq : readqueue }
+                         acwriteq : writequeue; acreadq : readqueue;
+                         acfbstore : Store.FBlockListStore.coq_R;
+                         ackstore : Store.KeyListStore.coq_R }
 
   val acenvs : assemblycache -> Environment.EnvironmentReadable.coq_E list
 
@@ -791,6 +817,10 @@ module AssemblyCache :
 
   val acreadq : assemblycache -> readqueue
 
+  val acfbstore : assemblycache -> Store.FBlockListStore.coq_R
+
+  val ackstore : assemblycache -> Store.KeyListStore.coq_R
+
   val prepare_assemblycache :
     Configuration.configuration -> positive -> assemblycache
 
@@ -801,8 +831,8 @@ module AssemblyCache :
     assemblycache -> readqueueentity -> bool * assemblycache
 
   val try_restore_assembly :
-    Configuration.configuration -> Assembly.aid_t ->
-    Environment.EnvironmentReadable.coq_E option
+    assemblycache -> Assembly.aid_t -> Environment.EnvironmentReadable.coq_E
+    option
 
   val set_envs :
     assemblycache -> Environment.EnvironmentReadable.coq_E list ->
@@ -829,29 +859,10 @@ module AssemblyCache :
   val flush : assemblycache -> assemblycache
 
   val close : assemblycache -> assemblycache
- end
 
-module Filesupport :
- sig
-  type filename = string
-
-  type fileinformation = { fname : filename; fsize : n; fowner : string;
-                           fpermissions : n; fmodified : string;
-                           fchecksum : string }
-
-  val fname : fileinformation -> filename
-
-  val fsize : fileinformation -> n
-
-  val fowner : fileinformation -> string
-
-  val fpermissions : fileinformation -> n
-
-  val fmodified : fileinformation -> string
-
-  val fchecksum : fileinformation -> string
-
-  val get_file_information : filename -> fileinformation
+  val add_key :
+    assemblycache -> Assembly.aid_t -> Assembly.keyinformation ->
+    assemblycache
  end
 
 module BackupPlanner :
@@ -926,8 +937,23 @@ module Processor :
   val open_file_backup :
     processor -> n -> Filesupport.fileinformation -> n -> processor
 
+  val internal_restore_to :
+    Cstdio.fptr -> AssemblyCache.readqueueresult list -> n
+
+  val restore_block_to :
+    Cstdio.fptr -> AssemblyCache.assemblycache -> Assembly.blockinformation
+    -> n * AssemblyCache.assemblycache
+
+  val restore_file_to :
+    processor -> Cstdio.fptr -> Assembly.blockinformation list ->
+    n * AssemblyCache.assemblycache
+
   val file_backup :
     processor -> Filesystem.path -> Filesupport.fileinformation * processor
+
+  val file_restore :
+    processor -> Filesystem.path -> Filesystem.path ->
+    Assembly.blockinformation list -> n * processor
 
   val internal_directory_entries :
     Filesystem.path -> Filesystem.path list * Filesystem.path list

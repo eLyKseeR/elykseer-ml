@@ -157,12 +157,12 @@ Program Definition encrypt (a : assemblyinformation) (b : AssemblyPlainFull.B) (
 
 Axiom assembly_get_content : AssemblyPlainFull.B -> N -> N -> BufferPlain.buffer_t -> N.
 Program Definition restore (b : AssemblyPlainFull.B) (bi : blockinformation) : option BufferPlain.buffer_t :=
-    let bsz := blocksize bi in
+    let bsz := bi.(blocksize) in
     let b' := BufferPlain.buffer_create bsz in
-    let nw := assembly_get_content b bsz (blockapos bi) b' in
+    let nw := assembly_get_content b bsz bi.(blockapos) b' in
     if N.eqb nw bsz then
         let bcksum := calc_checksum b' in
-        if String.eqb bcksum (bchecksum bi) then
+        if String.eqb bcksum bi.(bchecksum) then
             Some b'
         else
             None

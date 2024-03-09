@@ -31,13 +31,4 @@ Axiom n2i : N -> int.
 
 End axioms.
 
-Section Lemmas.
-
-Lemma pos2i2pos_id : forall p, i2p (p2i p) = p.
-Proof.
-    intros. Admitted.
-
-
-End Lemmas.
-
 End Conversion.

@@ -1614,14 +1614,65 @@ module Assembly =
       (Utilities.make_list a.nchunks) N0
  end
 
+module Filesupport =
+ struct
+  type filename = string
+
+  type fileinformation = { fname : filename; fsize : n; fowner : string;
+                           fpermissions : n; fmodified : string;
+                           fchecksum : string }
+
+  (** val fname : fileinformation -> filename **)
+
+  let fname f =
+    f.fname
+
+  (** val fsize : fileinformation -> n **)
+
+  let fsize f =
+    f.fsize
+
+  (** val fowner : fileinformation -> string **)
+
+  let fowner f =
+    f.fowner
+
+  (** val fpermissions : fileinformation -> n **)
+
+  let fpermissions f =
+    f.fpermissions
+
+  (** val fmodified : fileinformation -> string **)
+
+  let fmodified f =
+    f.fmodified
+
+  (** val fchecksum : fileinformation -> string **)
+
+  let fchecksum f =
+    f.fchecksum
+
+  (** val get_file_information : filename -> fileinformation **)
+
+  let get_file_information =   
+    fun fn ->
+        { fname = fn;
+          fsize = Conversion.i2n (Elykseer_base.Fsutils.fsize fn);
+          fowner = string_of_int (Elykseer_base.Fsutils.fowner fn);
+          fpermissions = Conversion.i2n (Elykseer_base.Fsutils.fperm fn);
+          fmodified = Elykseer_base.Fsutils.fmod fn;
+          fchecksum = Elykseer_base.Fsutils.fchksum fn }
+   
+ end
+
 module Store =
  struct
-  type 'kVs store = { config : Configuration.configuration; entries : 'kVs }
+  type 'kVs store = { sconfig : Configuration.configuration; entries : 'kVs }
 
-  (** val config : 'a1 store -> Configuration.configuration **)
+  (** val sconfig : 'a1 store -> Configuration.configuration **)
 
-  let config s =
-    s.config
+  let sconfig s =
+    s.sconfig
 
   (** val entries : 'a1 store -> 'a1 **)
 
@@ -1664,12 +1715,12 @@ module Store =
     (** val init : Configuration.configuration -> coq_R **)
 
     let init c =
-      { config = c; entries = [] }
+      { sconfig = c; entries = [] }
 
     (** val add : coq_K -> coq_V -> coq_R -> coq_R **)
 
     let add k v r =
-      { config = r.config; entries = ((k, v) :: r.entries) }
+      { sconfig = r.sconfig; entries = ((k, v) :: r.entries) }
 
     (** val find : coq_K -> coq_R -> coq_V option **)
 
@@ -1690,12 +1741,38 @@ module Store =
     (** val init : Configuration.configuration -> coq_R **)
 
     let init c =
-      { config = c; entries = [] }
+      { sconfig = c; entries = [] }
 
     (** val add : coq_K -> coq_V -> coq_R -> coq_R **)
 
     let add k v r =
-      { config = r.config; entries = ((k, v) :: r.entries) }
+      { sconfig = r.sconfig; entries = ((k, v) :: r.entries) }
+
+    (** val find : coq_K -> coq_R -> coq_V option **)
+
+    let find k r =
+      rec_find k r.entries
+   end
+
+  module FileinformationStore =
+   struct
+    type coq_K = string
+
+    type coq_V = Filesupport.fileinformation
+
+    type coq_KVs = (coq_K * coq_V) list
+
+    type coq_R = coq_KVs store
+
+    (** val init : Configuration.configuration -> coq_R **)
+
+    let init c =
+      { sconfig = c; entries = [] }
+
+    (** val add : coq_K -> coq_V -> coq_R -> coq_R **)
+
+    let add k v r =
+      { sconfig = r.sconfig; entries = ((k, v) :: r.entries) }
 
     (** val find : coq_K -> coq_R -> coq_V option **)
 
@@ -1708,9 +1785,7 @@ module Environment =
  struct
   type 'aB environment = { cur_assembly : Assembly.assemblyinformation;
                            cur_buffer : 'aB;
-                           config : Configuration.configuration;
-                           fblocks : Store.FBlockListStore.coq_R;
-                           keys : Store.KeyListStore.coq_R }
+                           econfig : Configuration.configuration }
 
   (** val cur_assembly : 'a1 environment -> Assembly.assemblyinformation **)
 
@@ -1722,20 +1797,10 @@ module Environment =
   let cur_buffer e =
     e.cur_buffer
 
-  (** val config : 'a1 environment -> Configuration.configuration **)
+  (** val econfig : 'a1 environment -> Configuration.configuration **)
 
-  let config e =
-    e.config
-
-  (** val fblocks : 'a1 environment -> Store.FBlockListStore.coq_R **)
-
-  let fblocks e =
-    e.fblocks
-
-  (** val keys : 'a1 environment -> Store.KeyListStore.coq_R **)
-
-  let keys e =
-    e.keys
+  let econfig e =
+    e.econfig
 
   (** val cpp_mk_key256 : unit -> string **)
 
@@ -1764,41 +1829,17 @@ module Environment =
 
     let initial_environment c =
       let (a, b) = Assembly.AssemblyPlainWritable.create c in
-      { cur_assembly = a; cur_buffer = b; config = c; fblocks =
-      (Store.FBlockListStore.init c); keys = (Store.KeyListStore.init c) }
+      { cur_assembly = a; cur_buffer = b; econfig = c }
 
     (** val recreate_assembly : coq_AB environment -> coq_AB environment **)
 
     let recreate_assembly e =
-      let (a, b) = Assembly.AssemblyPlainWritable.create e.config in
-      { cur_assembly = a; cur_buffer = b; config = e.config; fblocks =
-      e.fblocks; keys = e.keys }
+      let (a, b) = Assembly.AssemblyPlainWritable.create e.econfig in
+      { cur_assembly = a; cur_buffer = b; econfig = e.econfig }
 
-    (** val env_add_file_block :
-        string -> coq_AB environment -> Assembly.blockinformation -> coq_AB
-        environment **)
-
-    let env_add_file_block fname0 e bi =
-      { cur_assembly = e.cur_assembly; cur_buffer = e.cur_buffer; config =
-        e.config; fblocks = (Store.FBlockListStore.add fname0 bi e.fblocks);
-        keys = e.keys }
-
-    (** val env_add_aid_key :
-        Assembly.aid_t -> coq_AB environment -> Assembly.keyinformation ->
-        coq_AB environment **)
-
-    let env_add_aid_key aid0 e ki =
-      { cur_assembly = e.cur_assembly; cur_buffer = e.cur_buffer; config =
-        e.config; fblocks = e.fblocks; keys =
-        (Store.KeyListStore.add aid0 ki e.keys) }
-
-    (** val key_for_aid :
-        coq_AB environment -> Assembly.aid_t -> Assembly.keyinformation option **)
-
-    let key_for_aid e aid0 =
-      Store.KeyListStore.find aid0 e.keys
-
-    (** val finalise_assembly : coq_AB environment -> coq_AB environment **)
+    (** val finalise_assembly :
+        coq_AB environment -> (Assembly.aid_t * Assembly.keyinformation)
+        option **)
 
     let finalise_assembly e0 =
       let a0 = e0.cur_assembly in
@@ -1807,44 +1848,51 @@ module Environment =
       then let (a, b) = Assembly.finish a0 e0.cur_buffer in
            let ki = { Assembly.ivec = (cpp_mk_key128 ()); Assembly.pkey =
              (cpp_mk_key256 ()); Assembly.localid =
-             e0.config.Configuration.my_id; Assembly.localnchunks =
-             e0.config.Configuration.config_nchunks }
+             e0.econfig.Configuration.my_id; Assembly.localnchunks =
+             e0.econfig.Configuration.config_nchunks }
            in
-           let e1 = env_add_aid_key a.Assembly.aid e0 ki in
            (match Assembly.encrypt a b ki with
             | Some p ->
               let (a', b') = p in
-              let n0 = Assembly.extract e1.config a' b' in
-              if N.ltb N0 n0 then e1 else e0
-            | None -> e0)
-      else e0
+              let n0 = Assembly.extract e0.econfig a' b' in
+              if N.ltb N0 n0 then Some (a.Assembly.aid, ki) else None
+            | None -> None)
+      else None
 
     (** val finalise_and_recreate_assembly :
-        coq_AB environment -> coq_AB environment **)
+        coq_AB environment -> (coq_AB
+        environment * (Assembly.aid_t * Assembly.keyinformation)) option **)
 
     let finalise_and_recreate_assembly e0 =
-      let e1 = finalise_assembly e0 in recreate_assembly e1
+      match finalise_assembly e0 with
+      | Some ki -> Some ((recreate_assembly e0), ki)
+      | None -> None
 
     (** val backup :
         coq_AB environment -> string -> n -> Cstdio.BufferPlain.buffer_t ->
-        n * coq_AB environment **)
+        coq_AB
+        environment * (Assembly.blockinformation * (Assembly.aid_t * Assembly.keyinformation)
+        option) **)
 
-    let backup e0 fp fpos content =
+    let backup e0 _ fpos content =
       let afree =
-        N.sub (Assembly.assemblysize e0.config.Configuration.config_nchunks)
+        N.sub (Assembly.assemblysize e0.econfig.Configuration.config_nchunks)
           e0.cur_assembly.Assembly.apos
       in
       let blen = Cstdio.BufferPlain.buffer_len content in
-      let e1 =
-        if N.ltb afree blen then finalise_and_recreate_assembly e0 else e0
+      let (ki, e1) =
+        if N.ltb afree blen
+        then let filtered_var = finalise_and_recreate_assembly e0 in
+             (match filtered_var with
+              | Some p -> let (e0', ki) = p in ((Some ki), e0')
+              | None -> (None, e0))
+        else (None, e0)
       in
       let (a', bi) =
         Assembly.backup e1.cur_assembly e1.cur_buffer fpos content
       in
-      let apos0 = bi.Assembly.blockapos in
-      (apos0, { cur_assembly = a'; cur_buffer = e1.cur_buffer; config =
-      e1.config; fblocks = (Store.FBlockListStore.add fp bi e1.fblocks);
-      keys = e1.keys })
+      ({ cur_assembly = a'; cur_buffer = e1.cur_buffer; econfig =
+      e1.econfig }, (bi, ki))
    end
 
   module EnvironmentReadable =
@@ -1857,41 +1905,22 @@ module Environment =
 
     let initial_environment c =
       let (a, b) = Assembly.AssemblyPlainFull.create c in
-      { cur_assembly = a; cur_buffer = b; config = c; fblocks =
-      (Store.FBlockListStore.init c); keys = (Store.KeyListStore.init c) }
-
-    (** val env_add_aid_key :
-        Assembly.aid_t -> coq_AB environment -> Assembly.keyinformation ->
-        coq_AB environment **)
-
-    let env_add_aid_key aid0 e ki =
-      { cur_assembly = e.cur_assembly; cur_buffer = e.cur_buffer; config =
-        e.config; fblocks = e.fblocks; keys =
-        (Store.KeyListStore.add aid0 ki e.keys) }
-
-    (** val key_for_aid :
-        coq_AB environment -> Assembly.aid_t -> Assembly.keyinformation option **)
-
-    let key_for_aid e aid0 =
-      Store.KeyListStore.find aid0 e.keys
+      { cur_assembly = a; cur_buffer = b; econfig = c }
 
     (** val restore_assembly :
-        coq_AB environment -> Assembly.aid_t -> coq_AB environment option **)
+        coq_AB environment -> Assembly.aid_t -> Assembly.keyinformation ->
+        coq_AB environment option **)
 
-    let restore_assembly e0 aid0 =
-      match key_for_aid e0 aid0 with
-      | Some k ->
-        (match Assembly.recall e0.config { Assembly.nchunks =
-                 e0.config.Configuration.config_nchunks; Assembly.aid = aid0;
-                 Assembly.apos = N0 } with
-         | Some p ->
-           let (a1, b1) = p in
-           (match Assembly.decrypt a1 b1 k with
-            | Some p0 ->
-              let (a2, b2) = p0 in
-              Some { cur_assembly = a2; cur_buffer = b2; config = e0.config;
-              fblocks = e0.fblocks; keys = e0.keys }
-            | None -> None)
+    let restore_assembly e0 aid0 ki =
+      match Assembly.recall e0.econfig { Assembly.nchunks =
+              e0.econfig.Configuration.config_nchunks; Assembly.aid = aid0;
+              Assembly.apos = N0 } with
+      | Some p ->
+        let (a1, b1) = p in
+        (match Assembly.decrypt a1 b1 ki with
+         | Some p0 ->
+           let (a2, b2) = p0 in
+           Some { cur_assembly = a2; cur_buffer = b2; econfig = e0.econfig }
          | None -> None)
       | None -> None
    end
@@ -1899,22 +1928,28 @@ module Environment =
 
 module AssemblyCache =
  struct
-  type readqueueentity = { qaid : Assembly.aid_t; qapos : n; qrlen : n }
+  type readqueueentity = { rqaid : Assembly.aid_t; rqapos : n; rqrlen : 
+                           n; rqfpos : n }
 
-  (** val qaid : readqueueentity -> Assembly.aid_t **)
+  (** val rqaid : readqueueentity -> Assembly.aid_t **)
 
-  let qaid r =
-    r.qaid
+  let rqaid r =
+    r.rqaid
 
-  (** val qapos : readqueueentity -> n **)
+  (** val rqapos : readqueueentity -> n **)
 
-  let qapos r =
-    r.qapos
+  let rqapos r =
+    r.rqapos
 
-  (** val qrlen : readqueueentity -> n **)
+  (** val rqrlen : readqueueentity -> n **)
 
-  let qrlen r =
-    r.qrlen
+  let rqrlen r =
+    r.rqrlen
+
+  (** val rqfpos : readqueueentity -> n **)
+
+  let rqfpos r =
+    r.rqfpos
 
   type readqueueresult = { readrequest : readqueueentity;
                            rresult : Cstdio.BufferPlain.buffer_t }
@@ -1993,7 +2028,9 @@ module AssemblyCache =
                          acsize : nat;
                          acwriteenv : Environment.EnvironmentWritable.coq_E;
                          acconfig : Configuration.configuration;
-                         acwriteq : writequeue; acreadq : readqueue }
+                         acwriteq : writequeue; acreadq : readqueue;
+                         acfbstore : Store.FBlockListStore.coq_R;
+                         ackstore : Store.KeyListStore.coq_R }
 
   (** val acenvs :
       assemblycache -> Environment.EnvironmentReadable.coq_E list **)
@@ -2027,6 +2064,16 @@ module AssemblyCache =
   let acreadq a =
     a.acreadq
 
+  (** val acfbstore : assemblycache -> Store.FBlockListStore.coq_R **)
+
+  let acfbstore a =
+    a.acfbstore
+
+  (** val ackstore : assemblycache -> Store.KeyListStore.coq_R **)
+
+  let ackstore a =
+    a.ackstore
+
   (** val prepare_assemblycache :
       Configuration.configuration -> positive -> assemblycache **)
 
@@ -2034,7 +2081,8 @@ module AssemblyCache =
     { acenvs = []; acsize = (Coq_Pos.to_nat size); acwriteenv =
       (Environment.EnvironmentWritable.initial_environment c); acconfig = c;
       acwriteq = { wqueue = []; wqueuesz = qsize }; acreadq = { rqueue = [];
-      rqueuesz = qsize } }
+      rqueuesz = qsize }; acfbstore = (Store.FBlockListStore.init c);
+      ackstore = (Store.KeyListStore.init c) }
 
   (** val enqueue_write_request :
       assemblycache -> writequeueentity -> bool * assemblycache **)
@@ -2047,7 +2095,7 @@ module AssemblyCache =
     else (true, { acenvs = ac.acenvs; acsize = ac.acsize; acwriteenv =
            ac.acwriteenv; acconfig = ac.acconfig; acwriteq = { wqueue =
            (req :: wq); wqueuesz = ac.acwriteq.wqueuesz }; acreadq =
-           ac.acreadq })
+           ac.acreadq; acfbstore = ac.acfbstore; ackstore = ac.ackstore })
 
   (** val enqueue_read_request :
       assemblycache -> readqueueentity -> bool * assemblycache **)
@@ -2060,15 +2108,21 @@ module AssemblyCache =
     else (true, { acenvs = ac.acenvs; acsize = ac.acsize; acwriteenv =
            ac.acwriteenv; acconfig = ac.acconfig; acwriteq = ac.acwriteq;
            acreadq = { rqueue = (req :: rq); rqueuesz =
-           ac.acreadq.rqueuesz } })
+           ac.acreadq.rqueuesz }; acfbstore = ac.acfbstore; ackstore =
+           ac.ackstore })
 
   (** val try_restore_assembly :
-      Configuration.configuration -> Assembly.aid_t ->
+      assemblycache -> Assembly.aid_t ->
       Environment.EnvironmentReadable.coq_E option **)
 
-  let try_restore_assembly config0 sel_aid =
-    Environment.EnvironmentReadable.restore_assembly
-      (Environment.EnvironmentReadable.initial_environment config0) sel_aid
+  let try_restore_assembly ac sel_aid =
+    let filtered_var = Store.KeyListStore.find sel_aid ac.ackstore in
+    (match filtered_var with
+     | Some ki ->
+       Environment.EnvironmentReadable.restore_assembly
+         (Environment.EnvironmentReadable.initial_environment ac.acconfig)
+         sel_aid ki
+     | None -> None)
 
   (** val set_envs :
       assemblycache -> Environment.EnvironmentReadable.coq_E list ->
@@ -2077,7 +2131,7 @@ module AssemblyCache =
   let set_envs ac0 envs =
     { acenvs = envs; acsize = ac0.acsize; acwriteenv = ac0.acwriteenv;
       acconfig = ac0.acconfig; acwriteq = ac0.acwriteq; acreadq =
-      ac0.acreadq }
+      ac0.acreadq; acfbstore = ac0.acfbstore; ackstore = ac0.ackstore }
 
   (** val ensure_assembly :
       assemblycache -> Assembly.aid_t ->
@@ -2087,7 +2141,7 @@ module AssemblyCache =
     let filtered_var = ac0.acenvs in
     (match filtered_var with
      | [] ->
-       let filtered_var0 = try_restore_assembly ac0.acconfig sel_aid in
+       let filtered_var0 = try_restore_assembly ac0 sel_aid in
        (match filtered_var0 with
         | Some env -> Some (env, (set_envs ac0 (env :: [])))
         | None -> None)
@@ -2096,8 +2150,7 @@ module AssemblyCache =
         | [] ->
           if (=) e1.Environment.cur_assembly.Assembly.aid sel_aid
           then Some (e1, ac0)
-          else let filtered_var0 = try_restore_assembly ac0.acconfig sel_aid
-               in
+          else let filtered_var0 = try_restore_assembly ac0 sel_aid in
                (match filtered_var0 with
                 | Some env ->
                   if eqb ac0.acsize (S O)
@@ -2114,9 +2167,7 @@ module AssemblyCache =
                in
                (match found with
                 | [] ->
-                  let filtered_var0 =
-                    try_restore_assembly ac0.acconfig sel_aid
-                  in
+                  let filtered_var0 = try_restore_assembly ac0 sel_aid in
                   (match filtered_var0 with
                    | Some env ->
                      let lr =
@@ -2143,13 +2194,22 @@ module AssemblyCache =
     match reqs with
     | [] -> (res, ac0)
     | h :: r ->
-      let aid0 = h.qaid in
+      let aid0 = h.rqaid in
       let filtered_var = ensure_assembly ac0 aid0 in
       (match filtered_var with
        | Some p ->
-         let (_, ac1) = p in
-         let buf = Cstdio.BufferPlain.buffer_create h.qrlen in
-         run_read_requests ac1 r ({ readrequest = h; rresult = buf } :: res)
+         let (env, ac1) = p in
+         let buf = Cstdio.BufferPlain.buffer_create h.rqrlen in
+         let n0 =
+           Assembly.assembly_get_content env.Environment.cur_buffer h.rqrlen
+             h.rqapos buf
+         in
+         let res' =
+           if N.ltb N0 n0
+           then { readrequest = h; rresult = buf } :: res
+           else res
+         in
+         run_read_requests ac1 r res'
        | None -> (res, ac0))
 
   (** val run_write_requests :
@@ -2160,17 +2220,30 @@ module AssemblyCache =
     match reqs with
     | [] -> (res, ac0)
     | h :: r ->
-      let (apos0, env) =
-        Environment.EnvironmentWritable.backup ac0.acwriteenv h.qfhash
-          h.qfpos h.qbuffer
+      let fp = h.qfhash in
+      let filtered_var =
+        Environment.EnvironmentWritable.backup ac0.acwriteenv fp h.qfpos
+          h.qbuffer
+      in
+      let (env, p) = filtered_var in
+      let (bi, kis) = p in
+      let ackstore' =
+        match kis with
+        | Some p0 ->
+          let (aid0, ki) = p0 in Store.KeyListStore.add aid0 ki ac0.ackstore
+        | None -> ac0.ackstore
       in
       let ac1 = { acenvs = ac0.acenvs; acsize = ac0.acsize; acwriteenv = env;
         acconfig = ac0.acconfig; acwriteq = { wqueue = []; wqueuesz =
-        ac0.acwriteq.wqueuesz }; acreadq = ac0.acreadq }
+        ac0.acwriteq.wqueuesz }; acreadq = ac0.acreadq; acfbstore =
+        (Store.FBlockListStore.add fp bi ac0.acfbstore); ackstore =
+        ackstore' }
       in
-      run_write_requests ac1 r ({ writerequest = h; wresult = { qaid =
-        env.Environment.cur_assembly.Assembly.aid; qapos = apos0; qrlen =
-        (Cstdio.BufferPlain.buffer_len h.qbuffer) } } :: res)
+      run_write_requests ac1 r ({ writerequest = h; wresult = { rqaid =
+        env.Environment.cur_assembly.Assembly.aid; rqapos =
+        bi.Assembly.blockapos; rqrlen =
+        (Cstdio.BufferPlain.buffer_len h.qbuffer); rqfpos =
+        h.qfpos } } :: res)
 
   (** val iterate_read_queue :
       assemblycache -> readqueueresult list * assemblycache **)
@@ -2180,12 +2253,13 @@ module AssemblyCache =
     (match filtered_var with
      | [] -> ([], ac0)
      | h :: r ->
-       let aid0 = h.qaid in
-       let sel = filter (fun e -> (=) e.qaid aid0) r in
+       let aid0 = h.rqaid in
+       let sel = filter (fun e -> (=) e.rqaid aid0) r in
        let ac1 = { acenvs = ac0.acenvs; acsize = ac0.acsize; acwriteenv =
          ac0.acwriteenv; acconfig = ac0.acconfig; acwriteq = ac0.acwriteq;
-         acreadq = { rqueue = (filter (fun e -> negb ((=) e.qaid aid0)) r);
-         rqueuesz = ac0.acreadq.rqueuesz } }
+         acreadq = { rqueue = (filter (fun e -> negb ((=) e.rqaid aid0)) r);
+         rqueuesz = ac0.acreadq.rqueuesz }; acfbstore = ac0.acfbstore;
+         ackstore = ac0.ackstore }
        in
        run_read_requests ac1 (h :: sel) [])
 
@@ -2199,78 +2273,53 @@ module AssemblyCache =
      | h :: r ->
        let ac1 = { acenvs = ac0.acenvs; acsize = ac0.acsize; acwriteenv =
          ac0.acwriteenv; acconfig = ac0.acconfig; acwriteq = { wqueue = [];
-         wqueuesz = ac0.acwriteq.wqueuesz }; acreadq = ac0.acreadq }
+         wqueuesz = ac0.acwriteq.wqueuesz }; acreadq = ac0.acreadq;
+         acfbstore = ac0.acfbstore; ackstore = ac0.ackstore }
        in
        run_write_requests ac1 (h :: r) [])
 
   (** val flush : assemblycache -> assemblycache **)
 
   let flush ac0 =
-    let env =
+    let filtered_var =
       Environment.EnvironmentWritable.finalise_and_recreate_assembly
         ac0.acwriteenv
     in
-    { acenvs = []; acsize = ac0.acsize; acwriteenv = env; acconfig =
-    ac0.acconfig; acwriteq = ac0.acwriteq; acreadq = ac0.acreadq }
+    (match filtered_var with
+     | Some p ->
+       let (env', p0) = p in
+       let (aid0, ki) = p0 in
+       let ackstore' = Store.KeyListStore.add aid0 ki ac0.ackstore in
+       { acenvs = []; acsize = ac0.acsize; acwriteenv = env'; acconfig =
+       ac0.acconfig; acwriteq = ac0.acwriteq; acreadq = ac0.acreadq;
+       acfbstore = ac0.acfbstore; ackstore = ackstore' }
+     | None -> ac0)
 
   (** val close : assemblycache -> assemblycache **)
 
   let close ac0 =
-    let env = Environment.EnvironmentWritable.finalise_assembly ac0.acwriteenv
+    let filtered_var =
+      Environment.EnvironmentWritable.finalise_assembly ac0.acwriteenv
     in
-    { acenvs = []; acsize = ac0.acsize; acwriteenv = env; acconfig =
-    ac0.acconfig; acwriteq = ac0.acwriteq; acreadq = ac0.acreadq }
- end
+    (match filtered_var with
+     | Some p ->
+       let (aid0, ki) = p in
+       let ackstore' = Store.KeyListStore.add aid0 ki ac0.ackstore in
+       { acenvs = []; acsize = ac0.acsize; acwriteenv =
+       (Environment.EnvironmentWritable.initial_environment ac0.acconfig);
+       acconfig = ac0.acconfig; acwriteq = ac0.acwriteq; acreadq =
+       ac0.acreadq; acfbstore = ac0.acfbstore; ackstore = ackstore' }
+     | None -> ac0)
 
-module Filesupport =
- struct
-  type filename = string
+  (** val add_key :
+      assemblycache -> Assembly.aid_t -> Assembly.keyinformation ->
+      assemblycache **)
 
-  type fileinformation = { fname : filename; fsize : n; fowner : string;
-                           fpermissions : n; fmodified : string;
-                           fchecksum : string }
-
-  (** val fname : fileinformation -> filename **)
-
-  let fname f =
-    f.fname
-
-  (** val fsize : fileinformation -> n **)
-
-  let fsize f =
-    f.fsize
-
-  (** val fowner : fileinformation -> string **)
-
-  let fowner f =
-    f.fowner
-
-  (** val fpermissions : fileinformation -> n **)
-
-  let fpermissions f =
-    f.fpermissions
-
-  (** val fmodified : fileinformation -> string **)
-
-  let fmodified f =
-    f.fmodified
-
-  (** val fchecksum : fileinformation -> string **)
-
-  let fchecksum f =
-    f.fchecksum
-
-  (** val get_file_information : filename -> fileinformation **)
-
-  let get_file_information =   
-    fun fn ->
-        { fname = fn;
-          fsize = Conversion.i2n (Elykseer_base.Fsutils.fsize fn);
-          fowner = string_of_int (Elykseer_base.Fsutils.fowner fn);
-          fpermissions = Conversion.i2n (Elykseer_base.Fsutils.fperm fn);
-          fmodified = Elykseer_base.Fsutils.fmod fn;
-          fchecksum = Elykseer_base.Fsutils.fchksum fn }
-   
+  let add_key ac aid0 ki =
+    { acenvs = ac.acenvs; acsize = ac.acsize; acwriteenv = ac.acwriteenv;
+      acconfig = ac.acconfig; acwriteq = ac.acwriteq; acreadq = ac.acreadq;
+      acfbstore = ac.acfbstore; ackstore =
+      (Store.KeyListStore.add aid0 ki ac.ackstore) }
  end
 
 module BackupPlanner =
@@ -2447,12 +2496,12 @@ module Processor =
   (** val get_keys : processor -> Store.KeyListStore.coq_R **)
 
   let get_keys this =
-    this.cache.AssemblyCache.acwriteenv.Environment.keys
+    this.cache.AssemblyCache.ackstore
 
   (** val get_fblocks : processor -> Store.FBlockListStore.coq_R **)
 
   let get_fblocks this =
-    this.cache.AssemblyCache.acwriteenv.Environment.fblocks
+    this.cache.AssemblyCache.acfbstore
 
   (** val close : processor -> processor **)
 
@@ -2500,6 +2549,60 @@ module Processor =
        rec_file_backup_inner (N.to_nat n_blocks) this fi fpos fptr0
      | None -> this)
 
+  (** val internal_restore_to :
+      Cstdio.fptr -> AssemblyCache.readqueueresult list -> n **)
+
+  let internal_restore_to fptr0 lrres =
+    fold_left (fun acc rres ->
+      let filtered_var =
+        Cstdio.fseek fptr0 rres.AssemblyCache.readrequest.AssemblyCache.rqfpos
+      in
+      (match filtered_var with
+       | Some fptr' ->
+         let filtered_var0 =
+           Cstdio.fwrite fptr'
+             rres.AssemblyCache.readrequest.AssemblyCache.rqrlen
+             (Cstdio.BufferPlain.to_buffer rres.AssemblyCache.rresult)
+         in
+         (match filtered_var0 with
+          | Some n0 -> N.add n0 acc
+          | None -> N0)
+       | None -> N0)) lrres N0
+
+  (** val restore_block_to :
+      Cstdio.fptr -> AssemblyCache.assemblycache -> Assembly.blockinformation
+      -> n * AssemblyCache.assemblycache **)
+
+  let restore_block_to fptr0 ac block =
+    let rreq = { AssemblyCache.rqaid = block.Assembly.blockaid;
+      AssemblyCache.rqapos = block.Assembly.blockapos; AssemblyCache.rqrlen =
+      block.Assembly.blocksize; AssemblyCache.rqfpos =
+      block.Assembly.filepos }
+    in
+    let filtered_var = AssemblyCache.enqueue_read_request ac rreq in
+    let (b, ac') = filtered_var in
+    if b
+    then (N0, ac')
+    else let (lrres, ac'') = AssemblyCache.iterate_read_queue ac' in
+         let n0 = internal_restore_to fptr0 lrres in
+         let (_, ac''') = AssemblyCache.enqueue_read_request ac'' rreq in
+         if N.ltb N0 n0 then (n0, ac''') else (N0, ac''')
+
+  (** val restore_file_to :
+      processor -> Cstdio.fptr -> Assembly.blockinformation list ->
+      n * AssemblyCache.assemblycache **)
+
+  let restore_file_to this fptr0 blocks =
+    let filtered_var =
+      fold_left (fun pat block ->
+        let (acc, ac) = pat in
+        let (n0, ac') = restore_block_to fptr0 ac block in
+        ((N.add acc n0), ac')) blocks (N0, this.cache)
+    in
+    let (res, ac') = filtered_var in
+    let (lrres, ac'') = AssemblyCache.iterate_read_queue ac' in
+    let n0 = internal_restore_to fptr0 lrres in ((N.add n0 res), ac'')
+
   (** val file_backup :
       processor -> Filesystem.path -> Filesupport.fileinformation * processor **)
 
@@ -2514,6 +2617,29 @@ module Processor =
     in
     let proc1 = open_file_backup this n_blocks fi N0 in
     let (_, proc2) = run_write_requests proc1 in (fi, proc2)
+
+  (** val file_restore :
+      processor -> Filesystem.path -> Filesystem.path ->
+      Assembly.blockinformation list -> n * processor **)
+
+  let file_restore this basep fp blocks =
+    let targetp = Filesystem.Path.append basep fp in
+    if Filesystem.Path.file_exists targetp
+    then (N0, this)
+    else let filtered_var =
+           Cstdio.fopen (Filesystem.Path.to_string targetp)
+             Cstdio.write_new_mode
+         in
+         (match filtered_var with
+          | Some fptr0 ->
+            let filtered_var0 = restore_file_to this fptr0 blocks in
+            let (n0, ac') = filtered_var0 in
+            let proc' = update_cache this ac' in
+            let filtered_var1 = Cstdio.fclose fptr0 in
+            (match filtered_var1 with
+             | Some _ -> (n0, proc')
+             | None -> (N0, proc'))
+          | None -> (N0, this))
 
   (** val internal_directory_entries :
       Filesystem.path -> Filesystem.path list * Filesystem.path list **)

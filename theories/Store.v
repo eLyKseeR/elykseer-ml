@@ -9,6 +9,7 @@ From RecordUpdate Require Import RecordUpdate.
 
 From LXR Require Import Assembly.
 From LXR Require Import Configuration.
+From LXR Require Import Filesupport.
 
 Open Scope list_scope.
 
@@ -19,7 +20,7 @@ Module Export Store.
 Definition RecordStore := Type.
 Record store (KVs : Type): RecordStore :=
     mkstore
-        { config : configuration
+        { sconfig : configuration
         ; entries : KVs
         }.
 (* Print RecordStore. *)
@@ -50,9 +51,9 @@ Module KeyListStore <: STORE.
     Definition V := Assembly.keyinformation.
     Definition KVs := list (K * V).
     Definition R : RecordStore := store KVs.
-    Definition init (c : configuration) : R := {| config := c; entries := [] |}.
+    Definition init (c : configuration) : R := {| sconfig := c; entries := [] |}.
     Definition add (k : K) (v : V) (r : R) : R :=
-        {| config := r.(config KVs); entries := (k, v) :: r.(entries KVs) |}.
+        {| sconfig := r.(sconfig KVs); entries := (k, v) :: r.(entries KVs) |}.
     Definition find (k : K) (r : R) : option V :=
         rec_find k r.(entries KVs).
 End KeyListStore.
@@ -63,14 +64,28 @@ Module FBlockListStore <: STORE.
     Definition V := Assembly.blockinformation.
     Definition KVs := list (K * V).
     Definition R : RecordStore := store KVs.
-    Definition init (c : configuration) : R := {| config := c; entries := [] |}.
+    Definition init (c : configuration) : R := {| sconfig := c; entries := [] |}.
     Definition add (k : K) (v : V) (r : R) : R :=
-        {| config := r.(config KVs); entries := (k, v) :: r.(entries KVs) |}.
+        {| sconfig := r.(sconfig KVs); entries := (k, v) :: r.(entries KVs) |}.
     Definition find (k : K) (r : R) : option V :=
         rec_find k r.(entries KVs).
 
 End FBlockListStore.
 (* Print FBlockListStore. *)
+
+Module FileinformationStore <: STORE.
+    Definition K := String.string.
+    Definition V := Filesupport.fileinformation.
+    Definition KVs := list (K * V).
+    Definition R : RecordStore := store KVs.
+    Definition init (c : configuration) : R := {| sconfig := c; entries := [] |}.
+    Definition add (k : K) (v : V) (r : R) : R :=
+        {| sconfig := r.(sconfig KVs); entries := (k, v) :: r.(entries KVs) |}.
+    Definition find (k : K) (r : R) : option V :=
+        rec_find k r.(entries KVs).
+
+End FileinformationStore.
+(* Print FileinformationStore. *)
 
 
 Example find_entry_in_empty : forall c,
