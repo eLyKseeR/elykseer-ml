@@ -803,7 +803,8 @@ module AssemblyCache :
                          acconfig : Configuration.configuration;
                          acwriteq : writequeue; acreadq : readqueue;
                          acfbstore : Store.FBlockListStore.coq_R;
-                         ackstore : Store.KeyListStore.coq_R }
+                         ackstore : Store.KeyListStore.coq_R;
+                         acfistore : Store.FileinformationStore.coq_R }
 
   val acenvs : assemblycache -> Environment.EnvironmentReadable.coq_E list
 
@@ -821,6 +822,8 @@ module AssemblyCache :
 
   val ackstore : assemblycache -> Store.KeyListStore.coq_R
 
+  val acfistore : assemblycache -> Store.FileinformationStore.coq_R
+
   val prepare_assemblycache :
     Configuration.configuration -> positive -> assemblycache
 
@@ -837,6 +840,9 @@ module AssemblyCache :
   val set_envs :
     assemblycache -> Environment.EnvironmentReadable.coq_E list ->
     assemblycache
+
+  val add_fileinformation :
+    assemblycache -> Filesupport.fileinformation -> assemblycache
 
   val ensure_assembly :
     assemblycache -> Assembly.aid_t ->
@@ -948,8 +954,7 @@ module Processor :
     processor -> Cstdio.fptr -> Assembly.blockinformation list ->
     n * AssemblyCache.assemblycache
 
-  val file_backup :
-    processor -> Filesystem.path -> Filesupport.fileinformation * processor
+  val file_backup : processor -> Filesystem.path -> processor
 
   val file_restore :
     processor -> Filesystem.path -> Filesystem.path ->
@@ -958,24 +963,12 @@ module Processor :
   val internal_directory_entries :
     Filesystem.path -> Filesystem.path list * Filesystem.path list
 
-  val directory_backup :
-    processor -> Filesystem.path -> Filesupport.fileinformation
-    list * processor
-
-  val directory_backup_0 : processor -> Filesystem.path -> processor
+  val directory_backup : processor -> Filesystem.path -> processor
 
   val internal_recursive_backup :
-    nat -> processor -> Filesupport.fileinformation list -> Filesystem.path
-    -> Filesupport.fileinformation list * processor
-
-  val recursive_backup :
-    processor -> n -> Filesystem.path -> Filesupport.fileinformation
-    list * processor
-
-  val internal_recursive_backup_0 :
     nat -> processor -> Filesystem.path -> processor
 
-  val recursive_backup_0 : processor -> n -> Filesystem.path -> processor
+  val recursive_backup : processor -> n -> Filesystem.path -> processor
  end
 
 module Version :

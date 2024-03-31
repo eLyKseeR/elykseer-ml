@@ -27,7 +27,8 @@ let argspec =
 
 let anon_args_fun fn = arg_files := fn :: !arg_files
 
-let output_rel_files config (fiset : Filesupport.fileinformation list) (fbstore : Store.FBlockListStore.coq_R) =
+let output_rel_files config (fistore : Store.FileinformationStore.coq_R) (fbstore : Store.FBlockListStore.coq_R) =
+  let fiset = List.map snd fistore.entries in
   let fbis = Env.consolidate_files fbstore.entries in
   if !arg_dryrun then
     Lwt_list.iter_s (fun (fhash, bis) ->
@@ -62,9 +63,9 @@ let output_rel_keys config (kstore : Store.KeyListStore.coq_R) =
                                 let%lwt _ = Relkeys.add aid ki rel in Lwt.return ()) kstore.entries in
   Relkeys.close_map rel
 
-let output_relations fiset (ac : AssemblyCache.assemblycache) =
+let output_relations (ac : AssemblyCache.assemblycache) =
   let%lwt () = if !arg_dryrun then Lwt.return () else output_rel_keys ac.acconfig ac.ackstore in
-  output_rel_files ac.acconfig fiset ac.acfbstore
+  output_rel_files ac.acconfig ac.acfistore ac.acfbstore
 
 
 let main () = Arg.parse argspec anon_args_fun "lxr_backup: vyxdnji";
@@ -78,9 +79,9 @@ let main () = Arg.parse argspec anon_args_fun "lxr_backup: vyxdnji";
                   path_db     = !arg_dbpath;
                   my_id       = myid } in
     let proc = Processor.prepare_processor conf in
-    let (fiset, proc') = List.fold_left (fun (fiset, proc) fp -> let (fi, proc') = Processor.file_backup proc (Filesystem.Path.from_string fp) in (fi :: fiset, proc') ) ([], proc) !arg_files in
+    let proc' = List.fold_left (fun proc fp -> let proc' = Processor.file_backup proc (Filesystem.Path.from_string fp) in proc') proc !arg_files in
     let proc'' = Processor.close proc' in
-    let%lwt () = output_relations fiset proc''.cache in
+    let%lwt () = output_relations proc''.cache in
     let%lwt () = Lwt_io.printl "done." in
     Lwt.return ()
   else

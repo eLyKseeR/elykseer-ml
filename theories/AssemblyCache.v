@@ -11,6 +11,7 @@ From LXR Require Import Configuration.
 From LXR Require Import Conversion.
 From LXR Require Import Cstdio.
 From LXR Require Import Environment.
+From LXR Require Import Filesupport.
 From LXR Require Import Nchunks.
 From LXR Require Import Store.
 From LXR Require Import Utilities.
@@ -77,6 +78,8 @@ Record assemblycache : Type :=
             (* ^ file block store *)
         ; ackstore : KeyListStore.R
             (* ^ assembly key store *)
+        ; acfistore : FileinformationStore.R
+            (* ^ fileinformation store *)
         }.
 
 
@@ -89,6 +92,7 @@ Definition prepare_assemblycache (c : configuration) (size : positive) : assembl
      ; acreadq := (mkreadqueue nil qsize)
      ; acfbstore := FBlockListStore.init c
      ; ackstore := KeyListStore.init c
+     ; acfistore := FileinformationStore.init c
     |}.
 
 Program Definition enqueue_write_request (ac : assemblycache) (req : writequeueentity) : (bool * assemblycache) :=
@@ -99,7 +103,8 @@ Program Definition enqueue_write_request (ac : assemblycache) (req : writequeuee
     else
         (true, {| acenvs := ac.(acenvs); acsize := ac.(acsize); acwriteenv := ac.(acwriteenv); acconfig := ac.(acconfig);
                   acwriteq := {| wqueue := req :: wq; wqueuesz := wqueuesz ac.(acwriteq) |};
-                  acreadq := ac.(acreadq); acfbstore := ac.(acfbstore); ackstore := ac.(ackstore) |}).
+                  acreadq := ac.(acreadq);
+                  acfbstore := ac.(acfbstore); ackstore := ac.(ackstore); acfistore := ac.(acfistore) |}).
 
 Program Definition enqueue_read_request (ac : assemblycache) (req : readqueueentity) : (bool * assemblycache) :=
     let rq := rqueue ac.(acreadq) in
@@ -109,7 +114,8 @@ Program Definition enqueue_read_request (ac : assemblycache) (req : readqueueent
     else
         (true, {| acenvs := ac.(acenvs); acsize := ac.(acsize); acwriteenv := ac.(acwriteenv); acconfig := ac.(acconfig);
                   acreadq := {| rqueue := req :: rq; rqueuesz := rqueuesz ac.(acreadq) |};
-                  acwriteq := ac.(acwriteq); acfbstore := ac.(acfbstore); ackstore := ac.(ackstore)  |}).
+                  acwriteq := ac.(acwriteq);
+                  acfbstore := ac.(acfbstore); ackstore := ac.(ackstore); acfistore := ac.(acfistore)  |}).
 
 Program Definition try_restore_assembly (ac : assemblycache) (sel_aid : Assembly.aid_t) : option EnvironmentReadable.E :=
     match KeyListStore.find sel_aid ac.(ackstore) with
@@ -122,7 +128,14 @@ Program Definition set_envs (ac0 : assemblycache) (envs : list EnvironmentReadab
     {| acenvs := envs; acsize := ac0.(acsize);
        acwriteenv := ac0.(acwriteenv); acconfig := ac0.(acconfig);
        acreadq := ac0.(acreadq); acwriteq := ac0.(acwriteq);
-       acfbstore := ac0.(acfbstore); ackstore := ac0.(ackstore) |}.
+       acfbstore := ac0.(acfbstore); ackstore := ac0.(ackstore); acfistore := ac0.(acfistore) |}.
+
+Program Definition add_fileinformation (ac0 : assemblycache) (fi : fileinformation) : assemblycache :=
+    {| acenvs := ac0.(acenvs); acsize := ac0.(acsize);
+       acwriteenv := ac0.(acwriteenv); acconfig := ac0.(acconfig);
+       acreadq := ac0.(acreadq); acwriteq := ac0.(acwriteq);
+       acfbstore := ac0.(acfbstore); ackstore := ac0.(ackstore);
+       acfistore := FileinformationStore.add fi.(fname) fi ac0.(acfistore) |}.
 
 (* ensure that an environment with assembly (by aid) is available
    and that it is in the head position of the list of envs *)
@@ -198,7 +211,7 @@ Program Fixpoint run_write_requests (ac0 : assemblycache) (reqs : list writequeu
         let ac1 := {| acenvs := ac0.(acenvs); acsize := ac0.(acsize); acwriteenv := env; acconfig := ac0.(acconfig);
                       acreadq := ac0.(acreadq); acwriteq := {| wqueue := nil; wqueuesz := wqueuesz ac0.(acwriteq) |};
                       acfbstore := FBlockListStore.add fp bi ac0.(acfbstore);
-                      ackstore := ackstore' |} in
+                      ackstore := ackstore'; acfistore := ac0.(acfistore) |} in
         run_write_requests ac1 r ({| writerequest := h;
                                      wresult := {| rqaid := env.(cur_assembly AssemblyPlainWritable.B).(aid);
                                                    rqapos := bi.(blockapos);
@@ -218,7 +231,7 @@ Program Definition iterate_read_queue (ac0 : assemblycache) : (list readqueueres
         let sel := List.filter (fun e => String.eqb e.(rqaid) aid) r in
         let ac1 := {| acenvs := ac0.(acenvs); acsize := ac0.(acsize); acwriteenv := ac0.(acwriteenv); acconfig := ac0.(acconfig);
                       acreadq := {| rqueue := List.filter (fun e => negb (String.eqb e.(rqaid) aid)) r; rqueuesz := ac0.(acreadq).(rqueuesz) |};
-                      acwriteq := ac0.(acwriteq); acfbstore := ac0.(acfbstore); ackstore := ac0.(ackstore) |} in
+                      acwriteq := ac0.(acwriteq); acfbstore := ac0.(acfbstore); ackstore := ac0.(ackstore); acfistore := ac0.(acfistore) |} in
         run_read_requests ac1 (h :: sel) nil
     end.
 
@@ -231,7 +244,7 @@ Program Definition iterate_write_queue (ac0 : assemblycache) : (list writequeuer
     | h :: r =>
         let ac1 := {| acenvs := ac0.(acenvs); acsize := ac0.(acsize); acwriteenv := ac0.(acwriteenv); acconfig := ac0.(acconfig);
                       acreadq := ac0.(acreadq); acwriteq := {| wqueue := nil; wqueuesz := wqueuesz ac0.(acwriteq) |};
-                      acfbstore := ac0.(acfbstore); ackstore := ac0.(ackstore) |} in
+                      acfbstore := ac0.(acfbstore); ackstore := ac0.(ackstore); acfistore := ac0.(acfistore) |} in
         run_write_requests ac1 (h :: r) nil
     end.
 
@@ -243,7 +256,7 @@ Program Definition flush (ac0 : assemblycache) : assemblycache :=
         let ackstore' := KeyListStore.add aid ki ac0.(ackstore) in
         {| acenvs := nil; acsize := ac0.(acsize); acwriteenv := env'; acconfig := ac0.(acconfig);
         acreadq := ac0.(acreadq); acwriteq := ac0.(acwriteq);
-        acfbstore := ac0.(acfbstore); ackstore := ackstore' |}
+        acfbstore := ac0.(acfbstore); ackstore := ackstore'; acfistore := ac0.(acfistore) |}
     end.
 
 (* terminate cache: finalise writable environment and extract chunks from it *)
@@ -254,7 +267,7 @@ Program Definition close (ac0 : assemblycache) : assemblycache :=
         let ackstore' := KeyListStore.add aid ki ac0.(ackstore) in
         {| acenvs := nil; acsize := ac0.(acsize); acwriteenv := EnvironmentWritable.initial_environment ac0.(acconfig); acconfig := ac0.(acconfig);
         acreadq := ac0.(acreadq); acwriteq := ac0.(acwriteq);
-        acfbstore := ac0.(acfbstore); ackstore := ackstore' |}
+        acfbstore := ac0.(acfbstore); ackstore := ackstore'; acfistore := ac0.(acfistore) |}
     end.
 
 
@@ -264,7 +277,8 @@ Section Validation.
 Program Definition add_key (ac : assemblycache) (aid : aid_t) (ki : keyinformation) : assemblycache :=
     {| acenvs := ac.(acenvs); acsize := ac.(acsize); acwriteenv := ac.(acwriteenv); acconfig := ac.(acconfig);
        acwriteq := ac.(acwriteq);
-       acreadq := ac.(acreadq); acfbstore := ac.(acfbstore);
+       acreadq := ac.(acreadq);
+       acfbstore := ac.(acfbstore); acfistore := ac.(acfistore);
        ackstore := KeyListStore.add aid ki ac.(ackstore) |}.
 
 (* our database: the assembly with id "aid_found" exists and can be restored *)

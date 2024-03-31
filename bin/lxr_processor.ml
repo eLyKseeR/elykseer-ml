@@ -76,17 +76,15 @@ let main () = Arg.parse argspec anon_args_fun "lxr_processor: vxdni";
                   my_id       = myid } in
 
     let proc0 = Processor.prepare_processor conf in
-    let (fis, proc1) = 
+    let proc1 = 
       if !arg_directory = ""
       then
         (* backup each file *)
         List.map (fun fn -> Filesystem.Path.from_string fn) !arg_files |>
-        List.fold_left (fun (fis, proc) filename -> let (fi', proc') = Processor.file_backup proc filename in (fi' :: fis, proc'))
-                        ([], proc0)
+        List.fold_left (fun proc filename -> Processor.file_backup proc filename) proc0
       else begin
         if !arg_recursive
         then
-          (* let (fis, (_, proc')) = Processor.recursive_backup proc0 (Conversion.i2n 4) (Filesystem.Path.from_string !arg_directory) in (fis, proc') *)
           Processor.recursive_backup proc0 (Conversion.i2n 4) (Filesystem.Path.from_string !arg_directory)
         else
           Processor.directory_backup proc0 (Filesystem.Path.from_string !arg_directory)
@@ -94,6 +92,7 @@ let main () = Arg.parse argspec anon_args_fun "lxr_processor: vxdni";
     in
     (* close the processor - will extract chunks from current writable environment *)
     let proc2 = Processor.close proc1 in
+    let fis = (Processor.cache proc2).acfistore.entries |> List.map snd in
 
     (* access meta data and output to irmin database *)
     let%lwt () = output_relkeys proc2 in
