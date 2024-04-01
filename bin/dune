@@ -17,15 +17,6 @@
 )
 
 (executable
- (public_name lxr_assembly)
- (name lxr_assembly)
- (package elykseer)
- (modules lxr_assembly)
- (preprocess (pps lwt_ppx))
- (libraries elykseer elykseer_base elykseer_utils mlcpp_chrono lwt.unix lwt_ppx)
-)
-
-(executable
  (public_name lxr_relfiles)
  (name lxr_relfiles)
  (package elykseer)

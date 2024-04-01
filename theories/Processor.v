@@ -123,8 +123,11 @@ Local Program Definition open_file_backup (n_blocks : N) (fi : fileinformation) 
     match Cstdio.fopen fi.(fname) Cstdio.read_mode with
     | Some fptr =>
         let proc' := rec_file_backup_inner (nat_of_N n_blocks) this fi fpos fptr in
-        let _ := Cstdio.fclose fptr in
-        proc'
+        match Cstdio.fclose fptr with
+        | None => proc'
+        | Some _ =>
+            update_cache proc' (AssemblyCache.add_fileinformation proc'.(cache) fi)
+        end
     | None => this
     end.
 (* Obligations of open_file_backup. *)
@@ -163,12 +166,24 @@ Local Program Definition restore_file_to (fptr: Cstdio.fptr) (blocks : list bloc
     let n := internal_restore_to fptr lrres in
     (n + res, ac'').
 
-Program Definition file_backup (fp : Filesystem.path) : (fileinformation * processor) :=
-    let fi := get_file_information (Filesystem.Path.to_string fp) in
-    let n_blocks := 1 + (fi.(fsize) + (block_sz / 2) - 1) / block_sz in
-    let proc1 := open_file_backup n_blocks fi 0 in
-    let (_, proc2) := run_write_requests proc1 in
-    (fi, proc2).
+Program Definition file_backup (fp : Filesystem.path) : processor :=
+    let fn := Filesystem.Path.to_string fp in
+    let fi := get_file_information fn in
+    (* deduplication level 1: compare file checksums *)
+    let ofi' := FileinformationStore.find fn this.(cache).(acfistore) in
+    let found :=
+        match ofi' with
+        | None => false
+        | Some fi' => if fi'.(fchecksum) =? fi.(fchecksum) then true else false
+        end
+    in
+    if (found) then
+        this
+    else
+        let n_blocks := 1 + (fi.(fsize) + (block_sz / 2) - 1) / block_sz in
+        let proc1 := open_file_backup n_blocks fi 0 in
+        let (_, proc2) := run_write_requests proc1 in
+        proc2.
 
 Program Definition file_restore (basep : Filesystem.path) (fp : Filesystem.path) (blocks : list blockinformation) : (N * processor) :=
     let targetp := Filesystem.Path.append basep fp in
@@ -205,48 +220,28 @@ Local Program Definition internal_directory_entries (fp : Filesystem.path) : (li
                 (lfiles, ldirs)
         ).
 
-Program Definition directory_backup (this : processor) (fp : Filesystem.path) : (list fileinformation * processor) :=
+Program Definition directory_backup (this : processor) (fp : Filesystem.path) : processor :=
     let '(lfiles, _) := internal_directory_entries fp in
-    List.fold_left (fun '(fis,proc0) filepath => let (fi, proc1) := file_backup proc0 filepath in (fi :: fis, proc1)) lfiles ([], this).
+    List.fold_left file_backup lfiles this.
 
-Program Definition directory_backup_0 (this : processor) (fp : Filesystem.path) : processor :=
-    let '(lfiles, _) := internal_directory_entries fp in
-    List.fold_left (fun proc0 filepath => let (_, proc1) := file_backup proc0 filepath in proc1) lfiles this.
-
-Local Program Fixpoint internal_recursive_backup (maxdepth : nat) (this : processor) (fis0 : list fileinformation) (fp : Filesystem.path) : (list fileinformation * processor) :=
-    match maxdepth with
-    | O => (fis0, this)
-    | S depth =>
-        Filesystem.list_directory fp (fis0, this) (fun de '(fis, proc) =>
-            if Filesystem.Direntry.is_directory de then
-                let defp := Filesystem.Direntry.as_path de in
-                let '(fis', proc') := internal_recursive_backup depth proc fis0 defp in
-                (fis' ++ fis, proc')
-            else if Filesystem.Direntry.is_regular_file de then
-                let defp := Filesystem.Direntry.as_path de in
-                let '(fi, proc') := file_backup proc defp in
-                (fi :: fis, proc')
-            else
-                (fis, proc)
-        )
-    end.
-Program Definition recursive_backup (this : processor) (maxdepth : N) (fp : Filesystem.path) : (list fileinformation * processor) :=
-    if Filesystem.Path.is_directory fp then
-        internal_recursive_backup (nat_of_N maxdepth) this [] fp
-    else
-        ([], this).
-
-Local Program Fixpoint internal_recursive_backup_0 (maxdepth : nat) (this : processor) (fp : Filesystem.path) : processor :=
+Local Program Fixpoint internal_recursive_backup (maxdepth : nat) (this : processor) (fp : Filesystem.path) : processor :=
     match maxdepth with
     | O => this
     | S depth =>
-        let '(lfiles, ldirs) := internal_directory_entries fp in
-        let proc' := List.fold_left (fun proc0 filepath => let (_, proc1) := file_backup proc0 filepath in proc1) lfiles this in
-        List.fold_left (fun proc0 dirpath => internal_recursive_backup_0 depth proc0 dirpath) ldirs proc'
+        Filesystem.list_directory fp this (fun de proc =>
+            if Filesystem.Direntry.is_directory de then
+                let defp := Filesystem.Direntry.as_path de in
+                internal_recursive_backup depth proc defp
+            else if Filesystem.Direntry.is_regular_file de then
+                let defp := Filesystem.Direntry.as_path de in
+                file_backup proc defp
+            else
+                proc
+        )
     end.
-Program Definition recursive_backup_0 (this : processor) (maxdepth : N) (fp : Filesystem.path) : processor :=
+Program Definition recursive_backup (this : processor) (maxdepth : N) (fp : Filesystem.path) : processor :=
     if Filesystem.Path.is_directory fp then
-        internal_recursive_backup_0 (nat_of_N maxdepth) this fp
+        internal_recursive_backup (nat_of_N maxdepth) this fp
     else
         this.
 

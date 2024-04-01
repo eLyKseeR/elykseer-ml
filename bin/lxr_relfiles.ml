@@ -121,6 +121,7 @@ let example_output () =
              ; rfbs=blocks2 } in
   let%lwt _ = Relfiles.add (Elykseer_crypto.Sha256.string "testfile01.data") rel1 rel in
   let%lwt _ = Relfiles.add (Elykseer_crypto.Sha256.string "testfile02.data") rel2 rel in
+  let%lwt _ = Relfiles.close_map rel in
   Lwt_io.printl "done."
 
 

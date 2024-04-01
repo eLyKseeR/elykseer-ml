@@ -2030,7 +2030,8 @@ module AssemblyCache =
                          acconfig : Configuration.configuration;
                          acwriteq : writequeue; acreadq : readqueue;
                          acfbstore : Store.FBlockListStore.coq_R;
-                         ackstore : Store.KeyListStore.coq_R }
+                         ackstore : Store.KeyListStore.coq_R;
+                         acfistore : Store.FileinformationStore.coq_R }
 
   (** val acenvs :
       assemblycache -> Environment.EnvironmentReadable.coq_E list **)
@@ -2074,6 +2075,11 @@ module AssemblyCache =
   let ackstore a =
     a.ackstore
 
+  (** val acfistore : assemblycache -> Store.FileinformationStore.coq_R **)
+
+  let acfistore a =
+    a.acfistore
+
   (** val prepare_assemblycache :
       Configuration.configuration -> positive -> assemblycache **)
 
@@ -2082,7 +2088,8 @@ module AssemblyCache =
       (Environment.EnvironmentWritable.initial_environment c); acconfig = c;
       acwriteq = { wqueue = []; wqueuesz = qsize }; acreadq = { rqueue = [];
       rqueuesz = qsize }; acfbstore = (Store.FBlockListStore.init c);
-      ackstore = (Store.KeyListStore.init c) }
+      ackstore = (Store.KeyListStore.init c); acfistore =
+      (Store.FileinformationStore.init c) }
 
   (** val enqueue_write_request :
       assemblycache -> writequeueentity -> bool * assemblycache **)
@@ -2095,7 +2102,8 @@ module AssemblyCache =
     else (true, { acenvs = ac.acenvs; acsize = ac.acsize; acwriteenv =
            ac.acwriteenv; acconfig = ac.acconfig; acwriteq = { wqueue =
            (req :: wq); wqueuesz = ac.acwriteq.wqueuesz }; acreadq =
-           ac.acreadq; acfbstore = ac.acfbstore; ackstore = ac.ackstore })
+           ac.acreadq; acfbstore = ac.acfbstore; ackstore = ac.ackstore;
+           acfistore = ac.acfistore })
 
   (** val enqueue_read_request :
       assemblycache -> readqueueentity -> bool * assemblycache **)
@@ -2109,7 +2117,7 @@ module AssemblyCache =
            ac.acwriteenv; acconfig = ac.acconfig; acwriteq = ac.acwriteq;
            acreadq = { rqueue = (req :: rq); rqueuesz =
            ac.acreadq.rqueuesz }; acfbstore = ac.acfbstore; ackstore =
-           ac.ackstore })
+           ac.ackstore; acfistore = ac.acfistore })
 
   (** val try_restore_assembly :
       assemblycache -> Assembly.aid_t ->
@@ -2131,7 +2139,18 @@ module AssemblyCache =
   let set_envs ac0 envs =
     { acenvs = envs; acsize = ac0.acsize; acwriteenv = ac0.acwriteenv;
       acconfig = ac0.acconfig; acwriteq = ac0.acwriteq; acreadq =
-      ac0.acreadq; acfbstore = ac0.acfbstore; ackstore = ac0.ackstore }
+      ac0.acreadq; acfbstore = ac0.acfbstore; ackstore = ac0.ackstore;
+      acfistore = ac0.acfistore }
+
+  (** val add_fileinformation :
+      assemblycache -> Filesupport.fileinformation -> assemblycache **)
+
+  let add_fileinformation ac0 fi =
+    { acenvs = ac0.acenvs; acsize = ac0.acsize; acwriteenv = ac0.acwriteenv;
+      acconfig = ac0.acconfig; acwriteq = ac0.acwriteq; acreadq =
+      ac0.acreadq; acfbstore = ac0.acfbstore; ackstore = ac0.ackstore;
+      acfistore =
+      (Store.FileinformationStore.add fi.Filesupport.fname fi ac0.acfistore) }
 
   (** val ensure_assembly :
       assemblycache -> Assembly.aid_t ->
@@ -2237,7 +2256,7 @@ module AssemblyCache =
         acconfig = ac0.acconfig; acwriteq = { wqueue = []; wqueuesz =
         ac0.acwriteq.wqueuesz }; acreadq = ac0.acreadq; acfbstore =
         (Store.FBlockListStore.add fp bi ac0.acfbstore); ackstore =
-        ackstore' }
+        ackstore'; acfistore = ac0.acfistore }
       in
       run_write_requests ac1 r ({ writerequest = h; wresult = { rqaid =
         env.Environment.cur_assembly.Assembly.aid; rqapos =
@@ -2259,7 +2278,7 @@ module AssemblyCache =
          ac0.acwriteenv; acconfig = ac0.acconfig; acwriteq = ac0.acwriteq;
          acreadq = { rqueue = (filter (fun e -> negb ((=) e.rqaid aid0)) r);
          rqueuesz = ac0.acreadq.rqueuesz }; acfbstore = ac0.acfbstore;
-         ackstore = ac0.ackstore }
+         ackstore = ac0.ackstore; acfistore = ac0.acfistore }
        in
        run_read_requests ac1 (h :: sel) [])
 
@@ -2274,7 +2293,8 @@ module AssemblyCache =
        let ac1 = { acenvs = ac0.acenvs; acsize = ac0.acsize; acwriteenv =
          ac0.acwriteenv; acconfig = ac0.acconfig; acwriteq = { wqueue = [];
          wqueuesz = ac0.acwriteq.wqueuesz }; acreadq = ac0.acreadq;
-         acfbstore = ac0.acfbstore; ackstore = ac0.ackstore }
+         acfbstore = ac0.acfbstore; ackstore = ac0.ackstore; acfistore =
+         ac0.acfistore }
        in
        run_write_requests ac1 (h :: r) [])
 
@@ -2292,7 +2312,8 @@ module AssemblyCache =
        let ackstore' = Store.KeyListStore.add aid0 ki ac0.ackstore in
        { acenvs = []; acsize = ac0.acsize; acwriteenv = env'; acconfig =
        ac0.acconfig; acwriteq = ac0.acwriteq; acreadq = ac0.acreadq;
-       acfbstore = ac0.acfbstore; ackstore = ackstore' }
+       acfbstore = ac0.acfbstore; ackstore = ackstore'; acfistore =
+       ac0.acfistore }
      | None -> ac0)
 
   (** val close : assemblycache -> assemblycache **)
@@ -2308,7 +2329,8 @@ module AssemblyCache =
        { acenvs = []; acsize = ac0.acsize; acwriteenv =
        (Environment.EnvironmentWritable.initial_environment ac0.acconfig);
        acconfig = ac0.acconfig; acwriteq = ac0.acwriteq; acreadq =
-       ac0.acreadq; acfbstore = ac0.acfbstore; ackstore = ackstore' }
+       ac0.acreadq; acfbstore = ac0.acfbstore; ackstore = ackstore';
+       acfistore = ac0.acfistore }
      | None -> ac0)
 
   (** val add_key :
@@ -2319,7 +2341,7 @@ module AssemblyCache =
     { acenvs = ac.acenvs; acsize = ac.acsize; acwriteenv = ac.acwriteenv;
       acconfig = ac.acconfig; acwriteq = ac.acwriteq; acreadq = ac.acreadq;
       acfbstore = ac.acfbstore; ackstore =
-      (Store.KeyListStore.add aid0 ki ac.ackstore) }
+      (Store.KeyListStore.add aid0 ki ac.ackstore); acfistore = ac.acfistore }
  end
 
 module BackupPlanner =
@@ -2546,7 +2568,15 @@ module Processor =
     let filtered_var = Cstdio.fopen fi.Filesupport.fname Cstdio.read_mode in
     (match filtered_var with
      | Some fptr0 ->
-       rec_file_backup_inner (N.to_nat n_blocks) this fi fpos fptr0
+       let proc' =
+         rec_file_backup_inner (N.to_nat n_blocks) this fi fpos fptr0
+       in
+       let filtered_var0 = Cstdio.fclose fptr0 in
+       (match filtered_var0 with
+        | Some _ ->
+          update_cache proc'
+            (AssemblyCache.add_fileinformation proc'.cache fi)
+        | None -> proc')
      | None -> this)
 
   (** val internal_restore_to :
@@ -2603,20 +2633,30 @@ module Processor =
     let (lrres, ac'') = AssemblyCache.iterate_read_queue ac' in
     let n0 = internal_restore_to fptr0 lrres in ((N.add n0 res), ac'')
 
-  (** val file_backup :
-      processor -> Filesystem.path -> Filesupport.fileinformation * processor **)
+  (** val file_backup : processor -> Filesystem.path -> processor **)
 
   let file_backup this fp =
-    let fi = Filesupport.get_file_information (Filesystem.Path.to_string fp)
+    let fn = Filesystem.Path.to_string fp in
+    let fi = Filesupport.get_file_information fn in
+    let ofi' =
+      Store.FileinformationStore.find fn this.cache.AssemblyCache.acfistore
     in
-    let n_blocks =
-      N.add (Npos XH)
-        (N.div
-          (N.sub (N.add fi.Filesupport.fsize (N.div block_sz (Npos (XO XH))))
-            (Npos XH)) block_sz)
+    let found =
+      match ofi' with
+      | Some fi' -> (=) fi'.Filesupport.fchecksum fi.Filesupport.fchecksum
+      | None -> false
     in
-    let proc1 = open_file_backup this n_blocks fi N0 in
-    let (_, proc2) = run_write_requests proc1 in (fi, proc2)
+    if found
+    then this
+    else let n_blocks =
+           N.add (Npos XH)
+             (N.div
+               (N.sub
+                 (N.add fi.Filesupport.fsize (N.div block_sz (Npos (XO XH))))
+                 (Npos XH)) block_sz)
+         in
+         let proc1 = open_file_backup this n_blocks fi N0 in
+         let (_, proc2) = run_write_requests proc1 in proc2
 
   (** val file_restore :
       processor -> Filesystem.path -> Filesystem.path ->
@@ -2655,78 +2695,34 @@ module Processor =
                 ((defp :: lfiles), ldirs)
            else (lfiles, ldirs))
 
-  (** val directory_backup :
-      processor -> Filesystem.path -> Filesupport.fileinformation
-      list * processor **)
+  (** val directory_backup : processor -> Filesystem.path -> processor **)
 
   let directory_backup this fp =
     let filtered_var = internal_directory_entries fp in
-    let (lfiles, _) = filtered_var in
-    fold_left (fun pat filepath ->
-      let (fis, proc0) = pat in
-      let (fi, proc1) = file_backup proc0 filepath in ((fi :: fis), proc1))
-      lfiles ([], this)
-
-  (** val directory_backup_0 : processor -> Filesystem.path -> processor **)
-
-  let directory_backup_0 this fp =
-    let filtered_var = internal_directory_entries fp in
-    let (lfiles, _) = filtered_var in
-    fold_left (fun proc0 filepath ->
-      let (_, proc1) = file_backup proc0 filepath in proc1) lfiles this
+    let (lfiles, _) = filtered_var in fold_left file_backup lfiles this
 
   (** val internal_recursive_backup :
-      nat -> processor -> Filesupport.fileinformation list -> Filesystem.path
-      -> Filesupport.fileinformation list * processor **)
-
-  let rec internal_recursive_backup maxdepth this fis0 fp =
-    match maxdepth with
-    | O -> (fis0, this)
-    | S depth ->
-      Filesystem.list_directory fp (fis0, this) (fun de pat ->
-        let (fis, proc) = pat in
-        if Filesystem.Direntry.is_directory de
-        then let defp = Filesystem.Direntry.as_path de in
-             let filtered_var = internal_recursive_backup depth proc fis0 defp
-             in
-             let (fis', proc') = filtered_var in ((app fis' fis), proc')
-        else if Filesystem.Direntry.is_regular_file de
-             then let defp = Filesystem.Direntry.as_path de in
-                  let filtered_var = file_backup proc defp in
-                  let (fi, proc') = filtered_var in ((fi :: fis), proc')
-             else (fis, proc))
-
-  (** val recursive_backup :
-      processor -> n -> Filesystem.path -> Filesupport.fileinformation
-      list * processor **)
-
-  let recursive_backup this maxdepth fp =
-    if Filesystem.Path.is_directory fp
-    then internal_recursive_backup (N.to_nat maxdepth) this [] fp
-    else ([], this)
-
-  (** val internal_recursive_backup_0 :
       nat -> processor -> Filesystem.path -> processor **)
 
-  let rec internal_recursive_backup_0 maxdepth this fp =
+  let rec internal_recursive_backup maxdepth this fp =
     match maxdepth with
     | O -> this
     | S depth ->
-      let filtered_var = internal_directory_entries fp in
-      let (lfiles, ldirs) = filtered_var in
-      let proc' =
-        fold_left (fun proc0 filepath ->
-          let (_, proc1) = file_backup proc0 filepath in proc1) lfiles this
-      in
-      fold_left (fun proc0 dirpath ->
-        internal_recursive_backup_0 depth proc0 dirpath) ldirs proc'
+      Filesystem.list_directory fp this (fun de proc ->
+        if Filesystem.Direntry.is_directory de
+        then let defp = Filesystem.Direntry.as_path de in
+             internal_recursive_backup depth proc defp
+        else if Filesystem.Direntry.is_regular_file de
+             then let defp = Filesystem.Direntry.as_path de in
+                  file_backup proc defp
+             else proc)
 
-  (** val recursive_backup_0 :
+  (** val recursive_backup :
       processor -> n -> Filesystem.path -> processor **)
 
-  let recursive_backup_0 this maxdepth fp =
+  let recursive_backup this maxdepth fp =
     if Filesystem.Path.is_directory fp
-    then internal_recursive_backup_0 (N.to_nat maxdepth) this fp
+    then internal_recursive_backup (N.to_nat maxdepth) this fp
     else this
  end
 
