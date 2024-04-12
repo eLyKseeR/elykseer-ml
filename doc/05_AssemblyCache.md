@@ -7,6 +7,7 @@ The module [AssemblyCache](../theories/AssemblyCache.v) maintains a fixed size c
 * one assembly is writeable. As soon as it is full it will get encrypted and extracted to chunks.
 
 * a fixed number of assemblies are decrypted. Only the one in the first place is readable. If another one is requested and not yet decrypted, then it will be reconstructed from chunks, decrypted and put in front of the others. The last one is dropped.
+* the cache has read/write access to the meta data relations _relkeys_, _relfiles_, and _fileinformation_
 
 ![Caching of data with AssemblyCache](./img/img4.png)
 

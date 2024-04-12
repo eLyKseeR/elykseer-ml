@@ -10,12 +10,12 @@ Extract from the OCaml program [lxr_processor](../bin/lxr_processor.ml) to highl
 
 ```OCaml
 (* initial state *)
-let initial_state = ((Processor.prepare_processor conf), []) in
+let initial_state = (Processor.prepare_processor conf, []) in
 (* backup each file *)
 let (proc0, fis) = List.fold_left
                         (fun (proc, fis) filename ->
-                        let (fi, (_, proc')) = Processor.file_backup proc filename
-                        in (proc', fi :: fis))
+                         let (fi, (_, proc')) = Processor.file_backup proc filename
+                         in (proc', fi :: fis))
                         initial_state !arg_files in
 (* close the processor - will extract chunks from current writable environment *)
 let proc1 = Processor.close proc0 in
