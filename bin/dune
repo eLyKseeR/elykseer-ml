@@ -1,10 +1,18 @@
+(install
+ (files (lxr_backup lxr_restore lxr_chunks
+                    lxr_relkeys lxr_relfiles
+                    lxr_filehash
+                    lxr_compare lxr_incremental))
+ (section bin))
+
 (executable
  (public_name lxr_backup)
  (package elykseer)
  (name lxr_backup)
  (modules lxr_backup)
  (preprocess (pps lwt_ppx))
- (libraries elykseer elykseer_base elykseer_utils lwt.unix lwt_ppx)
+ (ocamlopt_flags -O3 -cclib -s)
+ (libraries elykseer elykseer_base elykseer_utils)
 )
 
 (executable
@@ -13,7 +21,8 @@
  (name lxr_processor)
  (modules lxr_processor)
  (preprocess (pps lwt_ppx))
- (libraries elykseer elykseer_base elykseer_utils lwt.unix lwt_ppx)
+ (ocamlopt_flags -O3 -cclib -s)
+ (libraries elykseer elykseer_base elykseer_utils)
 )
 
 (executable
@@ -22,7 +31,8 @@
  (package elykseer)
  (modules lxr_relfiles)
  (preprocess (pps lwt_ppx))
- (libraries elykseer elykseer_base elykseer_utils mlcpp_chrono mlcpp_cstdio lwt.unix lwt_ppx)
+ (ocamlopt_flags -O3 -cclib -s)
+ (libraries elykseer elykseer_base elykseer_utils mlcpp_chrono mlcpp_cstdio)
 )
 
 (executable
@@ -31,7 +41,8 @@
  (package elykseer)
  (modules lxr_relkeys)
  (preprocess (pps lwt_ppx))
- (libraries elykseer elykseer_base elykseer_utils mlcpp_cstdio lwt.unix lwt_ppx)
+ (ocamlopt_flags -O3 -cclib -s)
+ (libraries elykseer elykseer_base elykseer_utils mlcpp_cstdio)
 )
 
 (executable
@@ -40,7 +51,8 @@
  (package elykseer)
  (modules lxr_restore)
  (preprocess (pps lwt_ppx))
- (libraries elykseer elykseer_base elykseer_utils lwt.unix lwt_ppx)
+ (ocamlopt_flags -O3 -cclib -s)
+ (libraries elykseer elykseer_base elykseer_utils)
 )
 
 (executable
@@ -48,6 +60,7 @@
  (name lxr_chunks)
  (package elykseer)
  (modules lxr_chunks)
+ (ocamlopt_flags -O3 -cclib -s)
  (libraries elykseer elykseer_base elykseer_utils)
 )
 
@@ -56,8 +69,8 @@
  (name lxr_filehash)
  (package elykseer)
  (modules lxr_filehash)
- (preprocess (pps lwt_ppx))
- (libraries elykseer elykseer_crypto lwt.unix lwt_ppx)
+ (ocamlopt_flags -O3 -cclib -s)
+ (libraries elykseer elykseer_crypto)
 )
 
 (executable
@@ -66,7 +79,8 @@
  (package elykseer)
  (modules lxr_compare)
  (preprocess (pps lwt_ppx))
- (libraries elykseer elykseer_base elykseer_utils lwt.unix lwt_ppx)
+ (ocamlopt_flags -O3 -cclib -s)
+ (libraries elykseer elykseer_base elykseer_utils)
 )
 
 (executable
@@ -75,5 +89,6 @@
  (package elykseer)
  (modules lxr_incremental)
  (preprocess (pps lwt_ppx))
- (libraries elykseer elykseer_base elykseer_utils lwt.unix lwt_ppx)
+ (ocamlopt_flags -O3 -cclib -s)
+ (libraries elykseer elykseer_base elykseer_utils)
 )

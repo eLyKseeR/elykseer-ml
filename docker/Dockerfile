@@ -69,6 +69,6 @@ RUN eval $(opam env) && coq_makefile -f _CoqProject -o Makefile
 RUN eval $(opam env) && make
 
 # build libraries and executables with OCaml
-RUN eval $(opam env) && dune build
+RUN eval $(opam env) && dune build && dune install --prefix ${HOME}/.local
 
 CMD bash
