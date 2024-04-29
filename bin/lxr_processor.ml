@@ -50,7 +50,7 @@ let output_relfiles proc fis =
   let fbis = Env.consolidate_files (Processor.get_fblocks proc).entries in
   let%lwt rel = Relfiles.new_map (Processor.config proc) in
   let%lwt () = Lwt_list.iter_s (fun (fhash, bis) ->
-                                  let fi = List.find (fun (fi : Filesupport.fileinformation) -> Elykseer_crypto.Sha256.string fi.fname = fhash) fis in
+                                  let fi = List.find (fun (fi : Filesupport.fileinformation) -> fi.fhash = fhash) fis in
                                   let%lwt _rel' = Relfiles.add fhash {rfi=fi; rfbs=bis} rel in Lwt.return ())
                                fbis in
   Relfiles.close_map rel

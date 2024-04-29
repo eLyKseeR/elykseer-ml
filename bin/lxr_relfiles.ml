@@ -38,10 +38,10 @@ let mk_rel n aid rel =
   let rnd = Elykseer_crypto.Random.with_rng (fun rng -> Elykseer_crypto.Random.r32_range rng 1 12) in
   let blocks : Assembly.blockinformation list = mk_blocks rnd aid 1200 0 in
   let fname = Printf.sprintf "test_%04d.dat" n in
-  let fi : Filesupport.fileinformation = {fname = fname
+  let fhash = Elykseer_crypto.Sha256.string fname in
+  let fi : Filesupport.fileinformation = {fname = fname; fhash = fhash
            ;fsize = Conversion.i2n @@ List.fold_left (fun acc (e : Assembly.blockinformation) -> (Conversion.n2i e.blocksize) + acc) 0 blocks
            ;fowner = ""; fpermissions = Conversion.i2n 644; fmodified = ""; fchecksum = ""} in
-  let fhash = Elykseer_crypto.Sha256.string fname in
   (* let%lwt () = Lwt_io.printlf "   %s <- %s" fhash fname in *)
   let%lwt _ = Relfiles.add fhash {rfi=fi; rfbs=blocks} rel in
   Lwt.return rel
@@ -115,12 +115,14 @@ let example_output () =
                     filepos = Conversion.i2n (1200+860); blocksize = Conversion.i2n 323;
                     bchecksum = "check3"; blockapos = Conversion.i2n 0
                   } ] in
-  let rel1 : Relfiles.relation = { rfi={fname="testfile01.data";fsize=Conversion.i2n 173;fowner="";fpermissions=Conversion.i2n 644;fmodified="";fchecksum=""}
+  let fhash1 = Elykseer_crypto.Sha256.string ("testfile01.data" ^ config.my_id) in
+  let fhash2 = Elykseer_crypto.Sha256.string ("testfile02.data" ^ config.my_id) in
+  let rel1 : Relfiles.relation = { rfi={fname="testfile01.data";fhash=fhash1;fsize=Conversion.i2n 173;fowner="";fpermissions=Conversion.i2n 644;fmodified="";fchecksum=""}
              ; rfbs=blocks1 } in
-  let rel2 : Relfiles.relation = { rfi={fname="testfile02.data";fsize=Conversion.i2n 324;fowner="";fpermissions=Conversion.i2n 644;fmodified="";fchecksum=""}
+  let rel2 : Relfiles.relation = { rfi={fname="testfile02.data";fhash=fhash2;fsize=Conversion.i2n 324;fowner="";fpermissions=Conversion.i2n 644;fmodified="";fchecksum=""}
              ; rfbs=blocks2 } in
-  let%lwt _ = Relfiles.add (Elykseer_crypto.Sha256.string "testfile01.data") rel1 rel in
-  let%lwt _ = Relfiles.add (Elykseer_crypto.Sha256.string "testfile02.data") rel2 rel in
+  let%lwt _ = Relfiles.add fhash1 rel1 rel in
+  let%lwt _ = Relfiles.add fhash2 rel2 rel in
   let%lwt _ = Relfiles.close_map rel in
   Lwt_io.printl "done."
 

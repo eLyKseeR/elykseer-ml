@@ -29,7 +29,7 @@ let argspec =
 let anon_args_fun fn = arg_files := fn :: !arg_files
 
 let restore_file proc relf _relk basep fname =
-  let%lwt ofbs = Relfiles.find (Elykseer_crypto.Sha256.string fname) relf in
+  let%lwt ofbs = Relfiles.find (Elykseer_crypto.Sha256.string (fname ^ !arg_myid)) relf in
   match ofbs with
   | None -> let%lwt () = Lwt_io.printlf "  cannot restore file '%s'" fname in Lwt.return (0,proc)
   | Some rfbs ->
@@ -45,7 +45,7 @@ let restore_file proc relf _relk basep fname =
    assembly cache *)
 let ensure_keys_available (ac0 : AssemblyCache.assemblycache) relf relk fns =
   let%lwt laids = Lwt_list.fold_left_s (fun acc fname ->
-                    let fhash = Elykseer_crypto.Sha256.string fname in
+                    let fhash = Elykseer_crypto.Sha256.string (fname ^ !arg_myid) in
                     match%lwt Relfiles.find fhash relf with
                     | None -> Lwt.return acc
                     | Some fbs ->

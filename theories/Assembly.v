@@ -14,7 +14,7 @@ Module Export Assembly.
 
 (**
  Module: Assembly
- Description: an assemblyinformation is an ordering of chunks of data,
+ Description: an assembly is an ordering of chunks of data,
               either plain for reading and writing, 
               or encrypted for longterm storage.
  *)
@@ -35,6 +35,8 @@ Definition chunksize_N : N := Conversion.pos2N chunksize.
 Definition assemblysize (n : Nchunks.Private.t) : N := chunksize_N * (to_N n).
 
 Definition aid_t := string.
+Definition mkaid (c : configuration) : aid_t :=
+    Utilities.rnd256 (my_id c).
 
 Definition RecordAssemblyInformation := Set.
 Record assemblyinformation : RecordAssemblyInformation :=
@@ -87,7 +89,7 @@ Module AssemblyPlainWritable : ASS.
         let b := BufferPlain.buffer_create (chunksize_N * Nchunks.to_N chunks) in
         let rb := Cstdio.ranbuf128 tt in
         let nb := BufferPlain.copy_sz_pos rb 0 16 b 0 in
-        (mkassembly chunks (Utilities.rnd256 (my_id c)) nb, b).
+        (mkassembly chunks (mkaid c) nb, b).
 End AssemblyPlainWritable.
 (* Print AssemblyPlainWritable. *)
 
@@ -99,7 +101,7 @@ Module AssemblyEncrypted : ASS.
     Definition create (c : configuration) : assemblyinformation * B :=
         let chunks := config_nchunks c in
         let b := BufferEncrypted.buffer_create (chunksize_N * Nchunks.to_N chunks) in
-        (mkassembly chunks (Utilities.rnd256 (my_id c)) 0, b).
+        (mkassembly chunks (mkaid c) 0, b).
 End AssemblyEncrypted.
 (* Print AssemblyEncrypted. *)
 
@@ -112,7 +114,7 @@ Module AssemblyPlainFull : ASS.
         let chunks := config_nchunks c in
         let sz := chunksize_N * Nchunks.to_N chunks in
         let b := BufferPlain.buffer_create sz in
-        (mkassembly chunks (Utilities.rnd256 (my_id c)) sz, b).
+        (mkassembly chunks (mkaid c) sz, b).
 End AssemblyPlainFull.
 (* Print AssemblyPlainFull. *)
 

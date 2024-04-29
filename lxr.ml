@@ -1180,6 +1180,11 @@ module Assembly =
 
   type aid_t = string
 
+  (** val mkaid : Configuration.configuration -> aid_t **)
+
+  let mkaid c =
+    Utilities.rnd256 c.Configuration.my_id
+
   type assemblyinformation = { nchunks : Nchunks.Private.t; aid : aid_t;
                                apos : n }
 
@@ -1299,8 +1304,7 @@ module Assembly =
         Cstdio.BufferPlain.copy_sz_pos rb N0 (Npos (XO (XO (XO (XO XH))))) b
           N0
       in
-      ({ nchunks = chunks; aid = (Utilities.rnd256 c.Configuration.my_id);
-      apos = nb }, b)
+      ({ nchunks = chunks; aid = (mkaid c); apos = nb }, b)
    end
 
   module AssemblyEncrypted =
@@ -1326,8 +1330,7 @@ module Assembly =
         Cstdio.BufferEncrypted.buffer_create
           (N.mul chunksize_N (Nchunks.to_N chunks))
       in
-      ({ nchunks = chunks; aid = (Utilities.rnd256 c.Configuration.my_id);
-      apos = N0 }, b)
+      ({ nchunks = chunks; aid = (mkaid c); apos = N0 }, b)
    end
 
   module AssemblyPlainFull =
@@ -1351,8 +1354,7 @@ module Assembly =
       let chunks = c.Configuration.config_nchunks in
       let sz = N.mul chunksize_N (Nchunks.to_N chunks) in
       let b = Cstdio.BufferPlain.buffer_create sz in
-      ({ nchunks = chunks; aid = (Utilities.rnd256 c.Configuration.my_id);
-      apos = sz }, b)
+      ({ nchunks = chunks; aid = (mkaid c); apos = sz }, b)
    end
 
   (** val id_assembly_full_ainfo_from_writable :
@@ -1618,14 +1620,19 @@ module Filesupport =
  struct
   type filename = string
 
-  type fileinformation = { fname : filename; fsize : n; fowner : string;
-                           fpermissions : n; fmodified : string;
-                           fchecksum : string }
+  type fileinformation = { fname : filename; fhash : string; fsize : 
+                           n; fowner : string; fpermissions : n;
+                           fmodified : string; fchecksum : string }
 
   (** val fname : fileinformation -> filename **)
 
   let fname f =
     f.fname
+
+  (** val fhash : fileinformation -> string **)
+
+  let fhash f =
+    f.fhash
 
   (** val fsize : fileinformation -> n **)
 
@@ -1652,11 +1659,13 @@ module Filesupport =
   let fchecksum f =
     f.fchecksum
 
-  (** val get_file_information : filename -> fileinformation **)
+  (** val get_file_information :
+      Configuration.configuration -> filename -> fileinformation **)
 
   let get_file_information =   
-    fun fn ->
+    fun (c : Configuration.configuration) fn ->
         { fname = fn;
+          fhash = Elykseer_crypto.Sha256.string (fn ^ c.my_id);
           fsize = Conversion.i2n (Elykseer_base.Fsutils.fsize fn);
           fowner = string_of_int (Elykseer_base.Fsutils.fowner fn);
           fpermissions = Conversion.i2n (Elykseer_base.Fsutils.fperm fn);
@@ -2271,16 +2280,15 @@ module AssemblyCache =
     let filtered_var = ac0.acreadq.rqueue in
     (match filtered_var with
      | [] -> ([], ac0)
-     | h :: r ->
-       let aid0 = h.rqaid in
-       let sel = filter (fun e -> (=) e.rqaid aid0) r in
+     | r :: l ->
+       let rq = r :: l in
        let ac1 = { acenvs = ac0.acenvs; acsize = ac0.acsize; acwriteenv =
          ac0.acwriteenv; acconfig = ac0.acconfig; acwriteq = ac0.acwriteq;
-         acreadq = { rqueue = (filter (fun e -> negb ((=) e.rqaid aid0)) r);
-         rqueuesz = ac0.acreadq.rqueuesz }; acfbstore = ac0.acfbstore;
-         ackstore = ac0.ackstore; acfistore = ac0.acfistore }
+         acreadq = { rqueue = []; rqueuesz = ac0.acreadq.rqueuesz };
+         acfbstore = ac0.acfbstore; ackstore = ac0.ackstore; acfistore =
+         ac0.acfistore }
        in
-       run_read_requests ac1 (h :: sel) [])
+       run_read_requests ac1 rq [])
 
   (** val iterate_write_queue :
       assemblycache -> writequeueresult list * assemblycache **)
@@ -2289,14 +2297,15 @@ module AssemblyCache =
     let filtered_var = ac0.acwriteq.wqueue in
     (match filtered_var with
      | [] -> ([], ac0)
-     | h :: r ->
+     | w :: l ->
+       let wq = w :: l in
        let ac1 = { acenvs = ac0.acenvs; acsize = ac0.acsize; acwriteenv =
          ac0.acwriteenv; acconfig = ac0.acconfig; acwriteq = { wqueue = [];
          wqueuesz = ac0.acwriteq.wqueuesz }; acreadq = ac0.acreadq;
          acfbstore = ac0.acfbstore; ackstore = ac0.ackstore; acfistore =
          ac0.acfistore }
        in
-       run_write_requests ac1 (h :: r) [])
+       run_write_requests ac1 wq [])
 
   (** val flush : assemblycache -> assemblycache **)
 
@@ -2424,11 +2433,11 @@ module BackupPlanner =
       (XO (XO (XO (XO (XO (XO XH)))))))))))
 
   (** val analyse_file :
-      positive -> n -> positive -> string ->
+      positive -> Configuration.configuration -> n -> positive -> string ->
       (positive * n) * fileblockinformation **)
 
-  let analyse_file nchunks0 afree_p anum_p fn =
-    let fi = Filesupport.get_file_information fn in
+  let analyse_file nchunks0 c afree_p anum_p fn =
+    let fi = Filesupport.get_file_information c fn in
     let nblocks = N.div fi.Filesupport.fsize max_block_size in
     let fuel =
       N.to_nat
@@ -2552,8 +2561,7 @@ module Processor =
             | Some p ->
               let (_, b) = p in
               let b' = Cstdio.BufferPlain.from_buffer b in
-              let wqe = { AssemblyCache.qfhash =
-                (Utilities.sha256 fi.Filesupport.fname);
+              let wqe = { AssemblyCache.qfhash = fi.Filesupport.fhash;
                 AssemblyCache.qfpos = fpos; AssemblyCache.qbuffer = b' }
               in
               let this' = backup_block this wqe in
@@ -2637,7 +2645,7 @@ module Processor =
 
   let file_backup this fp =
     let fn = Filesystem.Path.to_string fp in
-    let fi = Filesupport.get_file_information fn in
+    let fi = Filesupport.get_file_information this.config fn in
     let ofi' =
       Store.FileinformationStore.find fn this.cache.AssemblyCache.acfistore
     in
@@ -2741,7 +2749,7 @@ module Version =
   (** val build : string **)
 
   let build =
-    "9"
+    "10"
 
   (** val version : string **)
 

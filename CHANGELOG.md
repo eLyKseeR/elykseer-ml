@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.10] - 2024-04-30
+
+### Fix
+
+- **Breaking:** _fileinformation_ now contains new field _fhash_
+- all identifiers depend on _myid_
+
 ## [0.9.5] - 2024-01-14
 
 _Started the changelog with this version_
