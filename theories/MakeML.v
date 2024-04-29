@@ -299,8 +299,9 @@ Extract Constant BufferPlain.copy_sz_pos =>
 
 Extract Constant get_file_information =>
    "  
-    fun fn ->
+    fun (c : Configuration.configuration) fn ->
         { fname = fn;
+          fhash = Elykseer_crypto.Sha256.string (fn ^ c.my_id);
           fsize = Conversion.i2n (Elykseer_base.Fsutils.fsize fn);
           fowner = string_of_int (Elykseer_base.Fsutils.fowner fn);
           fpermissions = Conversion.i2n (Elykseer_base.Fsutils.fperm fn);

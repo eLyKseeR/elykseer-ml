@@ -108,7 +108,7 @@ Local Program Fixpoint rec_file_backup_inner (n_blocks : nat) (this : processor)
                 | Some (nread, b) =>
                     let b' := BufferPlain.from_buffer b in
                     let wqe : writequeueentity :=
-                        {| qfhash := Utilities.sha256 fi.(fname)
+                        {| qfhash := fi.(fhash)
                          ; qfpos := fpos
                          ; qbuffer := b'
                         |} in
@@ -168,7 +168,7 @@ Local Program Definition restore_file_to (fptr: Cstdio.fptr) (blocks : list bloc
 
 Program Definition file_backup (fp : Filesystem.path) : processor :=
     let fn := Filesystem.Path.to_string fp in
-    let fi := get_file_information fn in
+    let fi := get_file_information this.(config) fn in
     (* deduplication level 1: compare file checksums *)
     let ofi' := FileinformationStore.find fn this.(cache).(acfistore) in
     let found :=

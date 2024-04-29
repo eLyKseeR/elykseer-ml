@@ -36,6 +36,7 @@ let version_obj : Git_store.contents =
 
 let fi2json_v1 (fi : Filesupport.fileinformation) : Git_store.contents =
   `O [ "fname", `String fi.fname
+     ; "fhash", `String fi.fhash
      ; "fsize", `String (string_of_int (Conversion.n2i fi.fsize))
      ; "fowner", `String fi.fowner
      ; "fpermissions", `String (string_of_int (Conversion.n2i fi.fpermissions))
@@ -70,6 +71,7 @@ let add fhash relation db =
 
 let json2fi_v1 fi : Filesupport.fileinformation =
     { fname = Relutils.get_str "fname" fi
+    ; fhash = Relutils.get_str "fhash" fi
     ; fsize = Relutils.get_int "fsize" fi |> Conversion.i2n
     ; fowner = Relutils.get_str "fowner" fi
     ; fpermissions = Relutils.get_int "fpermissions" fi |> Conversion.i2n

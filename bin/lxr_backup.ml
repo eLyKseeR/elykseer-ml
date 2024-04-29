@@ -53,7 +53,7 @@ let output_rel_files config (fistore : Store.FileinformationStore.coq_R) (fbstor
   else
     let%lwt rel = Relfiles.new_map config in
     let%lwt () = Lwt_list.iter_s (fun (fhash, bis) ->
-                                    let fi = List.find (fun fi -> Elykseer_crypto.Sha256.string (Filesupport.fname fi) = fhash) fiset in
+                                    let fi = List.find (fun fi -> Filesupport.fhash fi = fhash) fiset in
                                     let%lwt _rel' = Relfiles.add fhash {rfi=fi; rfbs=bis} rel in Lwt.return ()) fbis in
     Relfiles.close_map rel
 

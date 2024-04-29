@@ -226,13 +226,11 @@ Program Fixpoint run_write_requests (ac0 : assemblycache) (reqs : list writequeu
 Program Definition iterate_read_queue (ac0 : assemblycache) : (list readqueueresult * assemblycache) :=
     match rqueue ac0.(acreadq) with
     | nil => (nil, ac0)
-    | h :: r =>
-        let aid := h.(rqaid) in
-        let sel := List.filter (fun e => String.eqb e.(rqaid) aid) r in
+    | rq =>
         let ac1 := {| acenvs := ac0.(acenvs); acsize := ac0.(acsize); acwriteenv := ac0.(acwriteenv); acconfig := ac0.(acconfig);
-                      acreadq := {| rqueue := List.filter (fun e => negb (String.eqb e.(rqaid) aid)) r; rqueuesz := ac0.(acreadq).(rqueuesz) |};
+                      acreadq := {| rqueue := nil; rqueuesz := ac0.(acreadq).(rqueuesz) |};
                       acwriteq := ac0.(acwriteq); acfbstore := ac0.(acfbstore); ackstore := ac0.(ackstore); acfistore := ac0.(acfistore) |} in
-        run_read_requests ac1 (h :: sel) nil
+        run_read_requests ac1 rq nil
     end.
 
 (* iterate through the write queue and fulfill each request.
@@ -241,11 +239,11 @@ Program Definition iterate_read_queue (ac0 : assemblycache) : (list readqueueres
 Program Definition iterate_write_queue (ac0 : assemblycache) : (list writequeueresult * assemblycache) :=
     match wqueue ac0.(acwriteq) with
     | nil => (nil, ac0)
-    | h :: r =>
+    | wq =>
         let ac1 := {| acenvs := ac0.(acenvs); acsize := ac0.(acsize); acwriteenv := ac0.(acwriteenv); acconfig := ac0.(acconfig);
                       acreadq := ac0.(acreadq); acwriteq := {| wqueue := nil; wqueuesz := wqueuesz ac0.(acwriteq) |};
                       acfbstore := ac0.(acfbstore); ackstore := ac0.(ackstore); acfistore := ac0.(acfistore) |} in
-        run_write_requests ac1 (h :: r) nil
+        run_write_requests ac1 wq nil
     end.
 
 (* finalise and recreate writable environment, and extract chunks from it *)

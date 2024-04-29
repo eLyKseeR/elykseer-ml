@@ -457,6 +457,8 @@ module Assembly :
 
   type aid_t = string
 
+  val mkaid : Configuration.configuration -> aid_t
+
   type assemblyinformation = { nchunks : Nchunks.Private.t; aid : aid_t;
                                apos : n }
 
@@ -586,11 +588,13 @@ module Filesupport :
  sig
   type filename = string
 
-  type fileinformation = { fname : filename; fsize : n; fowner : string;
-                           fpermissions : n; fmodified : string;
-                           fchecksum : string }
+  type fileinformation = { fname : filename; fhash : string; fsize : 
+                           n; fowner : string; fpermissions : n;
+                           fmodified : string; fchecksum : string }
 
   val fname : fileinformation -> filename
+
+  val fhash : fileinformation -> string
 
   val fsize : fileinformation -> n
 
@@ -602,7 +606,8 @@ module Filesupport :
 
   val fchecksum : fileinformation -> string
 
-  val get_file_information : filename -> fileinformation
+  val get_file_information :
+    Configuration.configuration -> filename -> fileinformation
  end
 
 module Store :
@@ -897,7 +902,7 @@ module BackupPlanner :
   val max_block_size : n
 
   val analyse_file :
-    positive -> n -> positive -> string ->
+    positive -> Configuration.configuration -> n -> positive -> string ->
     (positive * n) * fileblockinformation
  end
 

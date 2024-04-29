@@ -96,7 +96,7 @@ let main () = Arg.parse argspec anon_args_fun "lxr_compare: vdi";
     let%lwt relfiles = Relfiles.new_map conf in
     let%lwt res = Lwt_list.map_s (fun fn ->
           let%lwt () = if !arg_verbose then Lwt_io.printlf "comparing file %s against meta data" fn else Lwt.return_unit in
-          let fhash = Elykseer_crypto.Sha256.string fn in
+          let fhash = Elykseer_crypto.Sha256.string (fn ^ conf.my_id) in
           let%lwt ref = Relfiles.find fhash relfiles in
           match ref with
           | None -> Lwt.return false

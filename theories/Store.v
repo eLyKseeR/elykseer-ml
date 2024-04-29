@@ -143,7 +143,7 @@ Qed.
 
 Example add_then_find_fileinformation : forall c,
     let es := FileinformationStore.init c in
-    let v := {| fname := "file001"; fowner := "user"; fsize := 1024; fpermissions := 660; fmodified := "20210831T174218"; fchecksum := "42" |} in
+    let v := {| fname := "file001"; fhash := "h(file001)"; fowner := "user"; fsize := 1024; fpermissions := 660; fmodified := "20210831T174218"; fchecksum := "42" |} in
     let k : string := "file001" in
     FileinformationStore.find k (FileinformationStore.add k v es) = Some v. 
 

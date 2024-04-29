@@ -117,14 +117,14 @@ let main () = Arg.parse argspec anon_args_fun "lxr_incremental: vyxdin";
       let%lwt acontroller = Actrl.create conf in
       let%lwt (res, actrl') = Lwt_list.fold_left_s (fun (res,actrl) fn ->
             let%lwt () = if !arg_verbose then Lwt_io.printlf "comparing file %s against meta data" fn else Lwt.return_unit in
-            let fhash = Elykseer_crypto.Sha256.string fn in
+            let fhash = Elykseer_crypto.Sha256.string (fn ^ conf.my_id) in
             let%lwt ref = Relfiles.find fhash relfiles in
             match ref with
             | None -> 
               let%lwt () = Lwt_io.printlf "  no meta data found for file=%s (%s)!" fhash fn in
               Lwt.return (true :: res, actrl)
             | Some r ->
-              let fi = Filesupport.get_file_information fn in
+              let fi = Filesupport.get_file_information conf fn in
               if fi.fchecksum = r.rfi.fchecksum then
                 let%lwt () = Lwt_io.printlf "  checksum is equal for file=%s (%s)!" fhash fn in
                 Lwt.return (true :: res, actrl)
