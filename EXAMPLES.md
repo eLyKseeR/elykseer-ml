@@ -5,7 +5,7 @@ lxr_backup
 MYID=424242
 
 dune exec lxr_backup -- -v -x ../elykseer.chunks -d ../elykseer.db -n 16 -i $MYID test1M test4M test8M
-dune exec bin/lxr_filehash.exe -- -f test1M
+dune exec bin/lxr_filehash.exe -- -f test1M -i ${MYID}
 
 irmin list ${MYID}/relfiles/${FHASH:4:2}
 
