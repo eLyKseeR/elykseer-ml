@@ -71,4 +71,6 @@ RUN eval $(opam env) && make
 # build libraries and executables with OCaml
 RUN eval $(opam env) && dune build && dune install --prefix ${HOME}/.local
 
+RUN strip -s ${HOME}/.local/lxr_*
+
 CMD bash
