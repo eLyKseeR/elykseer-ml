@@ -10,6 +10,8 @@ let def_myid = "1234567890"
 let arg_verbose = ref false
 let arg_dryrun = ref false
 let arg_files = ref []
+let arg_recursive = ref false
+let arg_directory = ref ""
 let arg_dbpath = ref "/tmp/db"
 let arg_chunkpath = ref "lxr"
 let arg_nchunks = ref 16
@@ -23,6 +25,8 @@ let argspec =
     ("-d", Arg.Set_string arg_dbpath, "sets database path");
     ("-n", Arg.Set_int arg_nchunks, "sets number of chunks (16-256) per assembly");
     ("-i", Arg.Set_string arg_myid, "sets own identifier");
+    ("-R", Arg.Set arg_recursive, "recursively backup the directory");
+    ("-D", Arg.Set_string arg_directory, "directory to backup");
   ]
 
 let anon_args_fun fn = arg_files := fn :: !arg_files
@@ -70,8 +74,11 @@ let output_relations (ac : AssemblyCache.assemblycache) =
 
 let main () = Arg.parse argspec anon_args_fun "lxr_backup: vyxdnji";
   let nchunks = Nchunks.from_int !arg_nchunks in
-  if List.length !arg_files > 0
+  if List.length !arg_files <= 0 && !arg_directory = ""
   then
+      let%lwt () = Lwt_io.printl "no directory or no files to backup given in command line arguments." in
+      Lwt.return ()
+  else
     let myid = !arg_myid in
     let conf : configuration = {
                   config_nchunks = nchunks;
@@ -79,12 +86,24 @@ let main () = Arg.parse argspec anon_args_fun "lxr_backup: vyxdnji";
                   path_db     = !arg_dbpath;
                   my_id       = myid } in
     let proc = Processor.prepare_processor conf in
-    let proc' = List.fold_left (fun proc fp -> let proc' = Processor.file_backup proc (Filesystem.Path.from_string fp) in proc') proc !arg_files in
+    let proc' = 
+      if !arg_directory = ""
+      then
+        (* backup each file *)
+        List.map (fun fn -> Filesystem.Path.from_string fn) !arg_files |>
+        List.fold_left (fun proc filename -> Processor.file_backup proc filename) proc
+      else begin
+        if !arg_recursive
+        then
+          Processor.recursive_backup proc (Conversion.i2n 4) (Filesystem.Path.from_string !arg_directory)
+        else
+          Processor.directory_backup proc (Filesystem.Path.from_string !arg_directory)
+      end
+    in
+    (* close the processor - will extract chunks from current writable environment *)
     let proc'' = Processor.close proc' in
     let%lwt () = output_relations proc''.cache in
     let%lwt () = Lwt_io.printl "done." in
     Lwt.return ()
-  else
-    Lwt_io.printl "nothing to do."
 
 let () = Lwt_main.run (main ())

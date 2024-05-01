@@ -9,16 +9,6 @@
 )
 
 (executable
- (public_name lxr_processor)
- (package elykseer)
- (name lxr_processor)
- (modules lxr_processor)
- (preprocess (pps lwt_ppx))
- (ocamlopt_flags -O3 -cclib -s)
- (libraries elykseer elykseer_base elykseer_utils)
-)
-
-(executable
  (public_name lxr_relfiles)
  (name lxr_relfiles)
  (package elykseer)
