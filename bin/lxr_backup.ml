@@ -5,6 +5,8 @@ open Elykseer__Lxr.Configuration
 
 open Elykseer_utils
 
+module StringMap = Map.Make(String)
+
 let def_myid = "1234567890"
 
 let arg_verbose = ref false
@@ -36,8 +38,8 @@ let output_rel_files config (fistore : Store.FileinformationStore.coq_R) (fbstor
   let fbis = Env.consolidate_files fbstore.entries in
   if !arg_dryrun then
     Lwt_list.iter_s (fun (fhash, bis) ->
-                       let%lwt () = Lwt_io.printlf "fhash = %s" fhash in
-                       let%lwt _ = Lwt_list.iter_s (fun (fi : Filesupport.fileinformation) ->
+                      let%lwt () = Lwt_io.printlf "fhash = %s" fhash in
+                      let%lwt _ = Lwt_list.iter_s (fun (fi : Filesupport.fileinformation) ->
                         Lwt_io.printlf " %s %d %s %d %s %s" fi.fname
                                                        (Conversion.n2i fi.fsize)
                                                        fi.fowner
@@ -46,7 +48,7 @@ let output_rel_files config (fistore : Store.FileinformationStore.coq_R) (fbstor
                                                        fi.fchecksum
                         )
                         (fiset) in
-                       Lwt_list.iter_s (fun (fb : Assembly.blockinformation) ->
+                      Lwt_list.iter_s (fun (fb : Assembly.blockinformation) ->
                         Lwt_io.printlf "  %d:%d@%d %s" (Conversion.p2i fb.blockid)
                                                         (Conversion.n2i fb.blocksize)
                                                         (Conversion.n2i fb.filepos)
@@ -71,6 +73,40 @@ let output_relations (ac : AssemblyCache.assemblycache) =
   let%lwt () = if !arg_dryrun then Lwt.return () else output_rel_keys ac.acconfig ac.ackstore in
   output_rel_files ac.acconfig ac.acfistore ac.acfbstore
 
+  let get_file_checksum config filename =
+    let map : string StringMap.t = StringMap.empty in
+    let%lwt relf = Relfiles.new_map config in
+    let fhash = Elykseer_crypto.Sha256.string (filename ^ !arg_myid) in
+    match%lwt Relfiles.find fhash relf with
+    | None -> Lwt.return (map)
+    | Some rfbs ->
+        let%lwt () = if !arg_verbose then
+          Lwt_io.printlf "  have info on file '%s' with %d bytes from %d blocks" filename (Conversion.n2i rfbs.rfi.fsize) (List.length rfbs.rfbs)
+          else Lwt.return () in
+        Lwt.return (StringMap.add fhash rfbs.rfi.fchecksum map)
+  
+  let get_file_blocks config filename =
+  let map : (Assembly.blockinformation list) StringMap.t = StringMap.empty in
+  let%lwt relf = Relfiles.new_map config in
+  let fhash = Elykseer_crypto.Sha256.string (filename ^ !arg_myid) in
+  match%lwt Relfiles.find fhash relf with
+  | None -> Lwt.return (map)
+  | Some rfbs ->
+      let%lwt () = if !arg_verbose then
+        Lwt_io.printlf "  have info on file '%s' with %d bytes from %d blocks" filename (Conversion.n2i rfbs.rfi.fsize) (List.length rfbs.rfbs)
+        else Lwt.return () in
+      Lwt.return (StringMap.add fhash rfbs.rfbs map)
+
+let run_backup (proc : Processor.processor) filename =
+  let%lwt fchecksum_map = get_file_checksum proc.config filename in
+  let find_fchecksum = fun fh -> Printf.printf "get fchecksum: %s\n" fh; StringMap.find_opt fh fchecksum_map in
+  let%lwt fblocks_map = get_file_blocks proc.config filename in
+  let find_fblocks = fun fh -> Printf.printf "get fblocks: %s\n" fh;
+    match StringMap.find_opt fh fblocks_map with
+    | None -> []
+    | Some fbs -> fbs
+  in
+  Lwt.return (Processor.file_backup proc find_fchecksum find_fblocks (Filesystem.Path.from_string filename))
 
 let main () = Arg.parse argspec anon_args_fun "lxr_backup: vyxdnji";
   let nchunks = Nchunks.from_int !arg_nchunks in
@@ -86,18 +122,17 @@ let main () = Arg.parse argspec anon_args_fun "lxr_backup: vyxdnji";
                   path_db     = !arg_dbpath;
                   my_id       = myid } in
     let proc = Processor.prepare_processor conf in
-    let proc' = 
+    let%lwt proc' = 
       if !arg_directory = ""
       then
         (* backup each file *)
-        List.map (fun fn -> Filesystem.Path.from_string fn) !arg_files |>
-        List.fold_left (fun proc filename -> Processor.file_backup proc filename) proc
+        Lwt_list.fold_left_s (fun proc_i filename -> run_backup proc_i filename) proc !arg_files
       else begin
         if !arg_recursive
         then
-          Processor.recursive_backup proc (Conversion.i2n 4) (Filesystem.Path.from_string !arg_directory)
+          Lwt.return (Processor.recursive_backup proc (Conversion.i2n 4) (Filesystem.Path.from_string !arg_directory))
         else
-          Processor.directory_backup proc (Filesystem.Path.from_string !arg_directory)
+          Lwt.return (Processor.directory_backup proc (Filesystem.Path.from_string !arg_directory))
       end
     in
     (* close the processor - will extract chunks from current writable environment *)

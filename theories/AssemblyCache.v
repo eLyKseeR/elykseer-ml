@@ -41,11 +41,12 @@ Record writequeueentity : Type :=
         ; qfpos : N
         ; qbuffer : BufferPlain.buffer_t (* implicit write data size = buffer size *)
         }.
-Record writequeueresult : Type :=
+(* Record writequeueresult : Type :=
     mkwritequeueresult
-        { writerequest : writequeueentity
+        { writefhash : string
+        ; writefpos : N
         ; wresult : readqueueentity
-        }.
+        }. *)
 
 Definition qsize : positive := 12.
 
@@ -197,26 +198,28 @@ Program Fixpoint run_read_requests (ac0 : assemblycache) (reqs : list readqueuee
         end
     end.
 
-Program Fixpoint run_write_requests (ac0 : assemblycache) (reqs : list writequeueentity) (res : list writequeueresult)
-                                  : (list writequeueresult * assemblycache) :=
+Program Fixpoint run_write_requests (ac0 : assemblycache) (reqs : list writequeueentity)
+                                  : assemblycache :=
     match reqs with
-    | nil => (res, ac0)
+    | nil => ac0
     | h :: r =>
-        let fp := h.(qfhash) in
-        let '(env, (bi, kis)) := EnvironmentWritable.backup ac0.(acwriteenv) fp h.(qfpos) h.(qbuffer) in
+        let fhash := h.(qfhash) in
+        let fpos := h.(qfpos) in
+        let '(env, (bi, kis)) := EnvironmentWritable.backup ac0.(acwriteenv) fhash fpos h.(qbuffer) in
         let ackstore' := match kis with
-                         | None => ac0.(ackstore)
-                         | Some (aid, ki) =>  KeyListStore.add aid ki ac0.(ackstore)
-        end in
+                        | None => ac0.(ackstore)
+                        | Some (aid, ki) => KeyListStore.add aid ki ac0.(ackstore)
+                        end in
         let ac1 := {| acenvs := ac0.(acenvs); acsize := ac0.(acsize); acwriteenv := env; acconfig := ac0.(acconfig);
-                      acreadq := ac0.(acreadq); acwriteq := {| wqueue := nil; wqueuesz := wqueuesz ac0.(acwriteq) |};
-                      acfbstore := FBlockListStore.add fp bi ac0.(acfbstore);
-                      ackstore := ackstore'; acfistore := ac0.(acfistore) |} in
-        run_write_requests ac1 r ({| writerequest := h;
-                                     wresult := {| rqaid := env.(cur_assembly AssemblyPlainWritable.B).(aid);
-                                                   rqapos := bi.(blockapos);
-                                                   rqrlen := buffer_len h.(qbuffer);
-                                                   rqfpos := h.(qfpos) |} |} :: res)
+                    acreadq := ac0.(acreadq); acwriteq := {| wqueue := nil; wqueuesz := ac0.(acwriteq).(wqueuesz) |};
+                    acfbstore := FBlockListStore.add fhash bi ac0.(acfbstore);
+                    ackstore := ackstore'; acfistore := ac0.(acfistore) |} in
+        (* let wres := {| rqaid := env.(cur_assembly AssemblyPlainWritable.B).(aid);
+                    rqapos := bi.(blockapos);
+                    rqrlen := buffer_len h.(qbuffer);
+                    rqfpos := fpos |} in *)
+
+        run_write_requests ac1 r
     end.
 
 
@@ -236,14 +239,14 @@ Program Definition iterate_read_queue (ac0 : assemblycache) : (list readqueueres
 (* iterate through the write queue and fulfill each request.
    eliminates the selected requests (by aid) from the queue.
    returns a list of results. *)
-Program Definition iterate_write_queue (ac0 : assemblycache) : (list writequeueresult * assemblycache) :=
-    match wqueue ac0.(acwriteq) with
-    | nil => (nil, ac0)
+Program Definition iterate_write_queue (ac0 : assemblycache) : assemblycache :=
+    match ac0.(acwriteq).(wqueue) with
+    | nil => ac0
     | wq =>
-        let ac1 := {| acenvs := ac0.(acenvs); acsize := ac0.(acsize); acwriteenv := ac0.(acwriteenv); acconfig := ac0.(acconfig);
-                      acreadq := ac0.(acreadq); acwriteq := {| wqueue := nil; wqueuesz := wqueuesz ac0.(acwriteq) |};
-                      acfbstore := ac0.(acfbstore); ackstore := ac0.(ackstore); acfistore := ac0.(acfistore) |} in
-        run_write_requests ac1 wq nil
+        (* let ac1 := {| acenvs := ac0.(acenvs); acsize := ac0.(acsize); acwriteenv := ac0.(acwriteenv); acconfig := ac0.(acconfig);
+                      acreadq := ac0.(acreadq); acwriteq := {| wqueue := nil; wqueuesz := ac0.(acwriteq).(wqueuesz) |};
+                      acfbstore := ac0.(acfbstore); ackstore := ac0.(ackstore); acfistore := ac0.(acfistore) |} in *)
+        run_write_requests ac0 wq
     end.
 
 (* finalise and recreate writable environment, and extract chunks from it *)
@@ -306,7 +309,7 @@ Proof.
     reflexivity.
 Qed.
 
-Lemma emptywrite_id : forall c k, let ac := prepare_assemblycache c k in iterate_write_queue ac = (nil, ac).
+Lemma emptywrite_id : forall c k, let ac := prepare_assemblycache c k in iterate_write_queue ac = ac.
 Proof.
     intros.
     unfold iterate_write_queue. simpl.

@@ -6,7 +6,7 @@ From Coq Require Import Strings.String Program.Basics.
 Require Import ZArith NArith PArith.
 From Coq Require Import NArith.BinNat.
 
-From RecordUpdate Require Import RecordUpdate.
+(* From RecordUpdate Require Import RecordUpdate. *)
 
 From LXR Require Import Nchunks Cstdio Configuration Conversion Filesystem Utilities.
 
@@ -46,7 +46,7 @@ Record assemblyinformation : RecordAssemblyInformation :=
         ; apos : N }.
 (* Print assemblyinformation. *)
 
-#[export] Instance etaX : Settable _ := settable! mkassembly <nchunks; aid; apos>.
+(* #[export] Instance etaX : Settable _ := settable! mkassembly <nchunks; aid; apos>. *)
 (* Print set.
 Print Setter. *)
 
@@ -118,6 +118,8 @@ Module AssemblyPlainFull : ASS.
 End AssemblyPlainFull.
 (* Print AssemblyPlainFull. *)
 
+Local Program Definition set_apos (a : assemblyinformation) (apos : N) : assemblyinformation :=
+    {| nchunks := a.(nchunks); aid := a.(aid); apos := apos; |}.
 
 Section Code_Writeable.
 (** operations on AssemblyPlainWriteable *)
@@ -130,7 +132,7 @@ Program Definition finish (a : assemblyinformation) (b : AssemblyPlainWritable.B
 
 Axiom assembly_add_content : BufferPlain.buffer_t -> N -> N -> AssemblyPlainWritable.B -> N.
 Program Definition backup (a : assemblyinformation) (b : AssemblyPlainWritable.B) (fpos : N) (content : BufferPlain.buffer_t) : (assemblyinformation * blockinformation) :=
-    let apos_n := apos a in
+    let apos_n := a.(apos) in
     let bsz := BufferPlain.buffer_len content in
     let chksum := calc_checksum content in
     let nwritten := assembly_add_content content bsz apos_n b in
@@ -140,7 +142,7 @@ Program Definition backup (a : assemblyinformation) (b : AssemblyPlainWritable.B
             ; filepos   := fpos
             ; blockaid  := aid a
             ; blockapos := apos_n |} in
-    let a' := set apos (fun ap => ap + nwritten) a in
+    let a' := set_apos a (apos_n + nwritten) in
     (a', bi).
 
 End Code_Writeable.
@@ -152,7 +154,7 @@ Section Code_Readable.
 Axiom id_buffer_t_from_full : AssemblyPlainFull.B -> BufferPlain.buffer_t.
 Axiom id_assembly_enc_buffer_t_from_buf : BufferEncrypted.buffer_t -> AssemblyEncrypted.B.
 Program Definition encrypt (a : assemblyinformation) (b : AssemblyPlainFull.B) (ki : keyinformation) : option (assemblyinformation * AssemblyEncrypted.B) :=
-    let a' := set apos (const (assemblysize (nchunks a))) a in
+    let a' := set_apos a (assemblysize (nchunks a)) in
     let benc  := Cstdio.encrypt (id_buffer_t_from_full b) (ivec ki) (pkey ki) in
     let b' := id_assembly_enc_buffer_t_from_buf benc in
     Some (a', b').
@@ -179,7 +181,7 @@ Section Code_Encrypted.
 Axiom id_buffer_t_from_enc : AssemblyEncrypted.B -> BufferEncrypted.buffer_t.
 Axiom id_assembly_plain_buffer_t_from_buf : BufferPlain.buffer_t -> AssemblyPlainFull.B.
 Program Definition decrypt (a : assemblyinformation) (b : AssemblyEncrypted.B) (ki : keyinformation) : option (assemblyinformation * AssemblyPlainFull.B) :=
-    let a' := set apos (const 0) a in
+    let a' := set_apos a 0 in
     let bdec := Cstdio.decrypt (id_buffer_t_from_enc b) (ivec ki) (pkey ki) in
     let b' := id_assembly_plain_buffer_t_from_buf bdec in
     Some (a', b').
@@ -229,7 +231,7 @@ Program Definition recall (c : configuration) (a : assemblyinformation) : option
                     )
                     cidlist
                     0 in
-    let a' := set apos (const nread) a in
+    let a' := set_apos a nread in
     let b' := id_enc_from_buffer_t b in
     if N.eqb nread blen
     then Some (a', b')
