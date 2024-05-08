@@ -63,6 +63,8 @@ RUN git clone https://github.com/eLyKseeR/elykseer-ml.git elykseer-ml.git
 
 WORKDIR /home/coq/elykseer-ml.git
 
+RUN git fetch && git checkout 53_deduplication
+
 RUN eval $(opam env) && coq_makefile -f _CoqProject -o Makefile
 
 # evaluate Coq files and extract code
