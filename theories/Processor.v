@@ -5,8 +5,6 @@
 Require Import NArith PArith.
 From Coq Require Import NArith.BinNat Lists.List Strings.String Bool.Bool Program.Basics.
 
-From RecordUpdate Require Import RecordUpdate.
-
 From LXR Require Import Assembly.
 From LXR Require Import AssemblyCache.
 From LXR Require Import Configuration.
@@ -31,8 +29,6 @@ Record processor : RecordProcessor :=
         { config : configuration
         ; cache : assemblycache
         }.
-(* Print RecordProcessor.
-Print processor. *)
 
 Definition cache_sz : positive := 3.
 Definition prepare_processor (c : configuration) : processor :=

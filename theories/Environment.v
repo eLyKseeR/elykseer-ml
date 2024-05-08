@@ -5,8 +5,6 @@
 Require Import NArith PArith.
 From Coq Require Import NArith.BinNat Lists.List Strings.String Program.Basics.
 
-From RecordUpdate Require Import RecordUpdate.
-
 From LXR Require Import Assembly.
 From LXR Require Import Configuration.
 From LXR Require Import Cstdio.
@@ -25,11 +23,6 @@ Record environment (AB : Type) : RecordEnvironment :=
         ; cur_buffer : AB
         ; econfig : configuration
         }.
-(* #[export] Instance etaX : Settable _ := settable! mkenvironment (AB) <cur_assembly; cur_buffer; config; fblocks; keys>. *)
-(* Print environment.
-Print cur_assembly.
-Print set.
-Print Setter.  *)
 
 Axiom cpp_mk_key256 : unit -> string.
 Axiom cpp_mk_key128 : unit -> string.

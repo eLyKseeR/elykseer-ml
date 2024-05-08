@@ -6,8 +6,6 @@ From Coq Require Import Strings.String Program.Basics.
 Require Import ZArith NArith PArith.
 From Coq Require Import NArith.BinNat.
 
-(* From RecordUpdate Require Import RecordUpdate. *)
-
 From LXR Require Import Nchunks Cstdio Configuration Conversion Filesystem Utilities.
 
 Module Export Assembly.
@@ -21,7 +19,6 @@ Module Export Assembly.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
-(* Unset Printing Implicit Defensive. *)
 
 Open Scope positive_scope.
 Open Scope N_scope.
@@ -44,11 +41,6 @@ Record assemblyinformation : RecordAssemblyInformation :=
         { nchunks : Nchunks.Private.t
         ; aid : aid_t
         ; apos : N }.
-(* Print assemblyinformation. *)
-
-(* #[export] Instance etaX : Settable _ := settable! mkassembly <nchunks; aid; apos>. *)
-(* Print set.
-Print Setter. *)
 
 Definition RecordKeyInformation := Set.
 Record keyinformation : RecordKeyInformation :=

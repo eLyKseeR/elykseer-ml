@@ -5,8 +5,6 @@
 Require Import NArith PArith.
 From Coq Require Import NArith.BinNat Lists.List Strings.String Program.Basics.
 
-From RecordUpdate Require Import RecordUpdate.
-
 From LXR Require Import Assembly.
 From LXR Require Import Configuration.
 From LXR Require Import Filesupport.
@@ -23,10 +21,6 @@ Record store (KVs : Type): RecordStore :=
         { sconfig : configuration
         ; entries : KVs
         }.
-(* Print RecordStore. *)
-(* Print store. *)
-
-(* Print option. *)
 
 Fixpoint rec_find {V : Type} (k : string) (es : list (string * V)) : option V :=
     match es with
