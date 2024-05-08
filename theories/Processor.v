@@ -143,7 +143,10 @@ Local Program Fixpoint rec_file_backup_inner (tgtfbs : list blockinformation) (t
                     in
                     if (found)
                     then
-                        rec_file_backup_inner tgtfbs' this fhash fptr'
+                        (* keep old blockinformation *)
+                        let ac' := AssemblyCache.add_fileblockinformation this.(cache) fhash fb in
+                        let this' := update_cache this ac' in
+                        rec_file_backup_inner tgtfbs' this' fhash fptr'
                     else
                         let wqe : writequeueentity :=
                             {| qfhash := fhash
@@ -228,7 +231,7 @@ Local Program Fixpoint prepare_blocks' (fuel : nat) (bid : positive) (fpos : N) 
         prepare_blocks' fuel' (bid + 1) (fpos + bsz) (fsz - bsz) blocks'
     end.
 
-Local Program Fixpoint merge_blocks (newbs : list blockinformation) (curbs : list blockinformation) (agg : list blockinformation) : list blockinformation :=
+Local Program Fixpoint zip_blocks (newbs : list blockinformation) (curbs : list blockinformation) (agg : list blockinformation) : list blockinformation :=
     match newbs with
     | nil => List.rev agg
     | h :: r =>
@@ -240,7 +243,7 @@ Local Program Fixpoint merge_blocks (newbs : list blockinformation) (curbs : lis
                      filepos := h'.(filepos); blockaid := h'.(blockaid); blockapos := h'.(blockapos); |}, r')
             else (h,r')
         end in
-        merge_blocks r r' (newb :: agg)
+        zip_blocks r r' (newb :: agg)
     end.
 
 Local Program Definition prepare_blocks (curbs : list blockinformation) (fsz : N) : list blockinformation :=
@@ -248,19 +251,13 @@ Local Program Definition prepare_blocks (curbs : list blockinformation) (fsz : N
     let newbs := prepare_blocks' (N.to_nat n_blocks) 1 0 fsz [] in
     match curbs with
         | nil => newbs
-        | _ => merge_blocks newbs curbs []
+        | _ => zip_blocks newbs curbs []
     end.
 
 Program Definition file_backup (find_fchecksum : string -> option string) (find_fblocks : string -> list blockinformation) (fp : Filesystem.path) : processor :=
     let fn := Filesystem.Path.to_string fp in
     let fi := get_file_information this.(config) fn in
     (* deduplication level 1: compare file checksums *)
-    (* let ofi' := FileinformationStore.find fi.(fhash) this.(cache).(acfistore) in
-    let found :=
-        match ofi' with
-        | None => false
-        | Some fi' => if fi'.(fchecksum) =? fi.(fchecksum) then true else false
-        end *)
     let found :=
         match find_fchecksum fi.(fhash) with
         | None => false
@@ -270,10 +267,9 @@ Program Definition file_backup (find_fchecksum : string -> option string) (find_
     if (found) then
         this
     else
-        (* let curbs := FBlockListStore.find_all fi.(fhash) this.(cache).(acfbstore) in *)
+        (* deduplication level 2 per block *)
         let curbs := find_fblocks fi.(fhash) in
         let tgtbs := prepare_blocks curbs fi.(fsize) in
-        (* deduplication level 2 per block *)
         let proc1 := open_file_backup fi tgtbs in
         let proc2 := run_write_requests proc1 in
         proc2.

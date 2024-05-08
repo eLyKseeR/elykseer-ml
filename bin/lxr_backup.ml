@@ -104,7 +104,7 @@ let run_backup (proc : Processor.processor) filename =
   let find_fblocks = fun fh -> Printf.printf "get fblocks: %s\n" fh;
     match StringMap.find_opt fh fblocks_map with
     | None -> []
-    | Some fbs -> fbs
+    | Some fbs -> List.rev fbs
   in
   Lwt.return (Processor.file_backup proc find_fchecksum find_fblocks (Filesystem.Path.from_string filename))
 

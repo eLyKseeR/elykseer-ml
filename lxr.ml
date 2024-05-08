@@ -456,18 +456,6 @@ let rec seq start = function
 | O -> []
 | S len0 -> start :: (seq (S start) len0)
 
-type 't settable =
-  't -> 't
-  (* singleton inductive, whose constructor was Build_Settable *)
-
-type ('r, 't) setter = ('t -> 't) -> 'r -> 'r
-
-(** val set :
-    ('a1 -> 'a2) -> ('a1, 'a2) setter -> ('a2 -> 'a2) -> 'a1 -> 'a1 **)
-
-let set _ setter0 =
-  setter0
-
 module Conversion =
  struct
   (** val pos2N : positive -> n **)
@@ -1203,11 +1191,6 @@ module Assembly =
   let apos a =
     a.apos
 
-  (** val etaX : assemblyinformation settable **)
-
-  let etaX x =
-    { nchunks = x.nchunks; aid = x.aid; apos = x.apos }
-
   type keyinformation = { ivec : string; pkey : string; localid : string;
                           localnchunks : positive }
 
@@ -1357,6 +1340,11 @@ module Assembly =
       ({ nchunks = chunks; aid = (mkaid c); apos = sz }, b)
    end
 
+  (** val set_apos : assemblyinformation -> n -> assemblyinformation **)
+
+  let set_apos a apos0 =
+    { nchunks = a.nchunks; aid = a.aid; apos = apos0 }
+
   (** val id_assembly_full_ainfo_from_writable :
       assemblyinformation -> assemblyinformation **)
 
@@ -1398,13 +1386,7 @@ module Assembly =
     let bi = { blockid = XH; bchecksum = chksum; blocksize = nwritten;
       filepos = fpos; blockaid = a.aid; blockapos = apos_n }
     in
-    let a' =
-      set (fun a0 -> a0.apos) (fun f ->
-        let n0 = fun r -> f r.apos in
-        (fun x -> { nchunks = x.nchunks; aid = x.aid; apos = (n0 x) }))
-        (fun ap -> N.add ap nwritten) a
-    in
-    (a', bi)
+    let a' = set_apos a (N.add apos_n nwritten) in (a', bi)
 
   (** val id_buffer_t_from_full :
       AssemblyPlainFull.coq_B -> Cstdio.BufferPlain.buffer_t **)
@@ -1421,12 +1403,7 @@ module Assembly =
       (assemblyinformation * AssemblyEncrypted.coq_B) option **)
 
   let encrypt a b ki =
-    let a' =
-      set (fun a0 -> a0.apos) (fun f ->
-        let n0 = fun r -> f r.apos in
-        (fun x -> { nchunks = x.nchunks; aid = x.aid; apos = (n0 x) }))
-        (const (assemblysize a.nchunks)) a
-    in
+    let a' = set_apos a (assemblysize a.nchunks) in
     let benc = Cstdio.encrypt (id_buffer_t_from_full b) ki.ivec ki.pkey in
     let b' = id_assembly_enc_buffer_t_from_buf benc in Some (a', b')
 
@@ -1468,12 +1445,7 @@ module Assembly =
       (assemblyinformation * AssemblyPlainFull.coq_B) option **)
 
   let decrypt a b ki =
-    let a' =
-      set (fun a0 -> a0.apos) (fun f ->
-        let n0 = fun r -> f r.apos in
-        (fun x -> { nchunks = x.nchunks; aid = x.aid; apos = (n0 x) }))
-        (const N0) a
-    in
+    let a' = set_apos a N0 in
     let bdec = Cstdio.decrypt (id_buffer_t_from_enc b) ki.ivec ki.pkey in
     let b' = id_assembly_plain_buffer_t_from_buf bdec in Some (a', b')
 
@@ -1551,12 +1523,7 @@ module Assembly =
            else nread
          | None -> nread)) cidlist N0
     in
-    let a' =
-      set (fun a0 -> a0.apos) (fun f ->
-        let n0 = fun r -> f r.apos in
-        (fun x -> { nchunks = x.nchunks; aid = x.aid; apos = (n0 x) }))
-        (const nread) a
-    in
+    let a' = set_apos a nread in
     let b' = id_enc_from_buffer_t b in
     if N.eqb nread blen then Some (a', b') else None
 
@@ -1694,6 +1661,16 @@ module Store =
   | [] -> None
   | p :: r -> let (k', v') = p in if (=) k' k then Some v' else rec_find k r
 
+  (** val rec_find_all :
+      string -> (string * 'a1) list -> 'a1 list -> 'a1 list **)
+
+  let rec rec_find_all k es agg =
+    match es with
+    | [] -> agg
+    | p :: r ->
+      let (k', v') = p in
+      if (=) k' k then rec_find_all k r (v' :: agg) else rec_find_all k r agg
+
   module type STORE =
    sig
     type coq_K
@@ -1709,11 +1686,13 @@ module Store =
     val add : coq_K -> coq_V -> coq_R -> coq_R
 
     val find : coq_K -> coq_R -> coq_V option
+
+    val find_all : coq_K -> coq_R -> coq_V list
    end
 
   module KeyListStore =
    struct
-    type coq_K = string
+    type coq_K = Assembly.aid_t
 
     type coq_V = Assembly.keyinformation
 
@@ -1735,11 +1714,16 @@ module Store =
 
     let find k r =
       rec_find k r.entries
+
+    (** val find_all : coq_K -> coq_R -> coq_V list **)
+
+    let find_all _ _ =
+      []
    end
 
   module FBlockListStore =
    struct
-    type coq_K = Assembly.aid_t
+    type coq_K = string
 
     type coq_V = Assembly.blockinformation
 
@@ -1759,8 +1743,13 @@ module Store =
 
     (** val find : coq_K -> coq_R -> coq_V option **)
 
-    let find k r =
-      rec_find k r.entries
+    let find _ _ =
+      None
+
+    (** val find_all : coq_K -> coq_R -> coq_V list **)
+
+    let find_all k r =
+      rec_find_all k r.entries []
    end
 
   module FileinformationStore =
@@ -1787,6 +1776,11 @@ module Store =
 
     let find k r =
       rec_find k r.entries
+
+    (** val find_all : coq_K -> coq_R -> coq_V list **)
+
+    let find_all _ _ =
+      []
    end
  end
 
@@ -1893,7 +1887,7 @@ module Environment =
         if N.ltb afree blen
         then let filtered_var = finalise_and_recreate_assembly e0 in
              (match filtered_var with
-              | Some p -> let (e0', ki) = p in ((Some ki), e0')
+              | Some p -> let (e0', ki') = p in ((Some ki'), e0')
               | None -> (None, e0))
         else (None, e0)
       in
@@ -1990,19 +1984,6 @@ module AssemblyCache =
 
   let qbuffer w =
     w.qbuffer
-
-  type writequeueresult = { writerequest : writequeueentity;
-                            wresult : readqueueentity }
-
-  (** val writerequest : writequeueresult -> writequeueentity **)
-
-  let writerequest w =
-    w.writerequest
-
-  (** val wresult : writequeueresult -> readqueueentity **)
-
-  let wresult w =
-    w.wresult
 
   (** val qsize : positive **)
 
@@ -2161,6 +2142,16 @@ module AssemblyCache =
       acfistore =
       (Store.FileinformationStore.add fi.Filesupport.fname fi ac0.acfistore) }
 
+  (** val add_fileblockinformation :
+      assemblycache -> string -> Assembly.blockinformation -> assemblycache **)
+
+  let add_fileblockinformation ac0 fhash0 bi =
+    { acenvs = ac0.acenvs; acsize = ac0.acsize; acwriteenv = ac0.acwriteenv;
+      acconfig = ac0.acconfig; acwriteq = ac0.acwriteq; acreadq =
+      ac0.acreadq; acfbstore =
+      (Store.FBlockListStore.add fhash0 bi ac0.acfbstore); ackstore =
+      ac0.ackstore; acfistore = ac0.acfistore }
+
   (** val ensure_assembly :
       assemblycache -> Assembly.aid_t ->
       (Environment.EnvironmentReadable.coq_E * assemblycache) option **)
@@ -2241,37 +2232,32 @@ module AssemblyCache =
        | None -> (res, ac0))
 
   (** val run_write_requests :
-      assemblycache -> writequeueentity list -> writequeueresult list ->
-      writequeueresult list * assemblycache **)
+      assemblycache -> writequeueentity list -> assemblycache **)
 
-  let rec run_write_requests ac0 reqs res =
-    match reqs with
-    | [] -> (res, ac0)
-    | h :: r ->
-      let fp = h.qfhash in
-      let filtered_var =
-        Environment.EnvironmentWritable.backup ac0.acwriteenv fp h.qfpos
-          h.qbuffer
-      in
-      let (env, p) = filtered_var in
-      let (bi, kis) = p in
-      let ackstore' =
-        match kis with
-        | Some p0 ->
-          let (aid0, ki) = p0 in Store.KeyListStore.add aid0 ki ac0.ackstore
-        | None -> ac0.ackstore
-      in
-      let ac1 = { acenvs = ac0.acenvs; acsize = ac0.acsize; acwriteenv = env;
-        acconfig = ac0.acconfig; acwriteq = { wqueue = []; wqueuesz =
-        ac0.acwriteq.wqueuesz }; acreadq = ac0.acreadq; acfbstore =
-        (Store.FBlockListStore.add fp bi ac0.acfbstore); ackstore =
-        ackstore'; acfistore = ac0.acfistore }
-      in
-      run_write_requests ac1 r ({ writerequest = h; wresult = { rqaid =
-        env.Environment.cur_assembly.Assembly.aid; rqapos =
-        bi.Assembly.blockapos; rqrlen =
-        (Cstdio.BufferPlain.buffer_len h.qbuffer); rqfpos =
-        h.qfpos } } :: res)
+  let rec run_write_requests ac0 = function
+  | [] -> ac0
+  | h :: r ->
+    let fhash0 = h.qfhash in
+    let fpos = h.qfpos in
+    let filtered_var =
+      Environment.EnvironmentWritable.backup ac0.acwriteenv fhash0 fpos
+        h.qbuffer
+    in
+    let (env, p) = filtered_var in
+    let (bi, kis) = p in
+    let ackstore' =
+      match kis with
+      | Some p0 ->
+        let (aid0, ki) = p0 in Store.KeyListStore.add aid0 ki ac0.ackstore
+      | None -> ac0.ackstore
+    in
+    let ac1 = { acenvs = ac0.acenvs; acsize = ac0.acsize; acwriteenv = env;
+      acconfig = ac0.acconfig; acwriteq = { wqueue = []; wqueuesz =
+      ac0.acwriteq.wqueuesz }; acreadq = ac0.acreadq; acfbstore =
+      (Store.FBlockListStore.add fhash0 bi ac0.acfbstore); ackstore =
+      ackstore'; acfistore = ac0.acfistore }
+    in
+    run_write_requests ac1 r
 
   (** val iterate_read_queue :
       assemblycache -> readqueueresult list * assemblycache **)
@@ -2290,22 +2276,13 @@ module AssemblyCache =
        in
        run_read_requests ac1 rq [])
 
-  (** val iterate_write_queue :
-      assemblycache -> writequeueresult list * assemblycache **)
+  (** val iterate_write_queue : assemblycache -> assemblycache **)
 
   let iterate_write_queue ac0 =
     let filtered_var = ac0.acwriteq.wqueue in
     (match filtered_var with
-     | [] -> ([], ac0)
-     | w :: l ->
-       let wq = w :: l in
-       let ac1 = { acenvs = ac0.acenvs; acsize = ac0.acsize; acwriteenv =
-         ac0.acwriteenv; acconfig = ac0.acconfig; acwriteq = { wqueue = [];
-         wqueuesz = ac0.acwriteq.wqueuesz }; acreadq = ac0.acreadq;
-         acfbstore = ac0.acfbstore; ackstore = ac0.ackstore; acfistore =
-         ac0.acfistore }
-       in
-       run_write_requests ac1 wq [])
+     | [] -> ac0
+     | w :: l -> let wq = w :: l in run_write_requests ac0 wq)
 
   (** val flush : assemblycache -> assemblycache **)
 
@@ -2353,104 +2330,6 @@ module AssemblyCache =
       (Store.KeyListStore.add aid0 ki ac.ackstore); acfistore = ac.acfistore }
  end
 
-module BackupPlanner =
- struct
-  type fileblock = { fbanum : positive; fbfpos : n; fbsz : n }
-
-  (** val fbanum : fileblock -> positive **)
-
-  let fbanum f =
-    f.fbanum
-
-  (** val fbfpos : fileblock -> n **)
-
-  let fbfpos f =
-    f.fbfpos
-
-  (** val fbsz : fileblock -> n **)
-
-  let fbsz f =
-    f.fbsz
-
-  type fileblockinformation = { fbifi : Filesupport.fileinformation;
-                                fbifblocks : fileblock list }
-
-  (** val fbifi : fileblockinformation -> Filesupport.fileinformation **)
-
-  let fbifi f =
-    f.fbifi
-
-  (** val fbifblocks : fileblockinformation -> fileblock list **)
-
-  let fbifblocks f =
-    f.fbifblocks
-
-  (** val aminsz : n **)
-
-  let aminsz =
-    Npos (XO (XO (XO (XO (XO (XO XH))))))
-
-  (** val prepare_blocks :
-      positive -> n -> nat -> positive -> n -> fileblock list -> n -> n ->
-      fileblock list * (positive * n) **)
-
-  let rec prepare_blocks nchunks0 maxsz fuel anum_p afree_p fbs_p fpos fsz =
-    match fuel with
-    | O -> (fbs_p, (anum_p, afree_p))
-    | S f' ->
-      if N.leb fsz afree_p
-      then if N.leb maxsz fsz
-           then let newblock = { fbanum = anum_p; fbfpos = fpos; fbsz =
-                  maxsz }
-                in
-                prepare_blocks nchunks0 maxsz f' anum_p (N.sub afree_p maxsz)
-                  (newblock :: fbs_p) (N.add fpos maxsz) (N.sub fsz maxsz)
-           else if N.ltb N0 fsz
-                then (({ fbanum = anum_p; fbfpos = fpos; fbsz =
-                       fsz } :: fbs_p), (anum_p, (N.sub afree_p fsz)))
-                else (fbs_p, (anum_p, afree_p))
-      else if N.leb maxsz afree_p
-           then let newblock = { fbanum = anum_p; fbfpos = fpos; fbsz =
-                  maxsz }
-                in
-                prepare_blocks nchunks0 maxsz f' anum_p (N.sub afree_p maxsz)
-                  (newblock :: fbs_p) (N.add fpos maxsz) (N.sub fsz maxsz)
-           else let asz = Assembly.assemblysize nchunks0 in
-                if N.ltb afree_p aminsz
-                then prepare_blocks nchunks0 maxsz f' (Coq_Pos.add anum_p XH)
-                       asz fbs_p fpos fsz
-                else let newblock = { fbanum = anum_p; fbfpos = fpos; fbsz =
-                       afree_p }
-                     in
-                     prepare_blocks nchunks0 maxsz f' (Coq_Pos.add anum_p XH)
-                       asz (newblock :: fbs_p) (N.add fpos afree_p)
-                       (N.sub fsz afree_p)
-
-  (** val max_block_size : n **)
-
-  let max_block_size =
-    N.mul (Npos (XO (XO (XO (XO (XO (XO (XO XH)))))))) (Npos (XO (XO (XO (XO
-      (XO (XO (XO (XO (XO (XO XH)))))))))))
-
-  (** val analyse_file :
-      positive -> Configuration.configuration -> n -> positive -> string ->
-      (positive * n) * fileblockinformation **)
-
-  let analyse_file nchunks0 c afree_p anum_p fn =
-    let fi = Filesupport.get_file_information c fn in
-    let nblocks = N.div fi.Filesupport.fsize max_block_size in
-    let fuel =
-      N.to_nat
-        (N.add (N.add nblocks (N.div nblocks (Conversion.pos2N nchunks0)))
-          (Npos XH))
-    in
-    let (afbs, ares) =
-      prepare_blocks nchunks0 max_block_size fuel anum_p afree_p [] N0
-        fi.Filesupport.fsize
-    in
-    (ares, { fbifi = fi; fbifblocks = (rev afbs) })
- end
-
 module Processor =
  struct
   type processor = { config : Configuration.configuration;
@@ -2490,7 +2369,7 @@ module Processor =
     let (b, cache') = filtered_var in
     if b
     then update_cache this cache'
-    else let (_, cache'0) = AssemblyCache.iterate_write_queue this.cache in
+    else let cache'0 = AssemblyCache.iterate_write_queue this.cache in
          let filtered_var0 = AssemblyCache.enqueue_write_request cache'0 wqe
          in
          let (b0, cache'') = filtered_var0 in
@@ -2510,12 +2389,11 @@ module Processor =
          let (b0, cache'') = filtered_var0 in
          if b0 then (rres, (update_cache this cache'')) else ([], this)
 
-  (** val run_write_requests :
-      processor -> AssemblyCache.writequeueresult list * processor **)
+  (** val run_write_requests : processor -> processor **)
 
   let run_write_requests this =
-    let (wres, cache') = AssemblyCache.iterate_write_queue this.cache in
-    (wres, (update_cache this cache'))
+    let cache' = AssemblyCache.iterate_write_queue this.cache in
+    update_cache this cache'
 
   (** val run_read_requests :
       processor -> AssemblyCache.readqueueresult list * processor **)
@@ -2523,16 +2401,6 @@ module Processor =
   let run_read_requests this =
     let (rres, cache') = AssemblyCache.iterate_read_queue this.cache in
     (rres, (update_cache this cache'))
-
-  (** val get_keys : processor -> Store.KeyListStore.coq_R **)
-
-  let get_keys this =
-    this.cache.AssemblyCache.ackstore
-
-  (** val get_fblocks : processor -> Store.FBlockListStore.coq_R **)
-
-  let get_fblocks this =
-    this.cache.AssemblyCache.acfbstore
 
   (** val close : processor -> processor **)
 
@@ -2545,11 +2413,11 @@ module Processor =
     Npos (XO (XO (XO (XO (XO (XO (XO (XO (XO (XO (XO (XO (XO (XO (XO
       XH)))))))))))))))
 
-  (** val rec_file_backup_inner :
+  (** val rec_file_backup_inner0 :
       nat -> processor -> Filesupport.fileinformation -> n -> Cstdio.fptr ->
       processor **)
 
-  let rec rec_file_backup_inner n_blocks this fi fpos fptr0 =
+  let rec rec_file_backup_inner0 n_blocks this fi fpos fptr0 =
     match n_blocks with
     | O -> this
     | S n_blocks' ->
@@ -2565,19 +2433,75 @@ module Processor =
                 AssemblyCache.qfpos = fpos; AssemblyCache.qbuffer = b' }
               in
               let this' = backup_block this wqe in
-              rec_file_backup_inner n_blocks' this' fi (N.add fpos sz) fptr0
+              rec_file_backup_inner0 n_blocks' this' fi (N.add fpos sz) fptr0
             | None -> this)
       else this
 
-  (** val open_file_backup :
+  (** val rec_file_backup_inner :
+      Assembly.blockinformation list -> processor -> string -> Cstdio.fptr ->
+      processor **)
+
+  let rec rec_file_backup_inner tgtfbs this fhash0 fptr0 =
+    match tgtfbs with
+    | [] -> this
+    | fb :: tgtfbs' ->
+      let ofptr' = Cstdio.fseek fptr0 fb.Assembly.filepos in
+      (match ofptr' with
+       | Some fptr' ->
+         let filtered_var = Cstdio.fread fptr0 fb.Assembly.blocksize in
+         (match filtered_var with
+          | Some p ->
+            let (_, b) = p in
+            let b' = Cstdio.BufferPlain.from_buffer b in
+            let found =
+              if (=) fb.Assembly.bchecksum ""
+              then false
+              else let chksum = Cstdio.BufferPlain.calc_checksum b' in
+                   (=) chksum fb.Assembly.bchecksum
+            in
+            if found
+            then let ac' =
+                   AssemblyCache.add_fileblockinformation this.cache fhash0 fb
+                 in
+                 let this' = update_cache this ac' in
+                 rec_file_backup_inner tgtfbs' this' fhash0 fptr'
+            else let wqe = { AssemblyCache.qfhash = fhash0;
+                   AssemblyCache.qfpos = fb.Assembly.filepos;
+                   AssemblyCache.qbuffer = b' }
+                 in
+                 let this' = backup_block this wqe in
+                 rec_file_backup_inner tgtfbs' this' fhash0 fptr'
+          | None -> this)
+       | None -> this)
+
+  (** val open_file_backup0 :
       processor -> n -> Filesupport.fileinformation -> n -> processor **)
 
-  let open_file_backup this n_blocks fi fpos =
+  let open_file_backup0 this n_blocks fi fpos =
     let filtered_var = Cstdio.fopen fi.Filesupport.fname Cstdio.read_mode in
     (match filtered_var with
      | Some fptr0 ->
        let proc' =
-         rec_file_backup_inner (N.to_nat n_blocks) this fi fpos fptr0
+         rec_file_backup_inner0 (N.to_nat n_blocks) this fi fpos fptr0
+       in
+       let filtered_var0 = Cstdio.fclose fptr0 in
+       (match filtered_var0 with
+        | Some _ ->
+          update_cache proc'
+            (AssemblyCache.add_fileinformation proc'.cache fi)
+        | None -> proc')
+     | None -> this)
+
+  (** val open_file_backup :
+      processor -> Filesupport.fileinformation -> Assembly.blockinformation
+      list -> processor **)
+
+  let open_file_backup this fi tgtfbs =
+    let filtered_var = Cstdio.fopen fi.Filesupport.fname Cstdio.read_mode in
+    (match filtered_var with
+     | Some fptr0 ->
+       let proc' =
+         rec_file_backup_inner tgtfbs this fi.Filesupport.fhash fptr0
        in
        let filtered_var0 = Cstdio.fclose fptr0 in
        (match filtered_var0 with
@@ -2641,30 +2565,82 @@ module Processor =
     let (lrres, ac'') = AssemblyCache.iterate_read_queue ac' in
     let n0 = internal_restore_to fptr0 lrres in ((N.add n0 res), ac'')
 
-  (** val file_backup : processor -> Filesystem.path -> processor **)
+  (** val prepare_blocks' :
+      nat -> positive -> n -> n -> Assembly.blockinformation list ->
+      Assembly.blockinformation list **)
 
-  let file_backup this fp =
+  let rec prepare_blocks' fuel bid fpos fsz agg =
+    match fuel with
+    | O -> rev agg
+    | S fuel' ->
+      let bsz = if N.ltb block_sz fsz then block_sz else fsz in
+      let blocks' =
+        if N.ltb N0 bsz
+        then { Assembly.blockid = bid; Assembly.bchecksum = "";
+               Assembly.blocksize = bsz; Assembly.filepos = fpos;
+               Assembly.blockaid = ""; Assembly.blockapos = N0 } :: agg
+        else agg
+      in
+      prepare_blocks' fuel' (Coq_Pos.add bid XH) (N.add fpos bsz)
+        (N.sub fsz bsz) blocks'
+
+  (** val zip_blocks :
+      Assembly.blockinformation list -> Assembly.blockinformation list ->
+      Assembly.blockinformation list -> Assembly.blockinformation list **)
+
+  let rec zip_blocks newbs curbs agg =
+    match newbs with
+    | [] -> rev agg
+    | h :: r ->
+      let filtered_var =
+        match curbs with
+        | [] -> (h, [])
+        | h' :: r' ->
+          if (&&) (N.eqb h.Assembly.blocksize h'.Assembly.blocksize)
+               (N.eqb h.Assembly.filepos h'.Assembly.filepos)
+          then ({ Assembly.blockid = h.Assembly.blockid; Assembly.bchecksum =
+                 h'.Assembly.bchecksum; Assembly.blocksize =
+                 h'.Assembly.blocksize; Assembly.filepos =
+                 h'.Assembly.filepos; Assembly.blockaid =
+                 h'.Assembly.blockaid; Assembly.blockapos =
+                 h'.Assembly.blockapos }, r')
+          else (h, r')
+      in
+      let (newb, r') = filtered_var in zip_blocks r r' (newb :: agg)
+
+  (** val prepare_blocks :
+      Assembly.blockinformation list -> n -> Assembly.blockinformation list **)
+
+  let prepare_blocks curbs fsz =
+    let n_blocks =
+      N.add (Npos XH)
+        (N.div (N.sub (N.add fsz (N.div block_sz (Npos (XO XH)))) (Npos XH))
+          block_sz)
+    in
+    let newbs = prepare_blocks' (N.to_nat n_blocks) XH N0 fsz [] in
+    (match curbs with
+     | [] -> newbs
+     | _ :: _ -> zip_blocks newbs curbs [])
+
+  (** val file_backup :
+      processor -> (string -> string option) -> (string ->
+      Assembly.blockinformation list) -> Filesystem.path -> processor **)
+
+  let file_backup this find_fchecksum find_fblocks fp =
     let fn = Filesystem.Path.to_string fp in
     let fi = Filesupport.get_file_information this.config fn in
-    let ofi' =
-      Store.FileinformationStore.find fn this.cache.AssemblyCache.acfistore
-    in
     let found =
-      match ofi' with
-      | Some fi' -> (=) fi'.Filesupport.fchecksum fi.Filesupport.fchecksum
-      | None -> false
+      let filtered_var = find_fchecksum fi.Filesupport.fhash in
+      (match filtered_var with
+       | Some fchecksum' -> (=) fchecksum' fi.Filesupport.fchecksum
+       | None -> false)
     in
     if found
     then this
-    else let n_blocks =
-           N.add (Npos XH)
-             (N.div
-               (N.sub
-                 (N.add fi.Filesupport.fsize (N.div block_sz (Npos (XO XH))))
-                 (Npos XH)) block_sz)
-         in
-         let proc1 = open_file_backup this n_blocks fi N0 in
-         let (_, proc2) = run_write_requests proc1 in proc2
+    else let curbs = find_fblocks fi.Filesupport.fhash in
+         let tgtbs = prepare_blocks curbs fi.Filesupport.fsize in
+         let proc1 = open_file_backup this fi tgtbs in
+         run_write_requests proc1
 
   (** val file_restore :
       processor -> Filesystem.path -> Filesystem.path ->
@@ -2707,7 +2683,9 @@ module Processor =
 
   let directory_backup this fp =
     let filtered_var = internal_directory_entries fp in
-    let (lfiles, _) = filtered_var in fold_left file_backup lfiles this
+    let (lfiles, _) = filtered_var in
+    fold_left (fun proc fn -> file_backup proc (const None) (const []) fn)
+      lfiles this
 
   (** val internal_recursive_backup :
       nat -> processor -> Filesystem.path -> processor **)
@@ -2722,7 +2700,7 @@ module Processor =
              internal_recursive_backup depth proc defp
         else if Filesystem.Direntry.is_regular_file de
              then let defp = Filesystem.Direntry.as_path de in
-                  file_backup proc defp
+                  file_backup proc (const None) (const []) defp
              else proc)
 
   (** val recursive_backup :
@@ -2749,7 +2727,7 @@ module Version =
   (** val build : string **)
 
   let build =
-    "10"
+    "11"
 
   (** val version : string **)
 

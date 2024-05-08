@@ -138,6 +138,13 @@ Program Definition add_fileinformation (ac0 : assemblycache) (fi : fileinformati
        acfbstore := ac0.(acfbstore); ackstore := ac0.(ackstore);
        acfistore := FileinformationStore.add fi.(fname) fi ac0.(acfistore) |}.
 
+Program Definition add_fileblockinformation (ac0 : assemblycache) (fhash : string) (bi : blockinformation) : assemblycache :=
+    {| acenvs := ac0.(acenvs); acsize := ac0.(acsize);
+       acwriteenv := ac0.(acwriteenv); acconfig := ac0.(acconfig);
+       acreadq := ac0.(acreadq); acwriteq := ac0.(acwriteq);
+       acfistore := ac0.(acfistore); ackstore := ac0.(ackstore);
+       acfbstore := FBlockListStore.add fhash bi ac0.(acfbstore) |}.
+
 (* ensure that an environment with assembly (by aid) is available
    and that it is in the head position of the list of envs *)
 Program Definition ensure_assembly (ac0 : assemblycache) (sel_aid : Assembly.aid_t) : option (EnvironmentReadable.E * assemblycache) :=

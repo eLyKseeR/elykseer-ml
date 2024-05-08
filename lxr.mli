@@ -135,14 +135,6 @@ val filter : ('a1 -> bool) -> 'a1 list -> 'a1 list
 
 val seq : nat -> nat -> nat list
 
-type 't settable =
-  't -> 't
-  (* singleton inductive, whose constructor was Build_Settable *)
-
-type ('r, 't) setter = ('t -> 't) -> 'r -> 'r
-
-val set : ('a1 -> 'a2) -> ('a1, 'a2) setter -> ('a2 -> 'a2) -> 'a1 -> 'a1
-
 module Conversion :
  sig
   val pos2N : positive -> n
@@ -468,8 +460,6 @@ module Assembly :
 
   val apos : assemblyinformation -> n
 
-  val etaX : assemblyinformation settable
-
   type keyinformation = { ivec : string; pkey : string; localid : string;
                           localnchunks : positive }
 
@@ -516,6 +506,8 @@ module Assembly :
 
   module AssemblyPlainFull :
    ASS
+
+  val set_apos : assemblyinformation -> n -> assemblyinformation
 
   val id_assembly_full_ainfo_from_writable :
     assemblyinformation -> assemblyinformation
@@ -620,6 +612,8 @@ module Store :
 
   val rec_find : string -> (string * 'a1) list -> 'a1 option
 
+  val rec_find_all : string -> (string * 'a1) list -> 'a1 list -> 'a1 list
+
   module type STORE =
    sig
     type coq_K
@@ -635,11 +629,13 @@ module Store :
     val add : coq_K -> coq_V -> coq_R -> coq_R
 
     val find : coq_K -> coq_R -> coq_V option
+
+    val find_all : coq_K -> coq_R -> coq_V list
    end
 
   module KeyListStore :
    sig
-    type coq_K = string
+    type coq_K = Assembly.aid_t
 
     type coq_V = Assembly.keyinformation
 
@@ -652,11 +648,13 @@ module Store :
     val add : coq_K -> coq_V -> coq_R -> coq_R
 
     val find : coq_K -> coq_R -> coq_V option
+
+    val find_all : coq_K -> coq_R -> coq_V list
    end
 
   module FBlockListStore :
    sig
-    type coq_K = Assembly.aid_t
+    type coq_K = string
 
     type coq_V = Assembly.blockinformation
 
@@ -669,6 +667,8 @@ module Store :
     val add : coq_K -> coq_V -> coq_R -> coq_R
 
     val find : coq_K -> coq_R -> coq_V option
+
+    val find_all : coq_K -> coq_R -> coq_V list
    end
 
   module FileinformationStore :
@@ -686,6 +686,8 @@ module Store :
     val add : coq_K -> coq_V -> coq_R -> coq_R
 
     val find : coq_K -> coq_R -> coq_V option
+
+    val find_all : coq_K -> coq_R -> coq_V list
    end
  end
 
@@ -781,13 +783,6 @@ module AssemblyCache :
 
   val qbuffer : writequeueentity -> Cstdio.BufferPlain.buffer_t
 
-  type writequeueresult = { writerequest : writequeueentity;
-                            wresult : readqueueentity }
-
-  val writerequest : writequeueresult -> writequeueentity
-
-  val wresult : writequeueresult -> readqueueentity
-
   val qsize : positive
 
   type readqueue = { rqueue : readqueueentity list; rqueuesz : positive }
@@ -849,6 +844,9 @@ module AssemblyCache :
   val add_fileinformation :
     assemblycache -> Filesupport.fileinformation -> assemblycache
 
+  val add_fileblockinformation :
+    assemblycache -> string -> Assembly.blockinformation -> assemblycache
+
   val ensure_assembly :
     assemblycache -> Assembly.aid_t ->
     (Environment.EnvironmentReadable.coq_E * assemblycache) option
@@ -858,14 +856,12 @@ module AssemblyCache :
     readqueueresult list * assemblycache
 
   val run_write_requests :
-    assemblycache -> writequeueentity list -> writequeueresult list ->
-    writequeueresult list * assemblycache
+    assemblycache -> writequeueentity list -> assemblycache
 
   val iterate_read_queue :
     assemblycache -> readqueueresult list * assemblycache
 
-  val iterate_write_queue :
-    assemblycache -> writequeueresult list * assemblycache
+  val iterate_write_queue : assemblycache -> assemblycache
 
   val flush : assemblycache -> assemblycache
 
@@ -874,36 +870,6 @@ module AssemblyCache :
   val add_key :
     assemblycache -> Assembly.aid_t -> Assembly.keyinformation ->
     assemblycache
- end
-
-module BackupPlanner :
- sig
-  type fileblock = { fbanum : positive; fbfpos : n; fbsz : n }
-
-  val fbanum : fileblock -> positive
-
-  val fbfpos : fileblock -> n
-
-  val fbsz : fileblock -> n
-
-  type fileblockinformation = { fbifi : Filesupport.fileinformation;
-                                fbifblocks : fileblock list }
-
-  val fbifi : fileblockinformation -> Filesupport.fileinformation
-
-  val fbifblocks : fileblockinformation -> fileblock list
-
-  val aminsz : n
-
-  val prepare_blocks :
-    positive -> n -> nat -> positive -> n -> fileblock list -> n -> n ->
-    fileblock list * (positive * n)
-
-  val max_block_size : n
-
-  val analyse_file :
-    positive -> Configuration.configuration -> n -> positive -> string ->
-    (positive * n) * fileblockinformation
  end
 
 module Processor :
@@ -927,26 +893,29 @@ module Processor :
     processor -> AssemblyCache.readqueueentity ->
     AssemblyCache.readqueueresult list * processor
 
-  val run_write_requests :
-    processor -> AssemblyCache.writequeueresult list * processor
+  val run_write_requests : processor -> processor
 
   val run_read_requests :
     processor -> AssemblyCache.readqueueresult list * processor
-
-  val get_keys : processor -> Store.KeyListStore.coq_R
-
-  val get_fblocks : processor -> Store.FBlockListStore.coq_R
 
   val close : processor -> processor
 
   val block_sz : n
 
-  val rec_file_backup_inner :
+  val rec_file_backup_inner0 :
     nat -> processor -> Filesupport.fileinformation -> n -> Cstdio.fptr ->
     processor
 
-  val open_file_backup :
+  val rec_file_backup_inner :
+    Assembly.blockinformation list -> processor -> string -> Cstdio.fptr ->
+    processor
+
+  val open_file_backup0 :
     processor -> n -> Filesupport.fileinformation -> n -> processor
+
+  val open_file_backup :
+    processor -> Filesupport.fileinformation -> Assembly.blockinformation
+    list -> processor
 
   val internal_restore_to :
     Cstdio.fptr -> AssemblyCache.readqueueresult list -> n
@@ -959,7 +928,20 @@ module Processor :
     processor -> Cstdio.fptr -> Assembly.blockinformation list ->
     n * AssemblyCache.assemblycache
 
-  val file_backup : processor -> Filesystem.path -> processor
+  val prepare_blocks' :
+    nat -> positive -> n -> n -> Assembly.blockinformation list ->
+    Assembly.blockinformation list
+
+  val zip_blocks :
+    Assembly.blockinformation list -> Assembly.blockinformation list ->
+    Assembly.blockinformation list -> Assembly.blockinformation list
+
+  val prepare_blocks :
+    Assembly.blockinformation list -> n -> Assembly.blockinformation list
+
+  val file_backup :
+    processor -> (string -> string option) -> (string ->
+    Assembly.blockinformation list) -> Filesystem.path -> processor
 
   val file_restore :
     processor -> Filesystem.path -> Filesystem.path ->

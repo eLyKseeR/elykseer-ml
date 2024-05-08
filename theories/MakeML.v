@@ -8,7 +8,6 @@ Open Scope positive_scope.
 From LXR Require Import Assembly.
 From LXR Require Import AssemblyCache.
 From LXR Require Import Store.
-From LXR Require Import BackupPlanner.
 From LXR Require Import Cstdio.
 From LXR Require Import Configuration.
 From LXR Require Import Conversion.
@@ -322,5 +321,5 @@ Axiom messageN : string -> N -> unit.
 
 (* extract into "lxr.ml" all named modules and definitions, and their dependencies *)
 Extraction "lxr.ml"  Version Conversion Utilities Filesupport Nchunks Assembly
-                     Configuration Environment Cstdio Filesystem BackupPlanner
+                     Configuration Environment Cstdio Filesystem
                      AssemblyCache Processor Store.
