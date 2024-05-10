@@ -19,7 +19,7 @@ RUN opam switch -y create 5.1.1
 RUN eval $(opam env) && opam repo add coq-released https://coq.inria.fr/opam/released
 
 RUN eval $(opam env) && opam -y pin add coq 8.18.0
-RUN eval $(opam env) && opam -y install yojson lwt_ppx sha irmin-git irmin alcotest alcotest-lwt ppx_optcomp
+RUN eval $(opam env) && opam -y install yojson lwt_ppx sha irmin-git irmin-cli irmin alcotest alcotest-lwt ppx_optcomp
 
 # install into ~/.local: boost-1.83.0, zlib-1.3 (prebuilt)
 RUN tar xzf ./prebuilt/dot.local-$(uname -m).tgz
@@ -45,13 +45,16 @@ LABEL org.opencontainers.image.source=https://github.com/eLyKseeR/elykseer-ml
 LABEL org.opencontainers.image.description="formally specified & verified implementation of eLyKseeR in Coq / OCaml"
 LABEL org.opencontainers.image.licenses=GPL-3.0-or-later
 
-RUN apt update && apt upgrade -y && apt install -y sudo opam bash git binutils texinfo less vim gettext sed curl pkg-config libgmp-dev libffi-dev && apt autoremove -y
+RUN apt update && apt upgrade -y && apt install -y sudo opam bash git jq binutils texinfo less vim gettext sed curl pkg-config libgmp-dev libffi-dev && apt autoremove -y
 
 RUN addgroup --gid 1000 coq && adduser --disabled-password --uid 1000 --gid 1000 coq
 
 COPY sudoers.coq /etc/sudoers.d/coq
 
 COPY --chown=1000 --from=build-env /tmp/coq.home.tgz /tmp/
+
+COPY --chown=1000 run_test.sh /home/coq/
+COPY --chown=1000 setup.sh /home/coq/
 
 USER coq
 
