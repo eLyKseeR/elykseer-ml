@@ -1,7 +1,7 @@
 (library
  (name elykseer)
  (public_name elykseer)
- (foreign_stubs (language cxx) (names helper) (flags -std=c++17 -fno-exceptions))
+ (foreign_stubs (language cxx) (names helper) (flags -std=c++20 -fno-exceptions))
  (c_library_flags :standard -lstdc++)
  (libraries elykseer_base
             elykseer_crypto

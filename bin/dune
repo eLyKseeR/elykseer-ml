@@ -55,23 +55,3 @@
  (ocamlopt_flags -O3 -cclib -s)
  (libraries elykseer elykseer_crypto)
 )
-
-(executable
- (public_name lxr_compare)
- (name lxr_compare)
- (package elykseer)
- (modules lxr_compare)
- (preprocess (pps lwt_ppx))
- (ocamlopt_flags -O3 -cclib -s)
- (libraries elykseer elykseer_base elykseer_utils)
-)
-
-(executable
- (public_name lxr_incremental)
- (name lxr_incremental)
- (package elykseer)
- (modules lxr_incremental)
- (preprocess (pps lwt_ppx))
- (ocamlopt_flags -O3 -cclib -s)
- (libraries elykseer elykseer_base elykseer_utils)
-)

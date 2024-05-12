@@ -9,7 +9,6 @@ theories/Assembly.v
 theories/Configuration.v
 theories/Conversion.v
 theories/Utilities.v
-theories/BackupPlanner.v
 theories/AssemblyCache.v
 theories/Store.v
 theories/MakeML.v

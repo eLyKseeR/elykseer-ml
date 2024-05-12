@@ -5,8 +5,6 @@
 Require Import NArith PArith.
 From Coq Require Import NArith.BinNat Lists.List Strings.String Program.Basics.
 
-From RecordUpdate Require Import RecordUpdate.
-
 From LXR Require Import Assembly.
 From LXR Require Import Configuration.
 From LXR Require Import Cstdio.
@@ -25,11 +23,6 @@ Record environment (AB : Type) : RecordEnvironment :=
         ; cur_buffer : AB
         ; econfig : configuration
         }.
-(* #[export] Instance etaX : Settable _ := settable! mkenvironment (AB) <cur_assembly; cur_buffer; config; fblocks; keys>. *)
-(* Print environment.
-Print cur_assembly.
-Print set.
-Print Setter.  *)
 
 Axiom cpp_mk_key256 : unit -> string.
 Axiom cpp_mk_key128 : unit -> string.
@@ -82,14 +75,14 @@ Module EnvironmentWritable <: ENV.
         end.
     
     Program Definition backup (e0 : environment AB) (fp : string) (fpos : N) (content : BufferPlain.buffer_t) : (environment AB * (blockinformation * option (aid_t * keyinformation))) :=
-        let afree := N.sub (Assembly.assemblysize e0.(econfig AB).(Configuration.config_nchunks)) e0.(cur_assembly AB).(apos) in
+        let afree := (Assembly.assemblysize e0.(econfig AB).(Configuration.config_nchunks)) - e0.(cur_assembly AB).(apos) in
         let blen := BufferPlain.buffer_len content in
-        let (ki, e1) := if N.ltb afree blen then
+        let (ki, e1) := if afree <? blen then
                             match finalise_and_recreate_assembly e0 with
                             | None => (None, e0)
-                            | Some (e0', ki) => (Some ki, e0')
+                            | Some (e0', ki') => (Some ki', e0')
                             end
-                         else (None, e0) in
+                        else (None, e0) in
         let (a', bi) := Assembly.backup e1.(cur_assembly AB) e1.(cur_buffer AB) fpos content in
         ({| cur_assembly := a'
           ; cur_buffer := e1.(cur_buffer AB)
