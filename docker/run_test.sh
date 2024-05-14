@@ -2,10 +2,6 @@
 
 set -e
 
-eval $(opam env)
-
-export PATH=${HOME}/.local/bin:$PATH
-
 MYID=test1
 
 dd if=/dev/random of=test1M bs=1M count=1
