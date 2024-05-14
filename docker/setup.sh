@@ -2,7 +2,6 @@
 
 set -e
 
-eval $(opam env)
 cd ${HOME}
 
 mkdir -vp ${HOME}/elykseer.chunks

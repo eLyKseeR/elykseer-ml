@@ -1,0 +1,42 @@
+# DOCKER_BUILDKIT=1 docker build -f Dockerfile.binaries -t codieplusplus/elykseer-ml-binaries:arm64 .
+
+FROM codieplusplus/elykseer-ml:arm64 AS build-env
+
+RUN cp -iva /home/coq/.opam/5.1.1/bin/irmin /home/coq/.local/bin/irmin && chown 1000 /home/coq/.local/bin/irmin
+
+USER coq
+
+WORKDIR /home/coq
+
+RUN tar czf /tmp/coq.local.tgz .local
+
+
+###############################################################################
+
+FROM debian:latest
+
+# 
+LABEL org.opencontainers.image.source=https://github.com/eLyKseeR/elykseer-ml
+LABEL org.opencontainers.image.description="formally specified & verified implementation of eLyKseeR in Coq / OCaml; binaries only"
+LABEL org.opencontainers.image.licenses=GPL-3.0-or-later
+
+RUN apt update && apt upgrade -y && apt install -y sudo bash git jq less vim gettext sed curl libgmp-dev libffi-dev && apt autoremove -y
+
+RUN addgroup --gid 1000 coq && adduser --disabled-password --uid 1000 --gid 1000 coq
+
+COPY sudoers.coq /etc/sudoers.d/coq
+
+COPY --chown=1000 --from=build-env /tmp/coq.local.tgz /tmp/coq.local.tgz
+
+COPY --chown=1000 run_test.sh /home/coq/
+COPY --chown=1000 setup.sh /home/coq/
+
+RUN tar xzf /tmp/coq.local.tgz -C /home/coq && chown -R coq:coq /home/coq/.local && rm /tmp/coq.local.tgz
+
+USER coq
+
+WORKDIR /home/coq
+
+RUN echo "export PATH=$PATH:${HOME}/.local/bin" >> ~/.bashrc
+
+CMD bash

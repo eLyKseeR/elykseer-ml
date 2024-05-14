@@ -24,6 +24,8 @@ elykseer.opam
 elykseer_base.opam
 elykseer_utils.opam
 
+/.vscode
+
 /meta
 /lxr
 

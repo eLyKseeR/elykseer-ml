@@ -2,7 +2,7 @@
 
 FROM debian:latest  AS build-env
 
-RUN apt update && apt upgrade -y && apt install -y opam bash cmake git binutils texinfo automake autoconf less vim cmake gcc g++ gettext sed curl pandoc pkg-config cppcheck libdigest-sha3-perl libgmp-dev libffi-dev
+RUN apt update && apt upgrade -y && apt install -y opam bash git binutils texinfo automake autoconf less vim cmake gcc g++ gettext sed curl pandoc pkg-config cppcheck libdigest-sha3-perl libgmp-dev libffi-dev
 
 RUN addgroup --gid 1000 coq && adduser --disabled-password --uid 1000 --gid 1000 coq
 
@@ -51,6 +51,8 @@ RUN addgroup --gid 1000 coq && adduser --disabled-password --uid 1000 --gid 1000
 
 COPY sudoers.coq /etc/sudoers.d/coq
 
+COPY --chown=1000 --from=build-env /home/coq/.opam/5.1.1/bin/irmin /home/coq/.local/bin/irmin
+
 COPY --chown=1000 --from=build-env /tmp/coq.home.tgz /tmp/
 
 COPY --chown=1000 run_test.sh /home/coq/
@@ -61,6 +63,8 @@ USER coq
 WORKDIR /home/coq
 
 RUN tar xzf /tmp/coq.home.tgz && rm /tmp/coq.home.tgz
+
+RUN echo "export PATH=$PATH:${HOME}/.local/bin" >> ~/.bashrc
 
 RUN git clone https://github.com/eLyKseeR/elykseer-ml.git elykseer-ml.git
 
