@@ -152,6 +152,8 @@ module Conversion :
   val i2n : int -> n
 
   val n2i : n -> int
+
+  val i2s : int -> string
  end
 
 module Nchunks :
@@ -264,10 +266,55 @@ module Cstdio :
   val ranbuf128 : unit -> BufferPlain.buffer_t
  end
 
+module Tracer :
+ sig
+  type loglevel =
+  | Coq_debug
+  | Coq_info
+  | Coq_warning
+  | Coq_error
+
+  val loglevel_rect : 'a1 -> 'a1 -> 'a1 -> 'a1 -> loglevel -> 'a1
+
+  val loglevel_rec : 'a1 -> 'a1 -> 'a1 -> 'a1 -> loglevel -> 'a1
+
+  type tracer = { logDebug : (string -> unit option);
+                  logInfo : (string -> unit option);
+                  logWarning : (string -> unit option);
+                  logError : (string -> unit option) }
+
+  val logDebug : tracer -> string -> unit option
+
+  val logInfo : tracer -> string -> unit option
+
+  val logWarning : tracer -> string -> unit option
+
+  val logError : tracer -> string -> unit option
+
+  val ignore : 'a1 -> unit option
+
+  val nullTracer : tracer
+
+  val output_stdout : loglevel -> string -> unit option
+
+  val stdoutTracer : tracer
+
+  val log : tracer -> loglevel -> string -> unit option
+
+  val conditionalTrace :
+    tracer -> loglevel -> bool -> string option -> (unit -> 'a1 option) ->
+    string option -> (unit -> 'a1 option) -> 'a1 option
+
+  val optionalTrace :
+    tracer -> 'a2 option -> loglevel -> string option -> (unit -> 'a1 option)
+    -> loglevel -> string option -> ('a2 -> 'a1 option) -> 'a1 option
+ end
+
 module Configuration :
  sig
   type configuration = { config_nchunks : Nchunks.t; path_chunks : string;
-                         path_db : string; my_id : string }
+                         path_db : string; my_id : string;
+                         trace : Tracer.tracer }
 
   val config_nchunks : configuration -> Nchunks.t
 
@@ -276,6 +323,8 @@ module Configuration :
   val path_db : configuration -> string
 
   val my_id : configuration -> string
+
+  val trace : configuration -> Tracer.tracer
  end
 
 module Filesystem :
@@ -902,20 +951,13 @@ module Processor :
 
   val block_sz : n
 
-  val rec_file_backup_inner0 :
-    nat -> processor -> Filesupport.fileinformation -> n -> Cstdio.fptr ->
-    processor
-
   val rec_file_backup_inner :
     Assembly.blockinformation list -> processor -> string -> Cstdio.fptr ->
-    processor
-
-  val open_file_backup0 :
-    processor -> n -> Filesupport.fileinformation -> n -> processor
+    processor option
 
   val open_file_backup :
     processor -> Filesupport.fileinformation -> Assembly.blockinformation
-    list -> processor
+    list -> processor option
 
   val internal_restore_to :
     Cstdio.fptr -> AssemblyCache.readqueueresult list -> n

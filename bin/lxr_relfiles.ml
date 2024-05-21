@@ -67,7 +67,8 @@ let benchmark_run cnt =
     { config_nchunks = Nchunks.from_int 16
     ; path_chunks = "lxr"
     ; path_db = "/tmp/db"
-    ; my_id = "0123" } in
+    ; my_id = "0123"
+    ; trace = Tracer.nullTracer } in
   let%lwt rel = Relfiles.new_map config in
   let clock0 = Chrono.Clock.System.now () in
   (* bm1 *)
@@ -93,7 +94,8 @@ let example_output () =
     { config_nchunks = Nchunks.from_int 16
     ; path_chunks = "lxr"
     ; path_db = "/tmp/db"
-    ; my_id = "4242" } in
+    ; my_id = "4242"
+    ; trace = Tracer.nullTracer } in
   let%lwt rel = Relfiles.new_map config in
   let blocks1 = [({ blockid = Conversion.i2p 1; blockaid = "aid001";
                     filepos = Conversion.i2n 0; blocksize = Conversion.i2n 1200;

@@ -6,6 +6,7 @@ theories/Filesupport.v
 theories/Environment.v
 theories/Nchunks.v
 theories/Assembly.v
+theories/Tracer.v
 theories/Configuration.v
 theories/Conversion.v
 theories/Utilities.v
