@@ -8,6 +8,7 @@ From Coq Require Import NArith.BinNat Lists.List Strings.String Bool.Bool Progra
 From LXR Require Import Assembly.
 From LXR Require Import AssemblyCache.
 From LXR Require Import Configuration.
+From LXR Require Import Conversion.
 From LXR Require Import Cstdio.
 From LXR Require Import Environment.
 From LXR Require Import Filesupport.
@@ -101,12 +102,12 @@ Local Program Fixpoint rec_file_backup_inner (tgtfbs : list blockinformation) (t
         Printf.printf "  block %d %d @ %d" (Conversion.p2i fb.Assembly.blockid) (Conversion.n2i fb.Assembly.blocksize) (Conversion.n2i fb.Assembly.filepos);
       end;
     *)
-        optionalTrace this.(config).(trace) (Cstdio.fseek fptr fb.(filepos))
+        Tracer.optionalTrace this.(config).(trace) (Cstdio.fseek fptr fb.(filepos))
         (Tracer.warning) (Some ("failed to fseek in file: " ++ fhash)%string)
         (fun _ => None)
         (Tracer.info) (None) (* no message for: Some _ *)
         (fun fptr' =>
-            optionalTrace this.(config).(trace) (Cstdio.fread fptr fb.(blocksize))
+            Tracer.optionalTrace this.(config).(trace) (Cstdio.fread fptr fb.(blocksize))
             (Tracer.warning) (Some ("failed to fread from file: " ++ fhash)%string)
             (fun _ => None)
             (Tracer.info) (None) (* no message for: Some _ *)
@@ -119,22 +120,22 @@ Local Program Fixpoint rec_file_backup_inner (tgtfbs : list blockinformation) (t
                             let chksum := BufferPlain.calc_checksum b' in
                             chksum =? fb.(bchecksum)
                     in
-                    match Tracer.conditionalTrace this.(config).(trace) (Tracer.info) (found)
-                      (Some "block found")
-                      ( fun _ =>
+                    match Tracer.conditionalTrace this.(config).(trace) (found)
+                        (Tracer.debug) (Some ("identical block found with id = " ++ (i2s (p2i fb.(blockid))))%string)
+                        ( fun _ =>
                         (* keep old blockinformation *)
                         let ac' := AssemblyCache.add_fileblockinformation this.(cache) fhash fb in
                         Some (update_cache this ac')
-                      )
-                      None
-                      ( fun _ =>
+                        )
+                        (Tracer.debug) None
+                        ( fun _ =>
                         let wqe : writequeueentity :=
                             {| qfhash  := fhash
-                             ; qfpos   := fb.(filepos)
-                             ; qbuffer := b'
+                                ; qfpos   := fb.(filepos)
+                                ; qbuffer := b'
                             |} in
                         Some (backup_block this wqe)
-                      ) with
+                        ) with
                     | None => None
                     | Some this' => rec_file_backup_inner tgtfbs' this' fhash fptr'
                     end
@@ -146,7 +147,7 @@ Local Program Fixpoint rec_file_backup_inner (tgtfbs : list blockinformation) (t
 Local Program Definition open_file_backup (fi : fileinformation) (tgtfbs : list blockinformation) : option processor :=
     match Cstdio.fopen fi.(fname) Cstdio.read_mode with
     | Some fptr =>
-        optionalTrace this.(config).(trace) (rec_file_backup_inner tgtfbs this fi.(fhash) fptr)
+        Tracer.optionalTrace this.(config).(trace) (rec_file_backup_inner tgtfbs this fi.(fhash) fptr)
           (Tracer.warning) (Some ("block backup failed of file: " ++ fi.(fname))%string)
           (fun _ => None)
           (Tracer.info) (Some ("block backup succeeded of file: " ++ fi.(fname))%string)
@@ -165,13 +166,18 @@ Local Program Definition open_file_backup (fi : fileinformation) (tgtfbs : list 
 
 Local Program Definition internal_restore_to (fptr: Cstdio.fptr) (lrres : list readqueueresult) : N :=
     List.fold_left (fun acc rres =>
-        match Cstdio.fseek fptr rres.(readrequest).(rqfpos) with
+        match Tracer.optionalTrace this.(config).(trace) (Cstdio.fseek fptr rres.(readrequest).(rqfpos))
+            (Tracer.warning) (Some ("failed to fseek to position: " ++ (i2s (n2i rres.(readrequest).(rqfpos))))%string)
+            (fun _ => None)
+            (Tracer.info) (None) (* no message for: Some _ *)
+            (fun fptr' =>
+                match Cstdio.fwrite fptr' rres.(readrequest).(rqrlen) (to_buffer rres.(rresult)) with
+                | None => None
+                | Some n => Some (n + acc)
+                end
+            ) with
         | None => 0
-        | Some fptr' =>
-            match Cstdio.fwrite fptr' rres.(readrequest).(rqrlen) (to_buffer rres.(rresult)) with
-            | None => 0
-            | Some n => n + acc
-            end
+        | Some k => k
         end
     ) lrres 0.
 
@@ -244,44 +250,51 @@ Program Definition file_backup (find_fchecksum : string -> option string) (find_
         | Some fchecksum' => fchecksum' =? fi.(fchecksum)
         end
     in
-    if (found) then
-        this
-    else
-        (* deduplication level 2 per block *)
-        let curbs := find_fblocks fi.(fhash) in
-        let tgtbs := prepare_blocks curbs fi.(fsize) in
-        match open_file_backup fi tgtbs with
-        | None => this
-        | Some proc1 =>
-            let proc2 := run_write_requests proc1 in
-            proc2
-        end.
+    match Tracer.conditionalTrace this.(config).(trace) (found)
+        (Tracer.info) (Some ("file content checksum identical to meta data: " ++ fn)%string)
+        (fun _ => Some this)
+        (Tracer.info) None
+        (fun _ =>
+            (* deduplication level 2 per block *)
+            let curbs := find_fblocks fi.(fhash) in
+            let tgtbs := prepare_blocks curbs fi.(fsize) in
+            match open_file_backup fi tgtbs with
+            | None => Some this
+            | Some proc1 =>
+                let proc2 := run_write_requests proc1 in
+                Some proc2
+            end
+        ) with
+    | Some proc' => proc'
+    | None => this
+    end.
 
 Program Definition file_restore (basep : Filesystem.path) (fp : Filesystem.path) (blocks : list blockinformation) : (N * processor) :=
     let targetp := Filesystem.Path.append basep fp in
-    if Filesystem.Path.file_exists targetp then
-        match Tracer.log this.(config).(trace) (Tracer.warning) ("file already exist: " ++ Filesystem.Path.to_string targetp) 
-        with | None => (42, this)
-             | Some tt => (0, this)
-        end
-    else
-        let mkdir :=
-            if Filesystem.Path.is_directory basep then true
-            else Filesystem.create_directories basep in
-        match Cstdio.fopen (Filesystem.Path.to_string targetp) Cstdio.write_new_mode with
-        | None =>
-            match Tracer.log this.(config).(trace) (Tracer.warning) ("failed to open file: " ++ Filesystem.Path.to_string targetp)
-            with | None => (42, this)
-                 | Some tt => (0, this)
-            end
-        | Some fptr =>
-            let '(n, ac') := restore_file_to fptr blocks in
-            let proc' := update_cache this ac' in
-            match Cstdio.fclose fptr with
-            | None => (0, proc')
-            | Some _ => (n, proc')
-            end
-        end.
+    match Tracer.conditionalTrace this.(config).(trace) (Filesystem.Path.file_exists targetp)
+        (Tracer.warning) (Some ("file already exist: " ++ Filesystem.Path.to_string targetp)%string)
+        (fun _ => Some (0, this))
+        (Tracer.info) (Some ("restoring file " ++ Filesystem.Path.to_string fp ++ " from " ++ i2s (n2i (nat2N (List.length blocks))) ++ " blocks")%string)
+        (fun _ =>
+            let mkdir :=
+                if Filesystem.Path.is_directory basep then true
+                else Filesystem.create_directories basep in
+            Tracer.optionalTrace this.(config).(trace) (Cstdio.fopen (Filesystem.Path.to_string targetp) Cstdio.write_new_mode)
+            (Tracer.warning) (Some ("failed to open file: " ++ Filesystem.Path.to_string targetp)%string)
+            (fun _ => None)
+            (Tracer.info) (None)
+            (fun fptr =>
+                let '(n, ac') := restore_file_to fptr blocks in
+                let proc' := update_cache this ac' in
+                match Cstdio.fclose fptr with
+                | None => Some (0, proc')
+                | Some _ => Some (n, proc')
+                end
+            )
+        ) with
+    | None => (0, this)
+    | Some res => res
+    end.
 
 End FileProcessor.
 

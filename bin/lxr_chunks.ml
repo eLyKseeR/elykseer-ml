@@ -33,11 +33,12 @@ let anon_args_fun fn = arg_files := fn :: !arg_files
 let () = Arg.parse argspec anon_args_fun "lxr_chunks: vxni";
          let nchunks = Nchunks.from_int !arg_nchunks in
          let myid = !arg_myid in
+         let tracer = if !arg_verbose then Tracer.stdoutTracerDebug else Tracer.stdoutTracerWarning in
          let conf : configuration = {
                          config_nchunks = nchunks;
                          path_chunks = !arg_chunkpath;
                          path_db     = "/tmp/db";
                          my_id       = myid;
-                         trace       = Tracer.stdoutTracer } in
+                         trace       = tracer } in
          List.iter (fun cid -> Assembly.chunk_identifier_path conf !arg_aid cid |> Printf.printf "%03d %s\n" (Conversion.p2i cid))
             @@ Utilities.make_list (Nchunks.to_positive nchunks)

@@ -80,9 +80,9 @@ let output_relations (ac : AssemblyCache.assemblycache) =
     match%lwt Relfiles.find fhash relf with
     | None -> Lwt.return (map)
     | Some rfbs ->
-        let%lwt () = if !arg_verbose then
+        (* let%lwt () = if !arg_verbose then
           Lwt_io.printlf "  have info on file '%s' with %d bytes from %d blocks" filename (Conversion.n2i rfbs.rfi.fsize) (List.length rfbs.rfbs)
-          else Lwt.return () in
+          else Lwt.return () in *)
         Lwt.return (StringMap.add fhash rfbs.rfi.fchecksum map)
   
   let get_file_blocks config filename =
@@ -92,16 +92,16 @@ let output_relations (ac : AssemblyCache.assemblycache) =
   match%lwt Relfiles.find fhash relf with
   | None -> Lwt.return (map)
   | Some rfbs ->
-      let%lwt () = if !arg_verbose then
+      (* let%lwt () = if !arg_verbose then
         Lwt_io.printlf "  have info on file '%s' with %d bytes from %d blocks" filename (Conversion.n2i rfbs.rfi.fsize) (List.length rfbs.rfbs)
-        else Lwt.return () in
+        else Lwt.return () in *)
       Lwt.return (StringMap.add fhash rfbs.rfbs map)
 
 let run_backup (proc : Processor.processor) filename =
   let%lwt fchecksum_map = get_file_checksum proc.config filename in
-  let find_fchecksum = fun fh -> Printf.printf "get fchecksum: %s\n" fh; StringMap.find_opt fh fchecksum_map in
+  let find_fchecksum = fun fh -> (* Printf.printf "     get fchecksum: %s\n" fh; *) StringMap.find_opt fh fchecksum_map in
   let%lwt fblocks_map = get_file_blocks proc.config filename in
-  let find_fblocks = fun fh -> Printf.printf "get fblocks: %s\n" fh;
+  let find_fblocks = fun fh -> (* Printf.printf "     get fblocks: %s\n" fh; *)
     match StringMap.find_opt fh fblocks_map with
     | None -> []
     | Some fbs -> List.rev fbs
@@ -116,12 +116,13 @@ let main () = Arg.parse argspec anon_args_fun "lxr_backup: vyxdnji";
       Lwt.return ()
   else
     let myid = !arg_myid in
+    let tracer = if !arg_verbose then Tracer.stdoutTracerDebug else Tracer.stdoutTracerWarning in
     let conf : configuration = {
                   config_nchunks = nchunks;
                   path_chunks = !arg_chunkpath;
                   path_db     = !arg_dbpath;
                   my_id       = myid;
-                  trace       = Tracer.stdoutTracer } in
+                  trace       = tracer } in
     let proc = Processor.prepare_processor conf in
     let%lwt proc' = 
       if !arg_directory = ""

@@ -26,11 +26,19 @@ Definition ignore {A} (x : A) : option unit := None.
 
 Definition nullTracer : tracer :=
     mktracer ignore ignore ignore ignore.
-(* Print nullTracer. *)
 
 Axiom output_stdout : loglevel -> string -> option unit.
-Definition stdoutTracer : tracer :=
+Definition stdoutTracerDebug : tracer :=
     mktracer (output_stdout debug) (output_stdout info) (output_stdout warning) (output_stdout error).
+
+Definition stdoutTracerInfo : tracer :=
+    mktracer ignore (output_stdout info) (output_stdout warning) (output_stdout error).
+
+Definition stdoutTracerWarning : tracer :=
+    mktracer ignore ignore (output_stdout warning) (output_stdout error).
+
+Definition stdoutTracerError : tracer :=
+    mktracer ignore ignore ignore (output_stdout error).
 
 Definition log (t : tracer) (ll : loglevel) (m : string) : option unit :=
     match ll with
@@ -40,11 +48,11 @@ Definition log (t : tracer) (ll : loglevel) (m : string) : option unit :=
     | error => t.(logError) m
     end.
 
-Definition conditionalTrace {A} (t : tracer) (ll : loglevel) (condition : bool) (true_msg : option string) (true_computation : unit -> option A) (false_msg : option string) (false_computation : unit -> option A) : option A :=
+Definition conditionalTrace {A} (t : tracer) (condition : bool) (ll_true : loglevel) (true_msg : option string) (true_computation : unit -> option A) (ll_false : loglevel) (false_msg : option string) (false_computation : unit -> option A) : option A :=
     if (condition)
     then
         match true_msg with
-        | Some m => match log t ll m with
+        | Some m => match log t ll_true m with
                     | Some tt => 
                         true_computation tt
                     | None => None
@@ -53,7 +61,7 @@ Definition conditionalTrace {A} (t : tracer) (ll : loglevel) (condition : bool) 
         end
     else
         match false_msg with
-        | Some m => match log t ll m with
+        | Some m => match log t ll_false m with
                     | Some tt => 
                         false_computation tt
                     | None => None

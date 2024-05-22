@@ -297,13 +297,19 @@ module Tracer :
 
   val output_stdout : loglevel -> string -> unit option
 
-  val stdoutTracer : tracer
+  val stdoutTracerDebug : tracer
+
+  val stdoutTracerInfo : tracer
+
+  val stdoutTracerWarning : tracer
+
+  val stdoutTracerError : tracer
 
   val log : tracer -> loglevel -> string -> unit option
 
   val conditionalTrace :
-    tracer -> loglevel -> bool -> string option -> (unit -> 'a1 option) ->
-    string option -> (unit -> 'a1 option) -> 'a1 option
+    tracer -> bool -> loglevel -> string option -> (unit -> 'a1 option) ->
+    loglevel -> string option -> (unit -> 'a1 option) -> 'a1 option
 
   val optionalTrace :
     tracer -> 'a2 option -> loglevel -> string option -> (unit -> 'a1 option)
@@ -960,11 +966,11 @@ module Processor :
     list -> processor option
 
   val internal_restore_to :
-    Cstdio.fptr -> AssemblyCache.readqueueresult list -> n
+    processor -> Cstdio.fptr -> AssemblyCache.readqueueresult list -> n
 
   val restore_block_to :
-    Cstdio.fptr -> AssemblyCache.assemblycache -> Assembly.blockinformation
-    -> n * AssemblyCache.assemblycache
+    processor -> Cstdio.fptr -> AssemblyCache.assemblycache ->
+    Assembly.blockinformation -> n * AssemblyCache.assemblycache
 
   val restore_file_to :
     processor -> Cstdio.fptr -> Assembly.blockinformation list ->

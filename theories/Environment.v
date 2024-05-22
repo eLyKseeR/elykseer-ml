@@ -53,8 +53,8 @@ Module EnvironmentWritable <: ENV.
     Definition finalise_assembly (e0 : environment AB) : option (aid_t * keyinformation) :=
         let a0 := e0.(cur_assembly AB) in
         let apos := Assembly.apos a0 in
-        conditionalTrace e0.(econfig AB).(trace) (Tracer.info) (N.ltb 16 apos) (* apos > 16 *)
-        (Some ("finalising assembly " ++ a0.(aid) ++ " with apos = " ++ i2s (n2i apos))%string)
+        conditionalTrace e0.(econfig AB).(trace) (N.ltb 16 apos) (* apos > 16 *)
+        (Tracer.info) (Some ("finalising assembly " ++ a0.(aid) ++ " with apos = " ++ i2s (n2i apos))%string)
         (fun _ =>
             let (a,b) := Assembly.finish a0 e0.(cur_buffer AB) in
             let ki := {| pkey := cpp_mk_key256 tt
@@ -72,7 +72,7 @@ Module EnvironmentWritable <: ENV.
                 else None
             )
         )
-        (Some ("not finalising empty assembly " ++ a0.(aid) ++ " with apos = "  ++ i2s (n2i apos))%string)
+        (Tracer.info) (Some ("not finalising empty assembly " ++ a0.(aid) ++ " with apos = "  ++ i2s (n2i apos))%string)
         (fun _ => None).
     
     Definition finalise_and_recreate_assembly (e0 : environment AB) : option (environment AB * (aid_t * keyinformation)) :=
