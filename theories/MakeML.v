@@ -17,6 +17,7 @@ From LXR Require Import Filesystem.
 From LXR Require Import Nchunks.
 From LXR Require Import Processor.
 From LXR Require Import Utilities.
+From LXR Require Import Tracer.
 From LXR Require Import Version.
 
 From Coq Require Import ExtrOcamlBasic.
@@ -77,6 +78,8 @@ Extract Constant n2i =>
       N0 -> 0 
     | Npos p -> p2i p
    ".
+
+Extract Constant i2s => "string_of_int".
 
 (* Extract Constant rndsetup =>
    "
@@ -319,7 +322,16 @@ Axiom messageN : string -> N -> unit.
    ".
 *)
 
+Extract Constant output_stdout => "fun ll m -> 
+   let _ = match ll with
+   | Coq_debug -> print_string ""DEBUG ""
+   | Coq_info -> print_string ""INFO ""
+   | Coq_warning -> print_string ""WARNING ""
+   | Coq_error -> print_string ""ERROR ""
+   in
+   print_endline m; Some ()".
+
 (* extract into "lxr.ml" all named modules and definitions, and their dependencies *)
 Extraction "lxr.ml"  Version Conversion Utilities Filesupport Nchunks Assembly
-                     Configuration Environment Cstdio Filesystem
+                     Tracer Configuration Environment Cstdio Filesystem
                      AssemblyCache Processor Store.

@@ -33,7 +33,8 @@ let benchmark_run cnt _ () =
     { config_nchunks = Nchunks.from_int 16
     ; path_chunks = "lxr"
     ; path_db = "/tmp/db"
-    ; my_id = "4242" } in
+    ; my_id = "4242"
+    ; trace  = Tracer.nullTracer } in
   let%lwt rel = Relkeys.new_map config in
   let clock0 = Chrono.Clock.System.now () in
   (* bm1 *)
@@ -57,7 +58,8 @@ let example_output _ () =
     { config_nchunks = Nchunks.from_int 16
     ; path_chunks = "lxr"
     ; path_db = "/tmp/db"
-    ; my_id = "4242" } in
+    ; my_id = "4242"
+    ; trace = Tracer.nullTracer } in
   let%lwt rel = Relkeys.new_map config in
   let k1 : Assembly.keyinformation = {pkey="key0001";ivec="12";localnchunks=Conversion.i2p 16;localid="43424"} in
   let k2 : Assembly.keyinformation = {pkey="key0002";ivec="12";localnchunks=Conversion.i2p 24;localid="62831"} in

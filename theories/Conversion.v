@@ -7,7 +7,7 @@
  Description: conversion functions
  *)
 
-From Coq Require Import NArith.BinNat.
+From Coq Require Import NArith.BinNat Strings.String.
 
 Module Export Conversion.
 
@@ -28,6 +28,7 @@ Axiom i2z : int -> Z.
 Axiom z2i : Z -> int.
 Axiom i2n : int -> N.
 Axiom n2i : N -> int.
+Axiom i2s : int -> string.
 
 End axioms.
 

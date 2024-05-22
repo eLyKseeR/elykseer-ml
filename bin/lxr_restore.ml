@@ -33,11 +33,11 @@ let restore_file proc relf _relk basep fname =
   match ofbs with
   | None -> let%lwt () = Lwt_io.printlf "  cannot restore file '%s'" fname in Lwt.return (0,proc)
   | Some rfbs ->
-      let%lwt () = if !arg_verbose then
+      (* let%lwt () = if !arg_verbose then
         Lwt_io.printlf "  restoring %d bytes in file '%s' from %d blocks" (Conversion.n2i rfbs.rfi.fsize) fname (List.length rfbs.rfbs)
-        else Lwt.return () in
+        else Lwt.return () in *)
       let (n, proc') = Processor.file_restore proc basep (Filesystem.Path.from_string fname) rfbs.rfbs in
-      let%lwt _ = Lwt_io.printlf "     -> %d bytes" (Conversion.n2i n) in
+      (* let%lwt _ = Lwt_io.printlf "     -> %d bytes" (Conversion.n2i n) in *)
       Lwt.return (Conversion.n2i n, proc')
 
 (* find all assembly ids in the file blocks to be restored
@@ -92,11 +92,13 @@ let main () = Arg.parse argspec anon_args_fun "lxr_restore: vxodnji";
        && exists_output_dir !arg_outpath
     then
       let myid = !arg_myid in
+      let tracer = if !arg_verbose then Tracer.stdoutTracerDebug else Tracer.stdoutTracerWarning in
       let conf : configuration = {
                     config_nchunks = nchunks;
                     path_chunks = !arg_chunkpath;
                     path_db     = !arg_dbpath;
-                    my_id       = myid } in
+                    my_id       = myid;
+                    trace       = tracer } in
       let proc = Processor.prepare_processor conf in
       let%lwt relf = Relfiles.new_map conf in
       let%lwt relk = Relkeys.new_map conf in

@@ -64,7 +64,8 @@ let main () = Arg.parse argspec anon_args_fun usage_msg;
                       config_nchunks = nchunks;
                       path_chunks = "lxr";
                       path_db     = !arg_dbpath;
-                      my_id       = myid } in
+                      my_id       = myid;
+                      trace       = Tracer.nullTracer } in
       let%lwt relfiles = Relfiles.new_map conf in
       let%lwt relkeys = Relkeys.new_map conf in
       output_keys !arg_files relfiles relkeys

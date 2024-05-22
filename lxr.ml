@@ -519,6 +519,10 @@ module Conversion =
       N0 -> 0 
     | Npos p -> p2i p
    
+
+  (** val i2s : int -> string **)
+
+  let i2s = string_of_int
  end
 
 module Nchunks =
@@ -809,10 +813,158 @@ module Cstdio =
     let rb = cpp_ranbuf128 () in BufferPlain.from_buffer rb
  end
 
+module Tracer =
+ struct
+  type loglevel =
+  | Coq_debug
+  | Coq_info
+  | Coq_warning
+  | Coq_error
+
+  (** val loglevel_rect : 'a1 -> 'a1 -> 'a1 -> 'a1 -> loglevel -> 'a1 **)
+
+  let loglevel_rect f f0 f1 f2 = function
+  | Coq_debug -> f
+  | Coq_info -> f0
+  | Coq_warning -> f1
+  | Coq_error -> f2
+
+  (** val loglevel_rec : 'a1 -> 'a1 -> 'a1 -> 'a1 -> loglevel -> 'a1 **)
+
+  let loglevel_rec f f0 f1 f2 = function
+  | Coq_debug -> f
+  | Coq_info -> f0
+  | Coq_warning -> f1
+  | Coq_error -> f2
+
+  type tracer = { logDebug : (string -> unit option);
+                  logInfo : (string -> unit option);
+                  logWarning : (string -> unit option);
+                  logError : (string -> unit option) }
+
+  (** val logDebug : tracer -> string -> unit option **)
+
+  let logDebug t0 =
+    t0.logDebug
+
+  (** val logInfo : tracer -> string -> unit option **)
+
+  let logInfo t0 =
+    t0.logInfo
+
+  (** val logWarning : tracer -> string -> unit option **)
+
+  let logWarning t0 =
+    t0.logWarning
+
+  (** val logError : tracer -> string -> unit option **)
+
+  let logError t0 =
+    t0.logError
+
+  (** val ignore : 'a1 -> unit option **)
+
+  let ignore _ =
+    None
+
+  (** val nullTracer : tracer **)
+
+  let nullTracer =
+    { logDebug = ignore; logInfo = ignore; logWarning = ignore; logError =
+      ignore }
+
+  (** val output_stdout : loglevel -> string -> unit option **)
+
+  let output_stdout = fun ll m -> 
+   let _ = match ll with
+   | Coq_debug -> print_string "DEBUG "
+   | Coq_info -> print_string "INFO "
+   | Coq_warning -> print_string "WARNING "
+   | Coq_error -> print_string "ERROR "
+   in
+   print_endline m; Some ()
+
+  (** val stdoutTracerDebug : tracer **)
+
+  let stdoutTracerDebug =
+    { logDebug = (output_stdout Coq_debug); logInfo =
+      (output_stdout Coq_info); logWarning = (output_stdout Coq_warning);
+      logError = (output_stdout Coq_error) }
+
+  (** val stdoutTracerInfo : tracer **)
+
+  let stdoutTracerInfo =
+    { logDebug = ignore; logInfo = (output_stdout Coq_info); logWarning =
+      (output_stdout Coq_warning); logError = (output_stdout Coq_error) }
+
+  (** val stdoutTracerWarning : tracer **)
+
+  let stdoutTracerWarning =
+    { logDebug = ignore; logInfo = ignore; logWarning =
+      (output_stdout Coq_warning); logError = (output_stdout Coq_error) }
+
+  (** val stdoutTracerError : tracer **)
+
+  let stdoutTracerError =
+    { logDebug = ignore; logInfo = ignore; logWarning = ignore; logError =
+      (output_stdout Coq_error) }
+
+  (** val log : tracer -> loglevel -> string -> unit option **)
+
+  let log t0 ll m =
+    match ll with
+    | Coq_debug -> t0.logDebug m
+    | Coq_info -> t0.logInfo m
+    | Coq_warning -> t0.logWarning m
+    | Coq_error -> t0.logError m
+
+  (** val conditionalTrace :
+      tracer -> bool -> loglevel -> string option -> (unit -> 'a1 option) ->
+      loglevel -> string option -> (unit -> 'a1 option) -> 'a1 option **)
+
+  let conditionalTrace t0 condition ll_true true_msg true_computation ll_false false_msg false_computation =
+    if condition
+    then (match true_msg with
+          | Some m ->
+            (match log t0 ll_true m with
+             | Some _ -> true_computation ()
+             | None -> None)
+          | None -> true_computation ())
+    else (match false_msg with
+          | Some m ->
+            (match log t0 ll_false m with
+             | Some _ -> false_computation ()
+             | None -> None)
+          | None -> false_computation ())
+
+  (** val optionalTrace :
+      tracer -> 'a2 option -> loglevel -> string option -> (unit -> 'a1
+      option) -> loglevel -> string option -> ('a2 -> 'a1 option) -> 'a1
+      option **)
+
+  let optionalTrace t0 computation ll_none none_msg computation_none ll_some some_msg computation_some =
+    match computation with
+    | Some b ->
+      (match some_msg with
+       | Some m ->
+         (match log t0 ll_some m with
+          | Some _ -> computation_some b
+          | None -> None)
+       | None -> computation_some b)
+    | None ->
+      (match none_msg with
+       | Some m ->
+         (match log t0 ll_none m with
+          | Some _ -> computation_none ()
+          | None -> None)
+       | None -> computation_none ())
+ end
+
 module Configuration =
  struct
   type configuration = { config_nchunks : Nchunks.t; path_chunks : string;
-                         path_db : string; my_id : string }
+                         path_db : string; my_id : string;
+                         trace : Tracer.tracer }
 
   (** val config_nchunks : configuration -> Nchunks.t **)
 
@@ -833,6 +985,11 @@ module Configuration =
 
   let my_id c =
     c.my_id
+
+  (** val trace : configuration -> Tracer.tracer **)
+
+  let trace c =
+    c.trace
  end
 
 module Filesystem =
@@ -1847,20 +2004,31 @@ module Environment =
     let finalise_assembly e0 =
       let a0 = e0.cur_assembly in
       let apos0 = a0.Assembly.apos in
-      if N.ltb N0 apos0
-      then let (a, b) = Assembly.finish a0 e0.cur_buffer in
-           let ki = { Assembly.ivec = (cpp_mk_key128 ()); Assembly.pkey =
-             (cpp_mk_key256 ()); Assembly.localid =
-             e0.econfig.Configuration.my_id; Assembly.localnchunks =
-             e0.econfig.Configuration.config_nchunks }
-           in
-           (match Assembly.encrypt a b ki with
-            | Some p ->
-              let (a', b') = p in
-              let n0 = Assembly.extract e0.econfig a' b' in
-              if N.ltb N0 n0 then Some (a.Assembly.aid, ki) else None
-            | None -> None)
-      else None
+      Tracer.conditionalTrace e0.econfig.Configuration.trace
+        (N.ltb (Npos (XO (XO (XO (XO XH))))) apos0) Tracer.Coq_info (Some
+        ((^) "finalising assembly "
+          ((^) a0.Assembly.aid
+            ((^) " with apos = " (Conversion.i2s (Conversion.n2i apos0))))))
+        (fun _ ->
+        let (a, b) = Assembly.finish a0 e0.cur_buffer in
+        let ki = { Assembly.ivec = (cpp_mk_key128 ()); Assembly.pkey =
+          (cpp_mk_key256 ()); Assembly.localid =
+          e0.econfig.Configuration.my_id; Assembly.localnchunks =
+          e0.econfig.Configuration.config_nchunks }
+        in
+        Tracer.optionalTrace e0.econfig.Configuration.trace
+          (Assembly.encrypt a b ki) Tracer.Coq_warning (Some
+          ((^) "failed to encrypt assembly: " a.Assembly.aid)) (fun _ ->
+          None) Tracer.Coq_info (Some
+          ((^) "encrypted assembly: " a.Assembly.aid)) (fun pat ->
+          let (a', b') = pat in
+          let n0 = Assembly.extract e0.econfig a' b' in
+          if N.ltb N0 n0 then Some (a.Assembly.aid, ki) else None))
+        Tracer.Coq_info (Some
+        ((^) "not finalising empty assembly "
+          ((^) a0.Assembly.aid
+            ((^) " with apos = " (Conversion.i2s (Conversion.n2i apos0))))))
+        (fun _ -> None)
 
     (** val finalise_and_recreate_assembly :
         coq_AB environment -> (coq_AB
@@ -2413,129 +2581,114 @@ module Processor =
     Npos (XO (XO (XO (XO (XO (XO (XO (XO (XO (XO (XO (XO (XO (XO (XO
       XH)))))))))))))))
 
-  (** val rec_file_backup_inner0 :
-      nat -> processor -> Filesupport.fileinformation -> n -> Cstdio.fptr ->
-      processor **)
-
-  let rec rec_file_backup_inner0 n_blocks this fi fpos fptr0 =
-    match n_blocks with
-    | O -> this
-    | S n_blocks' ->
-      if N.ltb fpos fi.Filesupport.fsize
-      then let dsz = N.sub fi.Filesupport.fsize fpos in
-           let sz = if N.ltb block_sz dsz then block_sz else dsz in
-           let filtered_var = Cstdio.fread fptr0 sz in
-           (match filtered_var with
-            | Some p ->
-              let (_, b) = p in
-              let b' = Cstdio.BufferPlain.from_buffer b in
-              let wqe = { AssemblyCache.qfhash = fi.Filesupport.fhash;
-                AssemblyCache.qfpos = fpos; AssemblyCache.qbuffer = b' }
-              in
-              let this' = backup_block this wqe in
-              rec_file_backup_inner0 n_blocks' this' fi (N.add fpos sz) fptr0
-            | None -> this)
-      else this
-
   (** val rec_file_backup_inner :
       Assembly.blockinformation list -> processor -> string -> Cstdio.fptr ->
-      processor **)
+      processor option **)
 
   let rec rec_file_backup_inner tgtfbs this fhash0 fptr0 =
     match tgtfbs with
-    | [] -> this
+    | [] -> Some this
     | fb :: tgtfbs' ->
-      let ofptr' = Cstdio.fseek fptr0 fb.Assembly.filepos in
-      (match ofptr' with
-       | Some fptr' ->
-         let filtered_var = Cstdio.fread fptr0 fb.Assembly.blocksize in
-         (match filtered_var with
-          | Some p ->
-            let (_, b) = p in
-            let b' = Cstdio.BufferPlain.from_buffer b in
-            let found =
-              if (=) fb.Assembly.bchecksum ""
-              then false
-              else let chksum = Cstdio.BufferPlain.calc_checksum b' in
-                   (=) chksum fb.Assembly.bchecksum
-            in
-            if found
-            then let ac' =
-                   AssemblyCache.add_fileblockinformation this.cache fhash0 fb
-                 in
-                 let this' = update_cache this ac' in
-                 rec_file_backup_inner tgtfbs' this' fhash0 fptr'
-            else let wqe = { AssemblyCache.qfhash = fhash0;
-                   AssemblyCache.qfpos = fb.Assembly.filepos;
-                   AssemblyCache.qbuffer = b' }
-                 in
-                 let this' = backup_block this wqe in
-                 rec_file_backup_inner tgtfbs' this' fhash0 fptr'
-          | None -> this)
-       | None -> this)
-
-  (** val open_file_backup0 :
-      processor -> n -> Filesupport.fileinformation -> n -> processor **)
-
-  let open_file_backup0 this n_blocks fi fpos =
-    let filtered_var = Cstdio.fopen fi.Filesupport.fname Cstdio.read_mode in
-    (match filtered_var with
-     | Some fptr0 ->
-       let proc' =
-         rec_file_backup_inner0 (N.to_nat n_blocks) this fi fpos fptr0
-       in
-       let filtered_var0 = Cstdio.fclose fptr0 in
-       (match filtered_var0 with
-        | Some _ ->
-          update_cache proc'
-            (AssemblyCache.add_fileinformation proc'.cache fi)
-        | None -> proc')
-     | None -> this)
+      Tracer.optionalTrace this.config.Configuration.trace
+        (Cstdio.fseek fptr0 fb.Assembly.filepos) Tracer.Coq_warning (Some
+        ((^) "failed to fseek in file: " fhash0)) (fun _ -> None)
+        Tracer.Coq_info None (fun fptr' ->
+        Tracer.optionalTrace this.config.Configuration.trace
+          (Cstdio.fread fptr0 fb.Assembly.blocksize) Tracer.Coq_warning (Some
+          ((^) "failed to fread from file: " fhash0)) (fun _ -> None)
+          Tracer.Coq_info None (fun pat ->
+          let (_, b) = pat in
+          let b' = Cstdio.BufferPlain.from_buffer b in
+          let found =
+            if (=) fb.Assembly.bchecksum ""
+            then false
+            else let chksum = Cstdio.BufferPlain.calc_checksum b' in
+                 (=) chksum fb.Assembly.bchecksum
+          in
+          let filtered_var =
+            Tracer.conditionalTrace this.config.Configuration.trace found
+              Tracer.Coq_debug (Some
+              ((^) "identical block found with id = "
+                (Conversion.i2s (Conversion.p2i fb.Assembly.blockid))))
+              (fun _ ->
+              let ac' =
+                AssemblyCache.add_fileblockinformation this.cache fhash0 fb
+              in
+              Some (update_cache this ac')) Tracer.Coq_debug None (fun _ ->
+              let wqe = { AssemblyCache.qfhash = fhash0;
+                AssemblyCache.qfpos = fb.Assembly.filepos;
+                AssemblyCache.qbuffer = b' }
+              in
+              Some (backup_block this wqe))
+          in
+          (match filtered_var with
+           | Some this' -> rec_file_backup_inner tgtfbs' this' fhash0 fptr'
+           | None -> None)))
 
   (** val open_file_backup :
       processor -> Filesupport.fileinformation -> Assembly.blockinformation
-      list -> processor **)
+      list -> processor option **)
 
   let open_file_backup this fi tgtfbs =
     let filtered_var = Cstdio.fopen fi.Filesupport.fname Cstdio.read_mode in
     (match filtered_var with
      | Some fptr0 ->
-       let proc' =
-         rec_file_backup_inner tgtfbs this fi.Filesupport.fhash fptr0
+       Tracer.optionalTrace this.config.Configuration.trace
+         (rec_file_backup_inner tgtfbs this fi.Filesupport.fhash fptr0)
+         Tracer.Coq_warning (Some
+         ((^) "block backup failed of file: " fi.Filesupport.fname))
+         (fun _ -> None) Tracer.Coq_info (Some
+         ((^) "block backup succeeded of file: " fi.Filesupport.fname))
+         (fun proc' ->
+         let filtered_var0 = Cstdio.fclose fptr0 in
+         (match filtered_var0 with
+          | Some _ ->
+            Some
+              (update_cache proc'
+                (AssemblyCache.add_fileinformation proc'.cache fi))
+          | None -> Some proc'))
+     | None ->
+       let filtered_var0 =
+         Tracer.log this.config.Configuration.trace Tracer.Coq_warning
+           ((^) "failed to open file: " fi.Filesupport.fname)
        in
-       let filtered_var0 = Cstdio.fclose fptr0 in
        (match filtered_var0 with
-        | Some _ ->
-          update_cache proc'
-            (AssemblyCache.add_fileinformation proc'.cache fi)
-        | None -> proc')
-     | None -> this)
+        | Some _ -> None
+        | None -> Some this))
 
   (** val internal_restore_to :
-      Cstdio.fptr -> AssemblyCache.readqueueresult list -> n **)
+      processor -> Cstdio.fptr -> AssemblyCache.readqueueresult list -> n **)
 
-  let internal_restore_to fptr0 lrres =
+  let internal_restore_to this fptr0 lrres =
     fold_left (fun acc rres ->
       let filtered_var =
-        Cstdio.fseek fptr0 rres.AssemblyCache.readrequest.AssemblyCache.rqfpos
+        Tracer.optionalTrace this.config.Configuration.trace
+          (Cstdio.fseek fptr0
+            rres.AssemblyCache.readrequest.AssemblyCache.rqfpos)
+          Tracer.Coq_warning (Some
+          ((^) "failed to fseek to position: "
+            (Conversion.i2s
+              (Conversion.n2i
+                rres.AssemblyCache.readrequest.AssemblyCache.rqfpos))))
+          (fun _ -> None) Tracer.Coq_info None (fun fptr' ->
+          let filtered_var =
+            Cstdio.fwrite fptr'
+              rres.AssemblyCache.readrequest.AssemblyCache.rqrlen
+              (Cstdio.BufferPlain.to_buffer rres.AssemblyCache.rresult)
+          in
+          (match filtered_var with
+           | Some n0 -> Some (N.add n0 acc)
+           | None -> None))
       in
       (match filtered_var with
-       | Some fptr' ->
-         let filtered_var0 =
-           Cstdio.fwrite fptr'
-             rres.AssemblyCache.readrequest.AssemblyCache.rqrlen
-             (Cstdio.BufferPlain.to_buffer rres.AssemblyCache.rresult)
-         in
-         (match filtered_var0 with
-          | Some n0 -> N.add n0 acc
-          | None -> N0)
+       | Some k -> k
        | None -> N0)) lrres N0
 
   (** val restore_block_to :
-      Cstdio.fptr -> AssemblyCache.assemblycache -> Assembly.blockinformation
-      -> n * AssemblyCache.assemblycache **)
+      processor -> Cstdio.fptr -> AssemblyCache.assemblycache ->
+      Assembly.blockinformation -> n * AssemblyCache.assemblycache **)
 
-  let restore_block_to fptr0 ac block =
+  let restore_block_to this fptr0 ac block =
     let rreq = { AssemblyCache.rqaid = block.Assembly.blockaid;
       AssemblyCache.rqapos = block.Assembly.blockapos; AssemblyCache.rqrlen =
       block.Assembly.blocksize; AssemblyCache.rqfpos =
@@ -2546,7 +2699,7 @@ module Processor =
     if b
     then (N0, ac')
     else let (lrres, ac'') = AssemblyCache.iterate_read_queue ac' in
-         let n0 = internal_restore_to fptr0 lrres in
+         let n0 = internal_restore_to this fptr0 lrres in
          let (_, ac''') = AssemblyCache.enqueue_read_request ac'' rreq in
          if N.ltb N0 n0 then (n0, ac''') else (N0, ac''')
 
@@ -2558,12 +2711,12 @@ module Processor =
     let filtered_var =
       fold_left (fun pat block ->
         let (acc, ac) = pat in
-        let (n0, ac') = restore_block_to fptr0 ac block in
+        let (n0, ac') = restore_block_to this fptr0 ac block in
         ((N.add acc n0), ac')) blocks (N0, this.cache)
     in
     let (res, ac') = filtered_var in
     let (lrres, ac'') = AssemblyCache.iterate_read_queue ac' in
-    let n0 = internal_restore_to fptr0 lrres in ((N.add n0 res), ac'')
+    let n0 = internal_restore_to this fptr0 lrres in ((N.add n0 res), ac'')
 
   (** val prepare_blocks' :
       nat -> positive -> n -> n -> Assembly.blockinformation list ->
@@ -2635,12 +2788,21 @@ module Processor =
        | Some fchecksum' -> (=) fchecksum' fi.Filesupport.fchecksum
        | None -> false)
     in
-    if found
-    then this
-    else let curbs = find_fblocks fi.Filesupport.fhash in
-         let tgtbs = prepare_blocks curbs fi.Filesupport.fsize in
-         let proc1 = open_file_backup this fi tgtbs in
-         run_write_requests proc1
+    let filtered_var =
+      Tracer.conditionalTrace this.config.Configuration.trace found
+        Tracer.Coq_info (Some
+        ((^) "file content checksum identical to meta data: " fn)) (fun _ ->
+        Some this) Tracer.Coq_info None (fun _ ->
+        let curbs = find_fblocks fi.Filesupport.fhash in
+        let tgtbs = prepare_blocks curbs fi.Filesupport.fsize in
+        let filtered_var = open_file_backup this fi tgtbs in
+        (match filtered_var with
+         | Some proc1 -> let proc2 = run_write_requests proc1 in Some proc2
+         | None -> Some this))
+    in
+    (match filtered_var with
+     | Some proc' -> proc'
+     | None -> this)
 
   (** val file_restore :
       processor -> Filesystem.path -> Filesystem.path ->
@@ -2648,22 +2810,34 @@ module Processor =
 
   let file_restore this basep fp blocks =
     let targetp = Filesystem.Path.append basep fp in
-    if Filesystem.Path.file_exists targetp
-    then (N0, this)
-    else let filtered_var =
-           Cstdio.fopen (Filesystem.Path.to_string targetp)
-             Cstdio.write_new_mode
-         in
-         (match filtered_var with
-          | Some fptr0 ->
-            let filtered_var0 = restore_file_to this fptr0 blocks in
-            let (n0, ac') = filtered_var0 in
-            let proc' = update_cache this ac' in
-            let filtered_var1 = Cstdio.fclose fptr0 in
-            (match filtered_var1 with
-             | Some _ -> (n0, proc')
-             | None -> (N0, proc'))
-          | None -> (N0, this))
+    let filtered_var =
+      Tracer.conditionalTrace this.config.Configuration.trace
+        (Filesystem.Path.file_exists targetp) Tracer.Coq_warning (Some
+        ((^) "file already exist: " (Filesystem.Path.to_string targetp)))
+        (fun _ -> Some (N0, this)) Tracer.Coq_info (Some
+        ((^) "restoring file "
+          ((^) (Filesystem.Path.to_string fp)
+            ((^) " from "
+              ((^)
+                (Conversion.i2s
+                  (Conversion.n2i (Conversion.nat2N (length blocks))))
+                " blocks"))))) (fun _ ->
+        Tracer.optionalTrace this.config.Configuration.trace
+          (Cstdio.fopen (Filesystem.Path.to_string targetp)
+            Cstdio.write_new_mode) Tracer.Coq_warning (Some
+          ((^) "failed to open file: " (Filesystem.Path.to_string targetp)))
+          (fun _ -> None) Tracer.Coq_info None (fun fptr0 ->
+          let filtered_var = restore_file_to this fptr0 blocks in
+          let (n0, ac') = filtered_var in
+          let proc' = update_cache this ac' in
+          let filtered_var0 = Cstdio.fclose fptr0 in
+          (match filtered_var0 with
+           | Some _ -> Some (n0, proc')
+           | None -> Some (N0, proc'))))
+    in
+    (match filtered_var with
+     | Some res -> res
+     | None -> (N0, this))
 
   (** val internal_directory_entries :
       Filesystem.path -> Filesystem.path list * Filesystem.path list **)
@@ -2727,7 +2901,7 @@ module Version =
   (** val build : string **)
 
   let build =
-    "11"
+    "12"
 
   (** val version : string **)
 

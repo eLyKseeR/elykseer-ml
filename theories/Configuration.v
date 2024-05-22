@@ -6,6 +6,7 @@ Require Import NArith PArith.
 From Coq Require Import Strings.String.
 
 From LXR Require Import Nchunks.
+From LXR Require Import Tracer.
 
 Module Export Configuration.
 
@@ -15,6 +16,7 @@ Record configuration : Type :=
         ; path_chunks : string
         ; path_db : string
         ; my_id : string
+        ; trace : Tracer.tracer
         }.
 
 End Configuration.
