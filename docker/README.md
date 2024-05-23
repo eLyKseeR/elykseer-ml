@@ -65,12 +65,44 @@ check that the files are there:
 irmin list ${MYID}/relfiles
 ```
 
+### check meta data on a file
+
+```sh
+FNAME=/data/that_one_important.file
+FHASH=$(dune exec lxr_filehash -- -f ${FNAME} -i ${MYID} | cut -d ' ' -f 2)
+irmin list ${MYID}/relfiles/${FHASH:4:2}
+```
+
+this should list the file's meta data in irmin.
+
+pretty-print the meta data:
+
+```sh
+irmin get ${MYID}/relfiles/${FHASH:4:2}/${FHASH} | jq
+```
+
+this show the JSON nice printed:
+```json
+{
+  "version": {
+    "major": "0",
+    "minor": "9",
+    "build": "12"
+  },
+  "fileinformation": {
+    "fname": "/data/that_one_important.file",
+    "fhash": "d3524477..7b6e9cc07",
+    "fsize": "64798
+...
+```
 
 ### restore
 
 restore a single file from chunks:
 ```sh
-lxr_restore.exe -v -x ${HOME}/elykseer.chunks -d ${HOME}/elykseer.db -o /restore/ -i $MYID /data/that_one_important.file
+FNAME=/data/that_one_important.file
+
+lxr_restore -v -x ${HOME}/elykseer.chunks -d ${HOME}/elykseer.db -n 16 -o /restore/ -i $MYID ${FNAME}
 ```
 
 see the file:
