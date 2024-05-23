@@ -276,21 +276,24 @@ Program Definition file_restore (basep : Filesystem.path) (fp : Filesystem.path)
         (fun _ => Some (0, this))
         (Tracer.info) (Some ("restoring file " ++ Filesystem.Path.to_string fp ++ " from " ++ i2s (n2i (nat2N (List.length blocks))) ++ " blocks")%string)
         (fun _ =>
+            let dirp := Filesystem.Path.parent targetp in
             let mkdir :=
-                if Filesystem.Path.is_directory basep then true
-                else Filesystem.create_directories basep in
-            Tracer.optionalTrace this.(config).(trace) (Cstdio.fopen (Filesystem.Path.to_string targetp) Cstdio.write_new_mode)
-            (Tracer.warning) (Some ("failed to open file: " ++ Filesystem.Path.to_string targetp)%string)
-            (fun _ => None)
-            (Tracer.info) (None)
-            (fun fptr =>
-                let '(n, ac') := restore_file_to fptr blocks in
-                let proc' := update_cache this ac' in
-                match Cstdio.fclose fptr with
-                | None => Some (0, proc')
-                | Some _ => Some (n, proc')
-                end
-            )
+                if Filesystem.Path.is_directory dirp then true
+                else Filesystem.create_directories dirp in
+            if (mkdir) then
+                Tracer.optionalTrace this.(config).(trace) (Cstdio.fopen (Filesystem.Path.to_string targetp) Cstdio.write_new_mode)
+                (Tracer.warning) (Some ("failed to open file: " ++ Filesystem.Path.to_string targetp)%string)
+                (fun _ => None)
+                (Tracer.info) (None)
+                (fun fptr =>
+                    let '(n, ac') := restore_file_to fptr blocks in
+                    let proc' := update_cache this ac' in
+                    match Cstdio.fclose fptr with
+                    | None => Some (0, proc')
+                    | Some _ => Some (n, proc')
+                    end
+                )
+            else None
         ) with
     | None => (0, this)
     | Some res => res

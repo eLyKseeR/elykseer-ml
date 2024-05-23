@@ -2822,18 +2822,27 @@ module Processor =
                 (Conversion.i2s
                   (Conversion.n2i (Conversion.nat2N (length blocks))))
                 " blocks"))))) (fun _ ->
-        Tracer.optionalTrace this.config.Configuration.trace
-          (Cstdio.fopen (Filesystem.Path.to_string targetp)
-            Cstdio.write_new_mode) Tracer.Coq_warning (Some
-          ((^) "failed to open file: " (Filesystem.Path.to_string targetp)))
-          (fun _ -> None) Tracer.Coq_info None (fun fptr0 ->
-          let filtered_var = restore_file_to this fptr0 blocks in
-          let (n0, ac') = filtered_var in
-          let proc' = update_cache this ac' in
-          let filtered_var0 = Cstdio.fclose fptr0 in
-          (match filtered_var0 with
-           | Some _ -> Some (n0, proc')
-           | None -> Some (N0, proc'))))
+        let dirp = Filesystem.Path.parent targetp in
+        let mkdir =
+          if Filesystem.Path.is_directory dirp
+          then true
+          else Filesystem.create_directories dirp
+        in
+        if mkdir
+        then Tracer.optionalTrace this.config.Configuration.trace
+               (Cstdio.fopen (Filesystem.Path.to_string targetp)
+                 Cstdio.write_new_mode) Tracer.Coq_warning (Some
+               ((^) "failed to open file: "
+                 (Filesystem.Path.to_string targetp))) (fun _ -> None)
+               Tracer.Coq_info None (fun fptr0 ->
+               let filtered_var = restore_file_to this fptr0 blocks in
+               let (n0, ac') = filtered_var in
+               let proc' = update_cache this ac' in
+               let filtered_var0 = Cstdio.fclose fptr0 in
+               (match filtered_var0 with
+                | Some _ -> Some (n0, proc')
+                | None -> Some (N0, proc')))
+        else None)
     in
     (match filtered_var with
      | Some res -> res

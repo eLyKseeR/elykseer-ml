@@ -69,7 +69,7 @@ irmin list ${MYID}/relfiles
 
 ```sh
 FNAME=/data/that_one_important.file
-FHASH=$(dune exec lxr_filehash -- -f ${FNAME} -i ${MYID} | cut -d ' ' -f 2)
+FHASH=$(lxr_filehash -f ${FNAME} -i ${MYID} | cut -d ' ' -f 2)
 irmin list ${MYID}/relfiles/${FHASH:4:2}
 ```
 
