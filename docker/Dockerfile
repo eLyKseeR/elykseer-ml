@@ -64,7 +64,9 @@ WORKDIR /home/coq
 
 RUN tar xzf /tmp/coq.home.tgz && rm /tmp/coq.home.tgz
 
-RUN echo "export PATH=$PATH:${HOME}/.local/bin" >> ~/.bashrc
+RUN echo 'eval $(opam env)' >> ~/.bashrc
+
+RUN echo 'export PATH=$PATH:${HOME}/.local/bin' >> ~/.bashrc
 
 RUN git clone https://github.com/eLyKseeR/elykseer-ml.git elykseer-ml.git
 

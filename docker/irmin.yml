@@ -1,0 +1,3 @@
+root: /home/coq/elykseer.db
+store: git
+contents: json-value

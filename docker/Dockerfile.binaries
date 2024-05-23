@@ -28,8 +28,8 @@ COPY sudoers.coq /etc/sudoers.d/coq
 
 COPY --chown=1000 --from=build-env /tmp/coq.local.tgz /tmp/coq.local.tgz
 
-COPY --chown=1000 run_test.sh /home/coq/
-COPY --chown=1000 setup.sh /home/coq/
+COPY --chown=1000 irmin.yml /home/coq/
+COPY --chown=1000 README.md /home/coq/
 
 RUN tar xzf /tmp/coq.local.tgz -C /home/coq && chown -R coq:coq /home/coq/.local && rm /tmp/coq.local.tgz
 
@@ -37,6 +37,6 @@ USER coq
 
 WORKDIR /home/coq
 
-RUN echo "export PATH=$PATH:${HOME}/.local/bin" >> ~/.bashrc
+RUN echo 'export PATH=$PATH:${HOME}/.local/bin' >> ~/.bashrc
 
 CMD bash
