@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.9.12] - 2024-05-23
+
+### Added
+
+- tracing messages to log out
+- fixing a bug ml-cpp-filesystem that prevented restoring files in subdirectories
+- binary-only Docker image
+
+
+## [0.9.11] - 2024-05-08
+
+### Added
+
+- deduplication at file level, checked by comparing file checksums, and at level of single block, checked by comparing block's checksum, vs. meta data
+
+
 ## [0.9.10] - 2024-04-30
 
 ### Added
