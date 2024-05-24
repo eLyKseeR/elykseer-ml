@@ -36,8 +36,6 @@ type z =
 | Zpos of positive
 | Zneg of positive
 
-val const : 'a1 -> 'a2 -> 'a1
-
 module Pos :
  sig
   type mask =
@@ -995,15 +993,8 @@ module Processor :
     processor -> Filesystem.path -> Filesystem.path ->
     Assembly.blockinformation list -> n * processor
 
-  val internal_directory_entries :
+  val list_directory_entries :
     Filesystem.path -> Filesystem.path list * Filesystem.path list
-
-  val directory_backup : processor -> Filesystem.path -> processor
-
-  val internal_recursive_backup :
-    nat -> processor -> Filesystem.path -> processor
-
-  val recursive_backup : processor -> n -> Filesystem.path -> processor
  end
 
 module Version :
