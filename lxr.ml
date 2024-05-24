@@ -76,11 +76,6 @@ type z =
 | Zpos of positive
 | Zneg of positive
 
-(** val const : 'a1 -> 'a2 -> 'a1 **)
-
-let const a _ =
-  a
-
 module Pos =
  struct
   type mask =
@@ -2848,10 +2843,10 @@ module Processor =
      | Some res -> res
      | None -> (N0, this))
 
-  (** val internal_directory_entries :
+  (** val list_directory_entries :
       Filesystem.path -> Filesystem.path list * Filesystem.path list **)
 
-  let internal_directory_entries fp =
+  let list_directory_entries fp =
     Filesystem.list_directory fp ([], []) (fun de pat ->
       let (lfiles, ldirs) = pat in
       if Filesystem.Direntry.is_directory de
@@ -2861,38 +2856,6 @@ module Processor =
            then let defp = Filesystem.Direntry.as_path de in
                 ((defp :: lfiles), ldirs)
            else (lfiles, ldirs))
-
-  (** val directory_backup : processor -> Filesystem.path -> processor **)
-
-  let directory_backup this fp =
-    let filtered_var = internal_directory_entries fp in
-    let (lfiles, _) = filtered_var in
-    fold_left (fun proc fn -> file_backup proc (const None) (const []) fn)
-      lfiles this
-
-  (** val internal_recursive_backup :
-      nat -> processor -> Filesystem.path -> processor **)
-
-  let rec internal_recursive_backup maxdepth this fp =
-    match maxdepth with
-    | O -> this
-    | S depth ->
-      Filesystem.list_directory fp this (fun de proc ->
-        if Filesystem.Direntry.is_directory de
-        then let defp = Filesystem.Direntry.as_path de in
-             internal_recursive_backup depth proc defp
-        else if Filesystem.Direntry.is_regular_file de
-             then let defp = Filesystem.Direntry.as_path de in
-                  file_backup proc (const None) (const []) defp
-             else proc)
-
-  (** val recursive_backup :
-      processor -> n -> Filesystem.path -> processor **)
-
-  let recursive_backup this maxdepth fp =
-    if Filesystem.Path.is_directory fp
-    then internal_recursive_backup (N.to_nat maxdepth) this fp
-    else this
  end
 
 module Version =

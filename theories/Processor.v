@@ -303,7 +303,7 @@ End FileProcessor.
 
 Section DirectoryProcessor.
 
-Local Program Definition internal_directory_entries (fp : Filesystem.path) : (list Filesystem.path * list Filesystem.path) :=
+Program Definition list_directory_entries (fp : Filesystem.path) : (list Filesystem.path * list Filesystem.path) :=
     Filesystem.list_directory fp ([],[]) (fun de '(lfiles,ldirs) =>
             if Filesystem.Direntry.is_directory de then
                 let defp := Filesystem.Direntry.as_path de in
@@ -315,8 +315,8 @@ Local Program Definition internal_directory_entries (fp : Filesystem.path) : (li
                 (lfiles, ldirs)
         ).
 
-Program Definition directory_backup (this : processor) (fp : Filesystem.path) : processor :=
-    let '(lfiles, _) := internal_directory_entries fp in
+(* Program Definition directory_backup (this : processor) (fp : Filesystem.path) : processor :=
+    let '(lfiles, _) := list_directory_entries fp in
     List.fold_left (fun proc fn => file_backup proc (const None) (const []) fn) lfiles this.
 
 Local Program Fixpoint internal_recursive_backup (maxdepth : nat) (this : processor) (fp : Filesystem.path) : processor :=
@@ -338,7 +338,7 @@ Program Definition recursive_backup (this : processor) (maxdepth : N) (fp : File
     if Filesystem.Path.is_directory fp then
         internal_recursive_backup (nat_of_N maxdepth) this fp
     else
-        this.
+        this. *)
 
 End DirectoryProcessor.
 

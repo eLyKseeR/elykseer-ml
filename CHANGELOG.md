@@ -1,15 +1,19 @@
 # Changelog
 
-## [0.9.12] - 2024-05-23
+## [0.9.12] - 2024-05-24
 
 ### Added
 
-- tracing messages to log out
-- fixing a bug ml-cpp-filesystem that prevented restoring files in subdirectories
+- tracing messages to log output
 - binary-only Docker image
+- enable deduplication in backup of directory (_lxr\_backup_ flag '-D')
+
+### Fix
+
+- fixing a bug in dependency _ml-cpp-filesystem_ that prevented restoring files in subdirectories
 
 
-## [0.9.11] - 2024-05-08
+## [0.9.11] - 2024-05-13
 
 ### Added
 
