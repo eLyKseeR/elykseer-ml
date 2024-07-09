@@ -4,6 +4,7 @@ theories/Cstdio.v
 theories/Filesystem.v
 theories/Filesupport.v
 theories/Environment.v
+theories/Distribution.v
 theories/Nchunks.v
 theories/Assembly.v
 theories/Tracer.v

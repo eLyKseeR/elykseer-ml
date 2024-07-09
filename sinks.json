@@ -1,0 +1,33 @@
+{
+  "version": "1.0.0",
+  "sinks": [
+    {
+        "type": "S3",
+        "name": "s3_minio",
+        "description": "minio storage cluster",
+        "credentials": {
+            "access-key": "minioadmin",
+            "secret-key": "s3cr3t"
+        },
+        "access": {
+            "bucket": "test",
+            "host": "localhost",
+            "port": "9000",
+            "protocol": "https"
+        }
+    },
+    {
+        "type": "FS",
+        "name": "fs_copy",
+        "description": "filesystem copy",
+        "credentials": {
+            "user": "*",
+            "group": "root",
+            "permissions": "640"
+        },
+        "access": {
+            "basepath": "/data/secure_stick"
+        }
+    }
+  ]
+}

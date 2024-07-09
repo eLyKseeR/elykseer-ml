@@ -7,6 +7,8 @@ type nat =
 
 val fst : ('a1 * 'a2) -> 'a1
 
+val snd : ('a1 * 'a2) -> 'a2
+
 val length : 'a1 list -> nat
 
 val app : 'a1 list -> 'a1 list -> 'a1 list
@@ -35,6 +37,18 @@ type z =
 | Z0
 | Zpos of positive
 | Zneg of positive
+
+module type EqLtLe =
+ sig
+  type t
+ end
+
+module MakeOrderTac :
+ functor (O:EqLtLe) ->
+ functor (P:sig
+ end) ->
+ sig
+ end
 
 module Pos :
  sig
@@ -129,9 +143,17 @@ val map : ('a1 -> 'a2) -> 'a1 list -> 'a2 list
 
 val fold_left : ('a1 -> 'a2 -> 'a1) -> 'a2 list -> 'a1 -> 'a1
 
+val fold_right : ('a2 -> 'a1 -> 'a1) -> 'a1 -> 'a2 list -> 'a1
+
 val filter : ('a1 -> bool) -> 'a1 list -> 'a1 list
 
 val seq : nat -> nat -> nat list
+
+val compare0 : char -> char -> comparison
+
+val compare1 : string -> string -> comparison
+
+
 
 module Conversion :
  sig
@@ -480,6 +502,10 @@ module Filesystem :
 module Utilities :
  sig
   val make_list : positive -> positive list
+
+  val drop_list : nat -> 'a1 list -> 'a1 list
+
+  val take_list : nat -> 'a1 list -> 'a1 list
 
   val rnd : n -> n
 
@@ -923,6 +949,618 @@ module AssemblyCache :
   val add_key :
     assemblycache -> Assembly.aid_t -> Assembly.keyinformation ->
     assemblycache
+ end
+
+type 'x compare2 =
+| LT
+| EQ
+| GT
+
+module type OrderedType =
+ sig
+  type t
+
+  val compare : t -> t -> t compare2
+
+  val eq_dec : t -> t -> bool
+ end
+
+module OrderedTypeFacts :
+ functor (O:OrderedType) ->
+ sig
+  module TO :
+   sig
+    type t = O.t
+   end
+
+  module IsTO :
+   sig
+   end
+
+  module OrderTac :
+   sig
+   end
+
+  val eq_dec : O.t -> O.t -> bool
+
+  val lt_dec : O.t -> O.t -> bool
+
+  val eqb : O.t -> O.t -> bool
+ end
+
+module KeyOrderedType :
+ functor (O:OrderedType) ->
+ sig
+  module MO :
+   sig
+    module TO :
+     sig
+      type t = O.t
+     end
+
+    module IsTO :
+     sig
+     end
+
+    module OrderTac :
+     sig
+     end
+
+    val eq_dec : O.t -> O.t -> bool
+
+    val lt_dec : O.t -> O.t -> bool
+
+    val eqb : O.t -> O.t -> bool
+   end
+ end
+
+module String_as_OT :
+ sig
+  type t = string
+
+  val cmp : string -> string -> comparison
+
+  val compare : string -> string -> string compare2
+
+  val eq_dec : string -> string -> bool
+ end
+
+module Raw :
+ functor (X:OrderedType) ->
+ sig
+  module MX :
+   sig
+    module TO :
+     sig
+      type t = X.t
+     end
+
+    module IsTO :
+     sig
+     end
+
+    module OrderTac :
+     sig
+     end
+
+    val eq_dec : X.t -> X.t -> bool
+
+    val lt_dec : X.t -> X.t -> bool
+
+    val eqb : X.t -> X.t -> bool
+   end
+
+  module PX :
+   sig
+    module MO :
+     sig
+      module TO :
+       sig
+        type t = X.t
+       end
+
+      module IsTO :
+       sig
+       end
+
+      module OrderTac :
+       sig
+       end
+
+      val eq_dec : X.t -> X.t -> bool
+
+      val lt_dec : X.t -> X.t -> bool
+
+      val eqb : X.t -> X.t -> bool
+     end
+   end
+
+  type key = X.t
+
+  type 'elt t = (X.t * 'elt) list
+
+  val empty : 'a1 t
+
+  val is_empty : 'a1 t -> bool
+
+  val mem : key -> 'a1 t -> bool
+
+  val find : key -> 'a1 t -> 'a1 option
+
+  val add : key -> 'a1 -> 'a1 t -> 'a1 t
+
+  val remove : key -> 'a1 t -> 'a1 t
+
+  val elements : 'a1 t -> 'a1 t
+
+  val fold : (key -> 'a1 -> 'a2 -> 'a2) -> 'a1 t -> 'a2 -> 'a2
+
+  val equal : ('a1 -> 'a1 -> bool) -> 'a1 t -> 'a1 t -> bool
+
+  val map : ('a1 -> 'a2) -> 'a1 t -> 'a2 t
+
+  val mapi : (key -> 'a1 -> 'a2) -> 'a1 t -> 'a2 t
+
+  val option_cons : key -> 'a1 option -> (key * 'a1) list -> (key * 'a1) list
+
+  val map2_l : ('a1 option -> 'a2 option -> 'a3 option) -> 'a1 t -> 'a3 t
+
+  val map2_r : ('a1 option -> 'a2 option -> 'a3 option) -> 'a2 t -> 'a3 t
+
+  val map2 :
+    ('a1 option -> 'a2 option -> 'a3 option) -> 'a1 t -> 'a2 t -> 'a3 t
+
+  val combine : 'a1 t -> 'a2 t -> ('a1 option * 'a2 option) t
+
+  val fold_right_pair :
+    ('a1 -> 'a2 -> 'a3 -> 'a3) -> ('a1 * 'a2) list -> 'a3 -> 'a3
+
+  val map2_alt :
+    ('a1 option -> 'a2 option -> 'a3 option) -> 'a1 t -> 'a2 t -> (key * 'a3)
+    list
+
+  val at_least_one :
+    'a1 option -> 'a2 option -> ('a1 option * 'a2 option) option
+
+  val at_least_one_then_f :
+    ('a1 option -> 'a2 option -> 'a3 option) -> 'a1 option -> 'a2 option ->
+    'a3 option
+ end
+
+module Make :
+ functor (X:OrderedType) ->
+ sig
+  module Raw :
+   sig
+    module MX :
+     sig
+      module TO :
+       sig
+        type t = X.t
+       end
+
+      module IsTO :
+       sig
+       end
+
+      module OrderTac :
+       sig
+       end
+
+      val eq_dec : X.t -> X.t -> bool
+
+      val lt_dec : X.t -> X.t -> bool
+
+      val eqb : X.t -> X.t -> bool
+     end
+
+    module PX :
+     sig
+      module MO :
+       sig
+        module TO :
+         sig
+          type t = X.t
+         end
+
+        module IsTO :
+         sig
+         end
+
+        module OrderTac :
+         sig
+         end
+
+        val eq_dec : X.t -> X.t -> bool
+
+        val lt_dec : X.t -> X.t -> bool
+
+        val eqb : X.t -> X.t -> bool
+       end
+     end
+
+    type key = X.t
+
+    type 'elt t = (X.t * 'elt) list
+
+    val empty : 'a1 t
+
+    val is_empty : 'a1 t -> bool
+
+    val mem : key -> 'a1 t -> bool
+
+    val find : key -> 'a1 t -> 'a1 option
+
+    val add : key -> 'a1 -> 'a1 t -> 'a1 t
+
+    val remove : key -> 'a1 t -> 'a1 t
+
+    val elements : 'a1 t -> 'a1 t
+
+    val fold : (key -> 'a1 -> 'a2 -> 'a2) -> 'a1 t -> 'a2 -> 'a2
+
+    val equal : ('a1 -> 'a1 -> bool) -> 'a1 t -> 'a1 t -> bool
+
+    val map : ('a1 -> 'a2) -> 'a1 t -> 'a2 t
+
+    val mapi : (key -> 'a1 -> 'a2) -> 'a1 t -> 'a2 t
+
+    val option_cons :
+      key -> 'a1 option -> (key * 'a1) list -> (key * 'a1) list
+
+    val map2_l : ('a1 option -> 'a2 option -> 'a3 option) -> 'a1 t -> 'a3 t
+
+    val map2_r : ('a1 option -> 'a2 option -> 'a3 option) -> 'a2 t -> 'a3 t
+
+    val map2 :
+      ('a1 option -> 'a2 option -> 'a3 option) -> 'a1 t -> 'a2 t -> 'a3 t
+
+    val combine : 'a1 t -> 'a2 t -> ('a1 option * 'a2 option) t
+
+    val fold_right_pair :
+      ('a1 -> 'a2 -> 'a3 -> 'a3) -> ('a1 * 'a2) list -> 'a3 -> 'a3
+
+    val map2_alt :
+      ('a1 option -> 'a2 option -> 'a3 option) -> 'a1 t -> 'a2 t ->
+      (key * 'a3) list
+
+    val at_least_one :
+      'a1 option -> 'a2 option -> ('a1 option * 'a2 option) option
+
+    val at_least_one_then_f :
+      ('a1 option -> 'a2 option -> 'a3 option) -> 'a1 option -> 'a2 option ->
+      'a3 option
+   end
+
+  module E :
+   sig
+    type t = X.t
+
+    val compare : t -> t -> t compare2
+
+    val eq_dec : t -> t -> bool
+   end
+
+  type key = E.t
+
+  type 'elt slist =
+    'elt Raw.t
+    (* singleton inductive, whose constructor was Build_slist *)
+
+  val this : 'a1 slist -> 'a1 Raw.t
+
+  type 'elt t = 'elt slist
+
+  val empty : 'a1 t
+
+  val is_empty : 'a1 t -> bool
+
+  val add : key -> 'a1 -> 'a1 t -> 'a1 t
+
+  val find : key -> 'a1 t -> 'a1 option
+
+  val remove : key -> 'a1 t -> 'a1 t
+
+  val mem : key -> 'a1 t -> bool
+
+  val map : ('a1 -> 'a2) -> 'a1 t -> 'a2 t
+
+  val mapi : (key -> 'a1 -> 'a2) -> 'a1 t -> 'a2 t
+
+  val map2 :
+    ('a1 option -> 'a2 option -> 'a3 option) -> 'a1 t -> 'a2 t -> 'a3 t
+
+  val elements : 'a1 t -> (key * 'a1) list
+
+  val cardinal : 'a1 t -> nat
+
+  val fold : (key -> 'a1 -> 'a2 -> 'a2) -> 'a1 t -> 'a2 -> 'a2
+
+  val equal : ('a1 -> 'a1 -> bool) -> 'a1 t -> 'a1 t -> bool
+ end
+
+module Distribution :
+ sig
+  val coq_ChunkId : char -> string -> string
+
+  module SMap :
+   sig
+    module Raw :
+     sig
+      module MX :
+       sig
+        module TO :
+         sig
+          type t = string
+         end
+
+        module IsTO :
+         sig
+         end
+
+        module OrderTac :
+         sig
+         end
+
+        val eq_dec : string -> string -> bool
+
+        val lt_dec : string -> string -> bool
+
+        val eqb : string -> string -> bool
+       end
+
+      module PX :
+       sig
+        module MO :
+         sig
+          module TO :
+           sig
+            type t = string
+           end
+
+          module IsTO :
+           sig
+           end
+
+          module OrderTac :
+           sig
+           end
+
+          val eq_dec : string -> string -> bool
+
+          val lt_dec : string -> string -> bool
+
+          val eqb : string -> string -> bool
+         end
+       end
+
+      type key = string
+
+      type 'elt t = (string * 'elt) list
+
+      val empty : 'a1 t
+
+      val is_empty : 'a1 t -> bool
+
+      val mem : key -> 'a1 t -> bool
+
+      val find : key -> 'a1 t -> 'a1 option
+
+      val add : key -> 'a1 -> 'a1 t -> 'a1 t
+
+      val remove : key -> 'a1 t -> 'a1 t
+
+      val elements : 'a1 t -> 'a1 t
+
+      val fold : (key -> 'a1 -> 'a2 -> 'a2) -> 'a1 t -> 'a2 -> 'a2
+
+      val equal : ('a1 -> 'a1 -> bool) -> 'a1 t -> 'a1 t -> bool
+
+      val map : ('a1 -> 'a2) -> 'a1 t -> 'a2 t
+
+      val mapi : (key -> 'a1 -> 'a2) -> 'a1 t -> 'a2 t
+
+      val option_cons :
+        key -> 'a1 option -> (key * 'a1) list -> (key * 'a1) list
+
+      val map2_l : ('a1 option -> 'a2 option -> 'a3 option) -> 'a1 t -> 'a3 t
+
+      val map2_r : ('a1 option -> 'a2 option -> 'a3 option) -> 'a2 t -> 'a3 t
+
+      val map2 :
+        ('a1 option -> 'a2 option -> 'a3 option) -> 'a1 t -> 'a2 t -> 'a3 t
+
+      val combine : 'a1 t -> 'a2 t -> ('a1 option * 'a2 option) t
+
+      val fold_right_pair :
+        ('a1 -> 'a2 -> 'a3 -> 'a3) -> ('a1 * 'a2) list -> 'a3 -> 'a3
+
+      val map2_alt :
+        ('a1 option -> 'a2 option -> 'a3 option) -> 'a1 t -> 'a2 t ->
+        (key * 'a3) list
+
+      val at_least_one :
+        'a1 option -> 'a2 option -> ('a1 option * 'a2 option) option
+
+      val at_least_one_then_f :
+        ('a1 option -> 'a2 option -> 'a3 option) -> 'a1 option -> 'a2 option
+        -> 'a3 option
+     end
+
+    module E :
+     sig
+      type t = string
+
+      val compare : string -> string -> string compare2
+
+      val eq_dec : string -> string -> bool
+     end
+
+    type key = string
+
+    type 'elt slist =
+      'elt Raw.t
+      (* singleton inductive, whose constructor was Build_slist *)
+
+    val this : 'a1 slist -> 'a1 Raw.t
+
+    type 'elt t = 'elt slist
+
+    val empty : 'a1 t
+
+    val is_empty : 'a1 t -> bool
+
+    val add : key -> 'a1 -> 'a1 t -> 'a1 t
+
+    val find : key -> 'a1 t -> 'a1 option
+
+    val remove : key -> 'a1 t -> 'a1 t
+
+    val mem : key -> 'a1 t -> bool
+
+    val map : ('a1 -> 'a2) -> 'a1 t -> 'a2 t
+
+    val mapi : (key -> 'a1 -> 'a2) -> 'a1 t -> 'a2 t
+
+    val map2 :
+      ('a1 option -> 'a2 option -> 'a3 option) -> 'a1 t -> 'a2 t -> 'a3 t
+
+    val elements : 'a1 t -> (key * 'a1) list
+
+    val cardinal : 'a1 t -> nat
+
+    val fold : (key -> 'a1 -> 'a2 -> 'a2) -> 'a1 t -> 'a2 -> 'a2
+
+    val equal : ('a1 -> 'a1 -> bool) -> 'a1 t -> 'a1 t -> bool
+   end
+
+  type ('cONN, 'cREDS) sink = { name : string; creds : 'cREDS;
+                                connection : 'cONN }
+
+  val name : ('a1, 'a2) sink -> string
+
+  val creds : ('a1, 'a2) sink -> 'a2
+
+  val connection : ('a1, 'a2) sink -> 'a1
+
+  module type SINK =
+   sig
+    type coq_K
+
+    type coq_B = Cstdio.BufferEncrypted.buffer_t
+
+    type coq_CONN
+
+    type coq_CREDS
+
+    type coq_Sink = (coq_CONN, coq_CREDS) sink
+
+    val init : Configuration.configuration -> coq_K SMap.t -> coq_Sink option
+
+    val push : coq_K -> coq_B -> coq_Sink -> coq_Sink
+
+    val pull : coq_K -> coq_Sink -> coq_Sink * coq_B option
+
+    val list_n : coq_Sink -> coq_Sink * coq_K list
+   end
+
+  type fssink =
+    string
+    (* singleton inductive, whose constructor was mkfssink *)
+
+  val fsbasepath : fssink -> string
+
+  type fscredentials =
+    string
+    (* singleton inductive, whose constructor was mkfscredentials *)
+
+  val fsuser : fscredentials -> string
+
+  module FSSink :
+   sig
+    type coq_K = string
+
+    type coq_B = Cstdio.BufferEncrypted.buffer_t
+
+    type coq_CONN = fssink
+
+    type coq_CREDS = fscredentials
+
+    type coq_Sink = (coq_CONN, coq_CREDS) sink
+
+    val fspush : coq_K -> coq_B -> coq_Sink -> coq_Sink
+
+    val fspull : coq_K -> coq_Sink -> coq_Sink * coq_B option
+
+    val fslist_n : coq_Sink -> coq_Sink * coq_K list
+
+    val init : Configuration.configuration -> coq_K SMap.t -> coq_Sink option
+
+    val push : coq_K -> coq_B -> coq_Sink -> coq_Sink
+
+    val pull : coq_K -> coq_Sink -> coq_Sink * coq_B option
+
+    val list_n : coq_Sink -> coq_Sink * coq_K list
+   end
+
+  type s3sink = { s3protocol : string; s3host : string; s3port : string;
+                  s3bucket : string }
+
+  val s3protocol : s3sink -> string
+
+  val s3host : s3sink -> string
+
+  val s3port : s3sink -> string
+
+  val s3bucket : s3sink -> string
+
+  type s3credentials = { s3user : string; s3password : string }
+
+  val s3user : s3credentials -> string
+
+  val s3password : s3credentials -> string
+
+  module S3Sink :
+   sig
+    type coq_K = string
+
+    type coq_B = Cstdio.BufferEncrypted.buffer_t
+
+    type coq_CONN = s3sink
+
+    type coq_CREDS = s3credentials
+
+    type coq_Sink = (coq_CONN, coq_CREDS) sink
+
+    val s3push : coq_K -> coq_B -> coq_Sink -> coq_Sink
+
+    val s3pull : coq_K -> coq_Sink -> coq_Sink * coq_B option
+
+    val s3list_n : coq_Sink -> coq_Sink * coq_K list
+
+    val init : Configuration.configuration -> coq_K SMap.t -> coq_Sink option
+
+    val push : coq_K -> coq_B -> coq_Sink -> coq_Sink
+
+    val pull : coq_K -> coq_Sink -> coq_Sink * coq_B option
+
+    val list_n : coq_Sink -> coq_Sink * coq_K list
+   end
+
+  type sink_type =
+  | S3 of S3Sink.coq_Sink
+  | FS of FSSink.coq_Sink
+
+  val sink_type_rect :
+    (S3Sink.coq_Sink -> 'a1) -> (FSSink.coq_Sink -> 'a1) -> sink_type -> 'a1
+
+  val sink_type_rec :
+    (S3Sink.coq_Sink -> 'a1) -> (FSSink.coq_Sink -> 'a1) -> sink_type -> 'a1
+
+  val enumerate_chunk_paths :
+    Configuration.configuration -> Assembly.aid_t -> Nchunks.t -> string list
+
+  val distribute_by_weight : string list -> n list -> string list list
  end
 
 module Processor :

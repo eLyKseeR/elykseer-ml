@@ -11,6 +11,7 @@ From LXR Require Import Store.
 From LXR Require Import Cstdio.
 From LXR Require Import Configuration.
 From LXR Require Import Conversion.
+From LXR Require Import Distribution.
 From LXR Require Import Environment.
 From LXR Require Import Filesupport.
 From LXR Require Import Filesystem.
@@ -331,7 +332,22 @@ Extract Constant output_stdout => "fun ll m ->
    in
    print_endline m; Some ()".
 
+Extract Constant S3Sink.s3push => "fun k _b sink ->
+   print_string ""s3push""; print_endline k; sink".
+Extract Constant S3Sink.s3pull => "fun k sink ->
+   print_string ""s3pull""; print_endline k; (sink, None)".
+Extract Constant S3Sink.s3list_n => "fun sink ->
+   print_endline ""s3list_n""; (sink, [])".
+
+(* FSSink.fspush FSSink.fspull FSSink.fslist_n *)
+Extract Constant FSSink.fspush => "fun k _b sink ->
+   print_string ""fspush""; print_endline k; sink".
+Extract Constant FSSink.fspull => "fun k sink ->
+   print_string ""fspull""; print_endline k; (sink, None)".
+Extract Constant FSSink.fslist_n => "fun sink ->
+   print_endline ""fslist_n""; (sink, [])".
+
 (* extract into "lxr.ml" all named modules and definitions, and their dependencies *)
 Extraction "lxr.ml"  Version Conversion Utilities Filesupport Nchunks Assembly
                      Tracer Configuration Environment Cstdio Filesystem
-                     AssemblyCache Processor Store.
+                     AssemblyCache Processor Store Distribution.
