@@ -25,7 +25,7 @@ let arg_chunkpath = ref "lxr"
 let arg_configpath = ref ""
 let arg_nchunks : int ref = ref 16
 let arg_myid = ref def_myid
-let arg_direction = ref "PUT"
+let arg_direction = ref "PUT"  (* or GET *)
 let arg_parallel = ref 1
 
 let argspec =
@@ -100,22 +100,22 @@ let from_json_sinks c j =
   | `Null -> []
   | j' -> Yojson.Basic.Util.to_list j' |> List.map (from_json_sink c)
 
+let chunksz = 256 * 1024
+
 let is_256k_chunk fp =
-  let bsz = 256 * 1024 in
   let fpath = Filesystem.Path.from_string fp in
-  (Filesystem.Path.exists fpath) && (Filesystem.Path.file_size fpath = bsz)
+  (Filesystem.Path.exists fpath) && (Filesystem.Path.file_size fpath = chunksz)
 
   let read_256k_chunk fp =
     if is_256k_chunk fp then
     Cstdio.File.fopen fp "rx" |> function
     | Error err -> Error err
     | Ok file -> begin
-      let bsz = 256 * 1024 in
-      let b = Cstdio.File.Buffer.create bsz in
-      Cstdio.File.fread b bsz file |> function
+      let b = Cstdio.File.Buffer.create chunksz in
+      Cstdio.File.fread b chunksz file |> function
       | Error err -> Error err
       | Ok n -> begin
-        let res = if n = bsz then Ok b
+        let res = if n = chunksz then Ok b
             else Error (-3, "size not read!") in
         Cstdio.File.fclose file |> function
         | Error err -> Error err
@@ -137,7 +137,51 @@ let mk_s3_signature (dest : Distribution.S3Sink.coq_Sink) resource sdate meth =
   let k = Elykseer_crypto.Key160.from_hex hmac in
   Elykseer_crypto.Key160.to_bytes k |> Elykseer_crypto.Base64.encode
 
-let copy_chunk_s3 (dest : Distribution.S3Sink.coq_Sink) fp =
+let get_chunk_s3 (dest : Distribution.S3Sink.coq_Sink) fp =
+  let fpath = Filesystem.Path.from_string fp in
+  if Filesystem.Path.exists fpath then
+    let%lwt () = Lwt_io.printlf "chunk already exists: %s" fp in
+    Lwt.return (fp, -1)
+  else
+    let resource0 = mk_valid_bucket_path fp in
+    let resource = Printf.sprintf "/%s/%s" dest.connection.s3bucket resource0 in
+    let sdate : string = Http_date.(encode ~encoding:IMF (Ptime_clock.now ())) in
+    let meth = !arg_direction in
+    let signature = mk_s3_signature dest resource sdate meth in
+    let config = Ezcurl_lwt.Config.default |> Ezcurl_lwt.Config.verbose false in  (* DEBUG: set verbose to true *)
+    let headers = [("Host",dest.connection.s3host);("Date",sdate);("Content-type","application/octet-stream");("Authorization",Printf.sprintf "AWS %s:%s" dest.creds.s3user signature)] in
+    let url = Printf.sprintf "%s://%s:%s%s" dest.connection.s3protocol dest.connection.s3host dest.connection.s3port resource in
+    let curl_method = match meth with | "GET" -> Ezcurl_lwt.GET | "PUT" -> Ezcurl_lwt.PUT | _ -> Ezcurl_lwt.HEAD in
+    Ezcurl_lwt.http ~config ~headers ~url ~meth:curl_method () >>= fun response ->
+      match response with
+      | Ok resp -> begin
+        let code = resp.code in
+        let%lwt _ = if !arg_verbose then Lwt_io.printlf "ok %d" code else Lwt.return_unit in
+        let outp = Printf.sprintf "%s/%s" !arg_chunkpath resource0 in
+        let%lwt _ = Lwt_io.printlf "outp %s" outp in
+        match Cstdio.File.fopen outp "wx" with
+        | Ok fptr -> begin
+          match Cstdio.File.fwrite_s resp.body fptr with
+          | Ok cnt -> begin
+              Cstdio.File.fclose fptr |> ignore;
+              if cnt = chunksz then
+                Lwt.return (fp, 1)
+              else
+                Lwt.return (fp, -2)
+            end
+          | Error (_, _msg) ->
+            Cstdio.File.fclose fptr |> ignore;
+            Lwt.return (fp, -3)
+          end
+        | Error (_, msg) ->
+          let%lwt _ = Lwt_io.printlf "error fopen : %s" msg in
+          Lwt.return (fp, -4)
+        end
+      | Error (code, msg) ->
+        let%lwt _ = Lwt_io.printlf "error %d : %s" (Curl.int_of_curlCode code) msg in
+        Lwt.return (fp, (Curl.int_of_curlCode code))
+
+let put_chunk_s3 (dest : Distribution.S3Sink.coq_Sink) fp =
   let odata = read_256k_chunk fp in
   match odata with
   | Error (code, msg) ->
@@ -163,7 +207,34 @@ let copy_chunk_s3 (dest : Distribution.S3Sink.coq_Sink) fp =
         let%lwt _ = Lwt_io.printlf "error %d : %s" (Curl.int_of_curlCode code) msg in
         Lwt.return (fp, (Curl.int_of_curlCode code))
 
-let copy_chunk_fs (dest : Distribution.FSSink.coq_Sink) fp =
+let get_chunk_fs (dest : Distribution.FSSink.coq_Sink) fp =
+  let src = Filesystem.Path.from_string dest.connection in
+  let tgt = Filesystem.Path.from_string fp in
+  if Filesystem.Path.exists tgt then
+    let%lwt () = Lwt_io.printlf "output path exists: %s" fp in
+    Lwt.return (fp, -1)
+  else
+    if Filesystem.Path.is_directory src && not (Filesystem.Path.exists tgt) then
+      let resource = Filesystem.Path.from_string (mk_valid_bucket_path fp) in
+      let resp = Filesystem.Path.append src resource in
+      if Filesystem.Path.exists resp then
+        let p1 = Filesystem.Path.parent tgt in
+        let p2 = Filesystem.Path.parent p1 in
+        let _ = Filesystem.create_directory p2 |> ignore in
+        let _ = Filesystem.create_directory p1 |> ignore in
+        if Filesystem.copy_file resp tgt then
+          Lwt.return (fp, 1)
+        else
+          let%lwt () = Lwt_io.printlf "failed to copy: %s -> %s" (Filesystem.Path.to_string resp) fp in
+          Lwt.return (fp, -2)
+      else
+        let%lwt () = Lwt_io.printlf "source file does not exist: %s" (Filesystem.Path.to_string resp) in
+        Lwt.return (fp, 0)
+    else
+      let%lwt () = Lwt_io.printlf "directory not found: %s" dest.connection in
+      Lwt.return (fp, -3)
+
+let put_chunk_fs (dest : Distribution.FSSink.coq_Sink) fp =
   let tgt = Filesystem.Path.from_string dest.connection in
   if Filesystem.Path.is_directory tgt then
     if not (is_256k_chunk fp) then
@@ -191,9 +262,15 @@ let copy_chunk_fs (dest : Distribution.FSSink.coq_Sink) fp =
 
 
 let copy_chunks_s3 (dest : Distribution.S3Sink.coq_Sink) fps =
-  Lwt_list.mapi_s (fun _i fp -> copy_chunk_s3 dest fp) fps
+  if !arg_direction = "PUT" then
+    Lwt_list.mapi_s (fun _i fp -> put_chunk_s3 dest fp) fps
+  else
+    Lwt_list.mapi_s (fun _i fp -> get_chunk_s3 dest fp) fps
 let copy_chunks_fs (dest : Distribution.FSSink.coq_Sink) fps =
-  Lwt_list.mapi_s (fun _i fp -> copy_chunk_fs dest fp) fps
+  if !arg_direction = "PUT" then
+    Lwt_list.mapi_s (fun _i fp -> put_chunk_fs dest fp) fps
+  else
+    Lwt_list.mapi_s (fun _i fp -> get_chunk_fs dest fp) fps
 
 let copy_chunks os fps =
   match os with
