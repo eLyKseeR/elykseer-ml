@@ -100,13 +100,17 @@ let from_json_sinks c j =
   | `Null -> []
   | j' -> Yojson.Basic.Util.to_list j' |> List.map (from_json_sink c)
 
-let read_256k_chunk fp =
+let is_256k_chunk fp =
   let bsz = 256 * 1024 in
   let fpath = Filesystem.Path.from_string fp in
-  if Filesystem.Path.exists fpath && Filesystem.Path.file_size fpath = bsz then
+  (Filesystem.Path.exists fpath) && (Filesystem.Path.file_size fpath = bsz)
+
+  let read_256k_chunk fp =
+    if is_256k_chunk fp then
     Cstdio.File.fopen fp "rx" |> function
     | Error err -> Error err
     | Ok file -> begin
+      let bsz = 256 * 1024 in
       let b = Cstdio.File.Buffer.create bsz in
       Cstdio.File.fread b bsz file |> function
       | Error err -> Error err
@@ -119,7 +123,7 @@ let read_256k_chunk fp =
         end
     end
   else
-    Error (-1, "file size is not 262144 bytes")
+    Error (-1, "file not found or size is not 262144 bytes")
 
 let mk_valid_bucket_path fp =
   String.split_on_char '/' fp |> List.rev |> List.to_seq |> Seq.take 3 |> List.of_seq |> List.rev
@@ -153,15 +157,43 @@ let copy_chunk_s3 (dest : Distribution.S3Sink.coq_Sink) fp =
       match response with
       | Ok resp ->
         let code = resp.code in
-        let%lwt _ = Lwt_io.printlf "ok %d" code in
+        let%lwt _ = if !arg_verbose then Lwt_io.printlf "ok %d" code else Lwt.return_unit in
         Lwt.return (fp, code)
       | Error (code, msg) ->
         let%lwt _ = Lwt_io.printlf "error %d : %s" (Curl.int_of_curlCode code) msg in
         Lwt.return (fp, (Curl.int_of_curlCode code))
 
+let copy_chunk_fs (dest : Distribution.FSSink.coq_Sink) fp =
+  let tgt = Filesystem.Path.from_string dest.connection in
+  if Filesystem.Path.is_directory tgt then
+    if not (is_256k_chunk fp) then
+      let%lwt () = Lwt_io.printlf "error not a chunk file: %s" fp in
+      Lwt.return (fp, -3)
+    else
+      let resource = Filesystem.Path.from_string (mk_valid_bucket_path fp) in
+      let resp = Filesystem.Path.append tgt resource in
+      if not (Filesystem.Path.exists resp) then
+        let p1 = Filesystem.Path.parent resp in
+        let p2 = Filesystem.Path.parent p1 in
+        let _ = Filesystem.create_directory p2 |> ignore in
+        let _ = Filesystem.create_directory p1 |> ignore in
+        if Filesystem.copy_file (Filesystem.Path.from_string fp) resp then
+          Lwt.return (fp, 1)
+        else
+          let%lwt () = Lwt_io.printlf "failed to copy: %s -> %s" fp (Filesystem.Path.to_string resp) in
+          Lwt.return (fp, -2)
+      else
+        let%lwt () = Lwt_io.printlf "output file exists: %s" (Filesystem.Path.to_string resp) in
+        Lwt.return (fp, 0)
+  else
+    let%lwt () = Lwt_io.printlf "directory not found: %s" dest.connection in
+    Lwt.return (fp, -1)
+
+
 let copy_chunks_s3 (dest : Distribution.S3Sink.coq_Sink) fps =
   Lwt_list.mapi_s (fun _i fp -> copy_chunk_s3 dest fp) fps
-let copy_chunks_fs _dest _fps = Lwt.return []
+let copy_chunks_fs (dest : Distribution.FSSink.coq_Sink) fps =
+  Lwt_list.mapi_s (fun _i fp -> copy_chunk_fs dest fp) fps
 
 let copy_chunks os fps =
   match os with
@@ -169,6 +201,23 @@ let copy_chunks os fps =
   | Some (Distribution.S3 s) -> copy_chunks_s3 s fps
   | _ -> Lwt.return []
 
+let rec summarize_code c0 codes cnt res =
+  match codes with
+  | [] -> (c0,cnt) :: res
+  | c :: r -> if c = c0 then
+                 summarize_code c r (cnt + 1) res
+              else
+                 summarize_code c r 1 ((c0,cnt) :: res)
+
+let summarize ls0 =
+  let codes0 = List.map (fun (_, c) -> c) ls0 in
+  let codes = List.sort compare codes0 in
+  match codes with
+  | [] -> []
+  | c0 :: r ->
+    summarize_code c0 r 1 []
+
+  
 (* main *)
 let main () = Arg.parse argspec anon_args_fun "lxr_distribute: ";
   (* Printf.eprintf "weights: "; List.iter (fun w -> Printf.eprintf "%d " w) !arg_weights; Printf.eprintf "\n"; *)
@@ -187,14 +236,23 @@ let main () = Arg.parse argspec anon_args_fun "lxr_distribute: ";
   let fps' = Distribution.distribute_by_weight fps ws in
   let zipfps = Zip.zip sinks fps' in
   let%lwt res = Lwt_list.mapi_s
-    (fun i (os,ls) -> let%lwt () = Lwt_io.printlf "%d : %s" (i + 1) (match os with | None -> "none" | Some (Distribution.FS s) -> "FS " ^ Distribution.name s | Some (Distribution.S3 s) -> "S3 " ^ Distribution.name s) in
-     let%lwt () = Lwt_list.iteri_s (fun i fp -> Lwt_io.printlf "  %d: %s" (i + 1) fp) ls in
-     copy_chunks os ls
+    (fun i (os,ls) ->
+      let%lwt () = Lwt_io.printlf "%d : %s" (i + 1) (match os with | None -> "none" | Some (Distribution.FS s) -> "FS " ^ Distribution.name s | Some (Distribution.S3 s) -> "S3 " ^ Distribution.name s) in
+      let%lwt () = if !arg_verbose then
+          Lwt_list.iteri_s (fun i fp -> Lwt_io.printlf "  %d: %s" (i + 1) fp) ls
+        else Lwt.return_unit
+      in
+      let%lwt res' = copy_chunks os ls in
+      let%lwt () = Lwt_list.iter_s (fun (code,cnt) -> Lwt_io.printlf "   code %d has count = %d" code cnt) (summarize res') in
+      Lwt.return res'
     )
     zipfps  in
-  Lwt_list.iteri_s (fun i lss ->
-    let%lwt () = Lwt_io.printlf "%d : list of %d" i (List.length lss) in
-    Lwt_list.iteri_s (fun j (fp, code) -> Lwt_io.printlf "   %d : %d %s" j code fp) lss )
-    res
+  if !arg_verbose then
+    Lwt_list.iteri_s (fun i lss ->
+      let%lwt () = Lwt_io.printlf "%d : list of %d" i (List.length lss) in
+      Lwt_list.iteri_s (fun j (fp, code) -> Lwt_io.printlf "   %d : %d %s" j code fp) lss )
+      res
+  else
+    Lwt.return_unit
 
 let () = Lwt_main.run (main ())
