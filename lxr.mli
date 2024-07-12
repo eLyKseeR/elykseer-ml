@@ -511,7 +511,7 @@ module Utilities :
 
   val rnd256 : string -> string
 
-  val sha256 : string -> string
+  val sha3_256 : string -> string
  end
 
 module Assembly :
@@ -1504,7 +1504,7 @@ module Distribution :
    end
 
   type s3sink = { s3protocol : string; s3host : string; s3port : string;
-                  s3bucket : string }
+                  s3bucket : string; s3prefix : string }
 
   val s3protocol : s3sink -> string
 
@@ -1513,6 +1513,8 @@ module Distribution :
   val s3port : s3sink -> string
 
   val s3bucket : s3sink -> string
+
+  val s3prefix : s3sink -> string
 
   type s3credentials = { s3user : string; s3password : string }
 
@@ -1549,13 +1551,16 @@ module Distribution :
 
   type sink_type =
   | S3 of S3Sink.coq_Sink
+  | MINIO of S3Sink.coq_Sink
   | FS of FSSink.coq_Sink
 
   val sink_type_rect :
-    (S3Sink.coq_Sink -> 'a1) -> (FSSink.coq_Sink -> 'a1) -> sink_type -> 'a1
+    (S3Sink.coq_Sink -> 'a1) -> (S3Sink.coq_Sink -> 'a1) -> (FSSink.coq_Sink
+    -> 'a1) -> sink_type -> 'a1
 
   val sink_type_rec :
-    (S3Sink.coq_Sink -> 'a1) -> (FSSink.coq_Sink -> 'a1) -> sink_type -> 'a1
+    (S3Sink.coq_Sink -> 'a1) -> (S3Sink.coq_Sink -> 'a1) -> (FSSink.coq_Sink
+    -> 'a1) -> sink_type -> 'a1
 
   val enumerate_chunk_paths :
     Configuration.configuration -> Assembly.aid_t -> Nchunks.t -> string list

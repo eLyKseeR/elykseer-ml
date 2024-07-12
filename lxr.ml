@@ -778,7 +778,7 @@ module Cstdio =
 
     (** val calc_checksum : buffer_t -> string **)
 
-    let calc_checksum = fun b -> Elykseer_crypto.Sha256.buffer b
+    let calc_checksum = fun b -> Elykseer_crypto.Sha3_256.buffer b
 
     (** val copy_sz_pos : buffer_t -> n -> n -> buffer_t -> n -> n **)
 
@@ -815,7 +815,7 @@ module Cstdio =
 
     (** val calc_checksum : buffer_t -> string **)
 
-    let calc_checksum = fun b -> Elykseer_crypto.Sha256.buffer b
+    let calc_checksum = fun b -> Elykseer_crypto.Sha3_256.buffer b
 
     (** val copy_sz_pos : buffer_t -> n -> n -> buffer_t -> n -> n **)
 
@@ -1363,12 +1363,12 @@ module Utilities =
    x -> Elykseer_crypto.Random.with_rng (fun rng -> Elykseer_crypto.Random.random32 rng) |> string_of_int |>
      String.cat x |>
      String.cat (Unix.gethostname ()) |> String.cat (Unix.gettimeofday () |> string_of_float) |>
-     Elykseer_crypto.Sha256.string
+     Elykseer_crypto.Sha3_256.string
    
 
-  (** val sha256 : string -> string **)
+  (** val sha3_256 : string -> string **)
 
-  let sha256 = Elykseer_crypto.Sha256.string
+  let sha3_256 = Elykseer_crypto.Sha3_256.string
  end
 
 module Assembly =
@@ -1688,7 +1688,7 @@ module Assembly =
       let s = (Configuration.my_id config) ^
               (string_of_int (Conversion.p2i cid)) ^
               aid in
-      Elykseer_crypto.Sha256.string s
+      Elykseer_crypto.Sha3_256.string s
    
 
   (** val chunk_identifier_path :
@@ -1864,7 +1864,7 @@ module Filesupport =
   let get_file_information =   
     fun (c : Configuration.configuration) fn ->
         { fname = fn;
-          fhash = Elykseer_crypto.Sha256.string (fn ^ c.my_id);
+          fhash = Elykseer_crypto.Sha3_256.string (fn ^ c.my_id);
           fsize = Conversion.i2n (Elykseer_base.Fsutils.fsize fn);
           fowner = string_of_int (Elykseer_base.Fsutils.fowner fn);
           fpermissions = Conversion.i2n (Elykseer_base.Fsutils.fperm fn);
@@ -3062,7 +3062,7 @@ module Distribution =
    end
 
   type s3sink = { s3protocol : string; s3host : string; s3port : string;
-                  s3bucket : string }
+                  s3bucket : string; s3prefix : string }
 
   (** val s3protocol : s3sink -> string **)
 
@@ -3083,6 +3083,11 @@ module Distribution =
 
   let s3bucket s =
     s.s3bucket
+
+  (** val s3prefix : s3sink -> string **)
+
+  let s3prefix s =
+    s.s3prefix
 
   type s3credentials = { s3user : string; s3password : string }
 
@@ -3134,18 +3139,22 @@ module Distribution =
            let creds0 = { s3user = u; s3password = p } in
            (match SMap.find "bucket" s with
             | Some b ->
-              (match SMap.find "host" s with
-               | Some h ->
-                 (match SMap.find "protocol" s with
-                  | Some pr ->
-                    (match SMap.find "port" s with
-                     | Some p0 ->
-                       let s3 = { s3protocol = pr; s3host = h; s3port = p0;
-                         s3bucket = b }
-                       in
-                       (match SMap.find "name" s with
-                        | Some n0 ->
-                          Some { name = n0; creds = creds0; connection = s3 }
+              (match SMap.find "prefix" s with
+               | Some prefix ->
+                 (match SMap.find "host" s with
+                  | Some h ->
+                    (match SMap.find "protocol" s with
+                     | Some prot ->
+                       (match SMap.find "port" s with
+                        | Some p0 ->
+                          let s3 = { s3protocol = prot; s3host = h; s3port =
+                            p0; s3bucket = b; s3prefix = prefix }
+                          in
+                          (match SMap.find "name" s with
+                           | Some n0 ->
+                             Some { name = n0; creds = creds0; connection =
+                               s3 }
+                           | None -> None)
                         | None -> None)
                      | None -> None)
                   | None -> None)
@@ -3172,21 +3181,26 @@ module Distribution =
 
   type sink_type =
   | S3 of S3Sink.coq_Sink
+  | MINIO of S3Sink.coq_Sink
   | FS of FSSink.coq_Sink
 
   (** val sink_type_rect :
-      (S3Sink.coq_Sink -> 'a1) -> (FSSink.coq_Sink -> 'a1) -> sink_type -> 'a1 **)
+      (S3Sink.coq_Sink -> 'a1) -> (S3Sink.coq_Sink -> 'a1) ->
+      (FSSink.coq_Sink -> 'a1) -> sink_type -> 'a1 **)
 
-  let sink_type_rect f f0 = function
+  let sink_type_rect f f0 f1 = function
   | S3 s0 -> f s0
-  | FS s0 -> f0 s0
+  | MINIO s0 -> f0 s0
+  | FS s0 -> f1 s0
 
   (** val sink_type_rec :
-      (S3Sink.coq_Sink -> 'a1) -> (FSSink.coq_Sink -> 'a1) -> sink_type -> 'a1 **)
+      (S3Sink.coq_Sink -> 'a1) -> (S3Sink.coq_Sink -> 'a1) ->
+      (FSSink.coq_Sink -> 'a1) -> sink_type -> 'a1 **)
 
-  let sink_type_rec f f0 = function
+  let sink_type_rec f f0 f1 = function
   | S3 s0 -> f s0
-  | FS s0 -> f0 s0
+  | MINIO s0 -> f0 s0
+  | FS s0 -> f1 s0
 
   (** val enumerate_chunk_paths :
       Configuration.configuration -> Assembly.aid_t -> Nchunks.t -> string

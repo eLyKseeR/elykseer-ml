@@ -17,4 +17,4 @@
                                     tm.tm_hour tm.tm_min tm.tm_sec
   let fmod fn = (stat fn).st_mtime |> gmtime |> strftime
 
-  let fchksum fn = Elykseer_crypto.Sha256.file fn
+  let fchksum fn = Elykseer_crypto.Sha3_256.file fn

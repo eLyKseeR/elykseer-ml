@@ -38,7 +38,7 @@ let mk_rel n aid rel =
   let rnd = Elykseer_crypto.Random.with_rng (fun rng -> Elykseer_crypto.Random.r32_range rng 1 12) in
   let blocks : Assembly.blockinformation list = mk_blocks rnd aid 1200 0 in
   let fname = Printf.sprintf "test_%04d.dat" n in
-  let fhash = Elykseer_crypto.Sha256.string fname in
+  let fhash = Elykseer_crypto.Sha3_256.string fname in
   let fi : Filesupport.fileinformation = {fname = fname; fhash = fhash
            ;fsize = Conversion.i2n @@ List.fold_left (fun acc (e : Assembly.blockinformation) -> (Conversion.n2i e.blocksize) + acc) 0 blocks
            ;fowner = ""; fpermissions = Conversion.i2n 644; fmodified = ""; fchecksum = ""} in
@@ -53,7 +53,7 @@ let rec prepare_bm cnt rel =
          prepare_bm (n - 1) rel
 
 let check_bm i rel =
-  let fhash = Printf.sprintf "test_%04d.dat" i |> Elykseer_crypto.Sha256.string in
+  let fhash = Printf.sprintf "test_%04d.dat" i |> Elykseer_crypto.Sha3_256.string in
   let%lwt blocksopt = Relfiles.find fhash rel in
   match blocksopt with
   | None -> Lwt.return 0
@@ -117,8 +117,8 @@ let example_output () =
                     filepos = Conversion.i2n (1200+860); blocksize = Conversion.i2n 323;
                     bchecksum = "check3"; blockapos = Conversion.i2n 0
                   } ] in
-  let fhash1 = Elykseer_crypto.Sha256.string ("testfile01.data" ^ config.my_id) in
-  let fhash2 = Elykseer_crypto.Sha256.string ("testfile02.data" ^ config.my_id) in
+  let fhash1 = Elykseer_crypto.Sha3_256.string ("testfile01.data" ^ config.my_id) in
+  let fhash2 = Elykseer_crypto.Sha3_256.string ("testfile02.data" ^ config.my_id) in
   let rel1 : Relfiles.relation = { rfi={fname="testfile01.data";fhash=fhash1;fsize=Conversion.i2n 173;fowner="";fpermissions=Conversion.i2n 644;fmodified="";fchecksum=""}
              ; rfbs=blocks1 } in
   let rel2 : Relfiles.relation = { rfi={fname="testfile02.data";fhash=fhash2;fsize=Conversion.i2n 324;fowner="";fpermissions=Conversion.i2n 644;fmodified="";fchecksum=""}

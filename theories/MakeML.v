@@ -100,7 +100,7 @@ Extract Constant rnd256 =>
    x -> Elykseer_crypto.Random.with_rng (fun rng -> Elykseer_crypto.Random.random32 rng) |> string_of_int |>
      String.cat x |>
      String.cat (Unix.gethostname ()) |> String.cat (Unix.gettimeofday () |> string_of_float) |>
-     Elykseer_crypto.Sha256.string
+     Elykseer_crypto.Sha3_256.string
    ".
 
 Extract Constant chunk_identifier =>
@@ -108,7 +108,7 @@ Extract Constant chunk_identifier =>
       let s = (Configuration.my_id config) ^
               (string_of_int (Conversion.p2i cid)) ^
               aid in
-      Elykseer_crypto.Sha256.string s
+      Elykseer_crypto.Sha3_256.string s
    ".
 
 Extract Constant chunk_identifier_path =>
@@ -246,14 +246,14 @@ Extract Constant Cstdio.cstdio_buffer => "Mlcpp_cstdio.Cstdio.File.Buffer.ta".
 Extract Constant BufferEncrypted.buffer_t => "Mlcpp_cstdio.Cstdio.File.Buffer.ta".
 Extract Constant BufferEncrypted.buffer_create => "fun n -> Mlcpp_cstdio.Cstdio.File.Buffer.create (Conversion.n2i n)".
 Extract Constant BufferEncrypted.buffer_len => "fun b -> Conversion.i2n (Mlcpp_cstdio.Cstdio.File.Buffer.size b)".
-Extract Constant BufferEncrypted.calc_checksum => "fun b -> Elykseer_crypto.Sha256.buffer b".
+Extract Constant BufferEncrypted.calc_checksum => "fun b -> Elykseer_crypto.Sha3_256.buffer b".
 Extract Constant BufferEncrypted.from_buffer => "fun b -> Helper.cpp_buffer_id b".
 Extract Constant BufferEncrypted.to_buffer => "fun b -> Helper.cpp_buffer_id b".
 
 Extract Constant BufferPlain.buffer_t => "Mlcpp_cstdio.Cstdio.File.Buffer.ta".
 Extract Constant BufferPlain.buffer_create => "fun n -> Mlcpp_cstdio.Cstdio.File.Buffer.create (Conversion.n2i n)".
 Extract Constant BufferPlain.buffer_len => "fun b -> Conversion.i2n (Mlcpp_cstdio.Cstdio.File.Buffer.size b)".
-Extract Constant BufferPlain.calc_checksum => "fun b -> Elykseer_crypto.Sha256.buffer b".
+Extract Constant BufferPlain.calc_checksum => "fun b -> Elykseer_crypto.Sha3_256.buffer b".
 Extract Constant BufferPlain.from_buffer => "fun b -> Helper.cpp_buffer_id b".
 Extract Constant BufferPlain.to_buffer => "fun b -> Helper.cpp_buffer_id b".
 
@@ -304,7 +304,7 @@ Extract Constant get_file_information =>
    "  
     fun (c : Configuration.configuration) fn ->
         { fname = fn;
-          fhash = Elykseer_crypto.Sha256.string (fn ^ c.my_id);
+          fhash = Elykseer_crypto.Sha3_256.string (fn ^ c.my_id);
           fsize = Conversion.i2n (Elykseer_base.Fsutils.fsize fn);
           fowner = string_of_int (Elykseer_base.Fsutils.fowner fn);
           fpermissions = Conversion.i2n (Elykseer_base.Fsutils.fperm fn);
@@ -312,7 +312,7 @@ Extract Constant get_file_information =>
           fchecksum = Elykseer_base.Fsutils.fchksum fn }
    ".
 
-Extract Constant sha256 => "Elykseer_crypto.Sha256.string".
+Extract Constant sha3_256 => "Elykseer_crypto.Sha3_256.string".
 
 (*
 Axiom messageN : string -> N -> unit.
@@ -339,7 +339,13 @@ Extract Constant S3Sink.s3pull => "fun k sink ->
 Extract Constant S3Sink.s3list_n => "fun sink ->
    print_endline ""s3list_n""; (sink, [])".
 
-(* FSSink.fspush FSSink.fspull FSSink.fslist_n *)
+(* Extract Constant MINIOSink.s3push => "fun k _b sink ->
+   print_string ""miniopush""; print_endline k; sink".
+Extract Constant MINIOSink.s3pull => "fun k sink ->
+   print_string ""miniopull""; print_endline k; (sink, None)".
+Extract Constant MINIOSink.s3list_n => "fun sink ->
+   print_endline ""miniolist_n""; (sink, [])". *)
+
 Extract Constant FSSink.fspush => "fun k _b sink ->
    print_string ""fspush""; print_endline k; sink".
 Extract Constant FSSink.fspull => "fun k sink ->

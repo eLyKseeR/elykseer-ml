@@ -15,7 +15,7 @@ let anon_args_fun _fn = ()
 
 let main () = Arg.parse argspec anon_args_fun "lxr_filehash: fi";
   if !arg_fp != ""
-  then Lwt_io.printl ("file=" ^ !arg_fp ^ " " ^ (Elykseer_crypto.Sha256.string (!arg_fp ^ !arg_myid)))
+  then Lwt_io.printl ("file=" ^ !arg_fp ^ " " ^ (Elykseer_crypto.Sha3_256.string (!arg_fp ^ !arg_myid)))
   else Lwt_io.printl "nothing."
 
 let () = Lwt_main.run (main ())

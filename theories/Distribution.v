@@ -24,14 +24,16 @@ Module Export Distribution.
      │                │               │       
 ┌────┴──────┐   ┌─────┴─────┐   ┌─────┴─────┐ 
 │           │   │           │   │           │ 
-│  s3sink   │   │  fssink   │   │  davsink  │ 
+│  s3sink   │   │  fssink   │   │ miniosink │ 
 │           │   │           │   │           │ 
 └───────────┘   └───────────┘   └───────────┘ 
                                               
 *)
 
 (*
-  run: dune exec bin/lxr_distribute.exe -- -v -n 16 -x ../elykseer.chunks -i $MYID -a $AID -c sinks.json 4 8
+  run: dune exec bin/lxr_distribute.exe -- -v -d PUT -n 16 -x ../elykseer.chunks -i $MYID -a $AID -c sinks.json 4 8
+
+  the first sink receives the first 4 chunks, the second one the next 8 chunks
 *)
 
 (* the configuration json
@@ -40,7 +42,7 @@ Module Export Distribution.
   "version": "1.0.0",
   "sinks": [
     {
-        "type": "S3",
+        "type": "MINIO",
         "name": "s3_minio",
         "description": "minio storage cluster",
         "credentials": {
@@ -154,6 +156,7 @@ Record s3sink : Type :=
         s3host: string;
         s3port: string;
         s3bucket : string;
+        s3prefix : string;
     }.
 Record s3credentials : Type :=
     mks3credentials {
@@ -178,16 +181,19 @@ Module S3Sink <: SINK.
             | Some p => let creds := {| s3user := u; s3password := p |} in
                 match SMap.find "bucket" s with
                 | None => None
-                | Some b => match SMap.find "host" s with
+                | Some b => match SMap.find "prefix" s with
                     | None => None
-                    | Some h => match SMap.find "protocol" s with
+                    | Some prefix => match SMap.find "host" s with
                         | None => None
-                        | Some pr => match SMap.find "port" s with
+                        | Some h => match SMap.find "protocol" s with
                             | None => None
-                            | Some p => let s3 := {| s3protocol := pr; s3host := h; s3port := p; s3bucket := b |} in
-                                match SMap.find "name" s with
+                            | Some prot => match SMap.find "port" s with
                                 | None => None
-                                | Some n => Some {| name := n; creds := creds; connection := s3 |}
+                                | Some p => let s3 := {| s3protocol := prot; s3host := h; s3port := p; s3bucket := b; s3prefix := prefix |} in
+                                    match SMap.find "name" s with
+                                    | None => None
+                                    | Some n => Some {| name := n; creds := creds; connection := s3 |}
+                                    end
                                 end
                             end
                         end
@@ -204,18 +210,9 @@ End S3Sink.
 Section Typing.
 
 Inductive sink_type : Type :=
-    | S3: S3Sink.Sink -> sink_type
-    | FS: FSSink.Sink -> sink_type.
-
-(* Definition get_name (os : option sink_type) : string :=
-    match os with
-    | None => "none"
-    | Some st => match st with
-        | S3 s => sink.name s
-        | FS s => sink.name s
-        | _ => "none"
-        end
-    end. *)
+    | S3:    S3Sink.Sink -> sink_type
+    | MINIO: S3Sink.Sink -> sink_type
+    | FS:    FSSink.Sink -> sink_type.
 
 End Typing.
 

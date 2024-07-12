@@ -2,7 +2,7 @@
   "version": "1.0.0",
   "sinks": [
     {
-        "type": "S3",
+        "type": "MINIO",
         "name": "s3_minio",
         "description": "minio storage cluster",
         "credentials": {
@@ -10,9 +10,25 @@
             "secret-key": "s3cr3t"
         },
         "access": {
-            "bucket": "test",
+            "bucket": "lxr",
             "host": "localhost",
             "port": "9000",
+            "protocol": "https"
+        }
+    },
+    {
+        "type": "S3",
+        "name": "s3_aws",
+        "description": "AWS S3 storage",
+        "credentials": {
+            "access-key": "AKIA4VLHJ8YV6EXAMPEL",
+            "secret-key": "s3cr3t"
+        },
+        "access": {
+            "bucket": "mybucket",
+            "prefix": "lxr",
+            "host": "mybucket.s3.eu-west-3.amazonaws.com",
+            "port": "443",
             "protocol": "https"
         }
     },
