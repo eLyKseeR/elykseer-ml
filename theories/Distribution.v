@@ -6,7 +6,7 @@ Require Import Program.
 Require Import NArith PArith.
 From Coq Require Import NArith.BinNat Lists.List Strings.String Structures.OrderedTypeEx FSets.FMapList Lia.
 
-From LXR Require Import Cstdio Assembly Configuration Conversion Filesystem HList Nchunks Utilities.
+From LXR Require Import Cstdio Assembly Configuration Filesystem Nchunks Utilities.
 
 Import ListNotations.
 
