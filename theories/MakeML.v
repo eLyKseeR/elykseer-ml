@@ -339,13 +339,6 @@ Extract Constant S3Sink.s3pull => "fun k sink ->
 Extract Constant S3Sink.s3list_n => "fun sink ->
    print_endline ""s3list_n""; (sink, [])".
 
-(* Extract Constant MINIOSink.s3push => "fun k _b sink ->
-   print_string ""miniopush""; print_endline k; sink".
-Extract Constant MINIOSink.s3pull => "fun k sink ->
-   print_string ""miniopull""; print_endline k; (sink, None)".
-Extract Constant MINIOSink.s3list_n => "fun sink ->
-   print_endline ""miniolist_n""; (sink, [])". *)
-
 Extract Constant FSSink.fspush => "fun k _b sink ->
    print_string ""fspush""; print_endline k; sink".
 Extract Constant FSSink.fspull => "fun k sink ->

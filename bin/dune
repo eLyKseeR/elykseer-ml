@@ -62,5 +62,5 @@
  (modules lxr_distribute)
  (preprocess (pps lwt_ppx))
  (ocamlopt_flags -O3 -cclib -s)
- (libraries elykseer elykseer_base elykseer_utils elykseer_crypto mlcpp_cstdio ezcurl-lwt http-date ptime yojson)
+ (libraries elykseer elykseer_base elykseer_utils elykseer_crypto mlcpp_cstdio ezcurl-lwt yojson)
 )

@@ -42,7 +42,7 @@ Module Export Distribution.
   "version": "1.0.0",
   "sinks": [
     {
-        "type": "MINIO",
+        "type": "S3",
         "name": "s3_minio",
         "description": "minio storage cluster",
         "credentials": {
@@ -51,9 +51,10 @@ Module Export Distribution.
         },
         "access": {
             "bucket": "test",
+            "prefix": "lxr",
             "host": "localhost",
             "port": "9000",
-            "protocol": "http"
+            "protocol": "https"
         }
     },
     {
@@ -211,7 +212,6 @@ Section Typing.
 
 Inductive sink_type : Type :=
     | S3:    S3Sink.Sink -> sink_type
-    | MINIO: S3Sink.Sink -> sink_type
     | FS:    FSSink.Sink -> sink_type.
 
 End Typing.
@@ -246,6 +246,7 @@ Example find_entry_in_empty : forall c,
                      ∘ (SMap.add "access" "s3user")
                      ∘ (SMap.add "secret" "s3secret")
                      ∘ (SMap.add "bucket" "test")
+                     ∘ (SMap.add "prefix" "lxr")
                      ∘ (SMap.add "host" "localhost")
                      ∘ (SMap.add "port" "9000"))
                     (SMap.empty string) in

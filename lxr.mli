@@ -1551,16 +1551,13 @@ module Distribution :
 
   type sink_type =
   | S3 of S3Sink.coq_Sink
-  | MINIO of S3Sink.coq_Sink
   | FS of FSSink.coq_Sink
 
   val sink_type_rect :
-    (S3Sink.coq_Sink -> 'a1) -> (S3Sink.coq_Sink -> 'a1) -> (FSSink.coq_Sink
-    -> 'a1) -> sink_type -> 'a1
+    (S3Sink.coq_Sink -> 'a1) -> (FSSink.coq_Sink -> 'a1) -> sink_type -> 'a1
 
   val sink_type_rec :
-    (S3Sink.coq_Sink -> 'a1) -> (S3Sink.coq_Sink -> 'a1) -> (FSSink.coq_Sink
-    -> 'a1) -> sink_type -> 'a1
+    (S3Sink.coq_Sink -> 'a1) -> (FSSink.coq_Sink -> 'a1) -> sink_type -> 'a1
 
   val enumerate_chunk_paths :
     Configuration.configuration -> Assembly.aid_t -> Nchunks.t -> string list

@@ -94,11 +94,6 @@ let from_json_sink c s =
   (* let () = Printf.printf "   sink: %s\n" (match nm with | None -> "??" | Some nm' -> nm') in *)
   match ty with
   | Some "FS" -> from_json_fs_sink c nm cs ac
-  | Some "MINIO" -> begin
-      match (from_json_s3_sink c nm cs ac) with
-      | Some s -> Some (Distribution.MINIO s)
-      | _ -> None
-    end
   | Some "S3" -> begin
       match (from_json_s3_sink c nm cs ac) with
       | Some s -> Some (Distribution.S3 s)
@@ -141,85 +136,12 @@ let mk_valid_bucket_path fp =
   |> List.fold_left (fun acc p -> acc ^ p ^ "/") ""
   |> fun s -> let l = String.length s in String.sub s 0 (l - 1)
 
-let mk_minio_signature (dest : Distribution.S3Sink.coq_Sink) resource sdate meth =
-  let content_type = "application/octet-stream" in
-  let signature = Printf.sprintf "%s\n\n%s\n%s\n%s" meth content_type sdate resource in
-  let hmac = Elykseer_crypto.Hmac.Sha1.string dest.creds.s3password signature in
-  let k = Elykseer_crypto.Key160.from_hex hmac in
-  Elykseer_crypto.Key160.to_bytes k |> Elykseer_crypto.Base64.encode
-
-let get_chunk_minio (dest : Distribution.S3Sink.coq_Sink) fp =
-  let fpath = Filesystem.Path.from_string fp in
-  if Filesystem.Path.exists fpath then
-    let%lwt () = Lwt_io.printlf "chunk already exists: %s" fp in
-    Lwt.return (fp, -1)
-  else
-    let resource0 = mk_valid_bucket_path fp in
-    let resource = Printf.sprintf "/%s%s%s" dest.connection.s3bucket (if dest.connection.s3prefix != "" then "/" ^ dest.connection.s3prefix else "/") resource0 in
-    let sdate : string = Http_date.(encode ~encoding:IMF (Ptime_clock.now ())) in
-    let meth = !arg_direction in
-    let signature = mk_minio_signature dest resource sdate meth in
-    let config = Ezcurl_lwt.Config.default |> Ezcurl_lwt.Config.verbose false in  (* DEBUG: set verbose to true *)
-    let headers = [("Host",dest.connection.s3host);("Date",sdate);("Content-type","application/octet-stream");("Authorization",Printf.sprintf "AWS %s:%s" dest.creds.s3user signature)] in
-    let url = Printf.sprintf "%s://%s:%s%s" dest.connection.s3protocol dest.connection.s3host dest.connection.s3port resource in
-    let curl_method = match meth with | "GET" -> Ezcurl_lwt.GET | "PUT" -> Ezcurl_lwt.PUT | _ -> Ezcurl_lwt.HEAD in
-    Ezcurl_lwt.http ~config ~headers ~url ~meth:curl_method () >>= fun response ->
-      match response with
-      | Ok resp -> begin
-        let code = resp.code in
-        let%lwt _ = if !arg_verbose then Lwt_io.printlf "ok %d" code else Lwt.return_unit in
-        let outp = Printf.sprintf "%s/%s" !arg_chunkpath resource0 in
-        let%lwt _ = Lwt_io.printlf "outp %s" outp in
-        match Cstdio.File.fopen outp "wx" with
-        | Ok fptr -> begin
-          match Cstdio.File.fwrite_s resp.body fptr with
-          | Ok cnt -> begin
-              Cstdio.File.fclose fptr |> ignore;
-              if cnt = chunksz then
-                Lwt.return (fp, 1)
-              else
-                Lwt.return (fp, -2)
-            end
-          | Error (_, _msg) ->
-            Cstdio.File.fclose fptr |> ignore;
-            Lwt.return (fp, -3)
-          end
-        | Error (_, msg) ->
-          let%lwt _ = Lwt_io.printlf "error fopen : %s" msg in
-          Lwt.return (fp, -4)
-        end
-      | Error (code, msg) ->
-        let%lwt _ = Lwt_io.printlf "error %d : %s" (Curl.int_of_curlCode code) msg in
-        Lwt.return (fp, (Curl.int_of_curlCode code))
-
-let put_chunk_minio (dest : Distribution.S3Sink.coq_Sink) fp =
-  let odata = read_256k_chunk fp in
-  match odata with
-  | Error (code, msg) ->
-    let%lwt () = Lwt_io.printlf "error reading chunk: %d %s" code msg in
-    Lwt.return (fp, code)
-  | Ok b ->
-    let chunkdata = Cstdio.File.Buffer.to_string b in
-    let resource = Printf.sprintf "/%s%s%s" dest.connection.s3bucket (if dest.connection.s3prefix != "" then "/" ^ dest.connection.s3prefix else "/") (mk_valid_bucket_path fp) in
-    let sdate : string = Http_date.(encode ~encoding:IMF (Ptime_clock.now ())) in
-    let meth = !arg_direction in
-    let signature = mk_minio_signature dest resource sdate meth in
-    let config = Ezcurl_lwt.Config.default |> Ezcurl_lwt.Config.verbose false in  (* DEBUG: set verbose to true *)
-    let headers = [("Host",dest.connection.s3host);("Date",sdate);("Content-type","application/octet-stream");("Authorization",Printf.sprintf "AWS %s:%s" dest.creds.s3user signature)] in
-    let url = Printf.sprintf "%s://%s:%s%s" dest.connection.s3protocol dest.connection.s3host dest.connection.s3port resource in
-    let curl_method = match meth with | "GET" -> Ezcurl_lwt.GET | "PUT" -> Ezcurl_lwt.PUT | _ -> Ezcurl_lwt.HEAD in
-    Ezcurl_lwt.http ~config ~headers ~url ~meth:curl_method ~content: (`String chunkdata) () >>= fun response ->
-      match response with
-      | Ok resp ->
-        let code = resp.code in
-        let%lwt _ = if !arg_verbose then Lwt_io.printlf "ok %d" code else Lwt.return_unit in
-        Lwt.return (fp, code)
-      | Error (code, msg) ->
-        let%lwt _ = Lwt_io.printlf "error %d : %s" (Curl.int_of_curlCode code) msg in
-        Lwt.return (fp, (Curl.int_of_curlCode code))
-
 let extract_s3_region host =
-  String.split_on_char '.' host |> List.rev |> List.to_seq |> Seq.drop 2 |> List.of_seq |> List.hd
+  let ls = String.split_on_char '.' host in
+  if List.length ls > 2 then
+    List.rev ls |> List.to_seq |> Seq.drop 2 |> List.of_seq |> List.hd
+  else
+    "us-east-1"
 
 let put_chunk_s3 client (dest : Distribution.S3Sink.coq_Sink) fp =
   let odata = read_256k_chunk fp in
@@ -235,7 +157,7 @@ let put_chunk_s3 client (dest : Distribution.S3Sink.coq_Sink) fp =
     let url = Printf.sprintf "%s://%s:%s%s" dest.connection.s3protocol dest.connection.s3host dest.connection.s3port resource in
     let curl_method = match meth with | "GET" -> Ezcurl_lwt.GET | "PUT" -> Ezcurl_lwt.PUT | _ -> Ezcurl_lwt.HEAD in
     let config = Ezcurl_lwt.Config.default |>
-                  Ezcurl_lwt.Config.verbose true |> (* DEBUG: set verbose to true *)
+                  Ezcurl_lwt.Config.verbose false |> (* DEBUG: set verbose to true *)
                   Ezcurl_lwt.Config.username dest.creds.s3user |>
                   Ezcurl_lwt.Config.password dest.creds.s3password
                  in
@@ -262,7 +184,7 @@ let get_chunk_s3 client (dest : Distribution.S3Sink.coq_Sink) fp =
     let url = Printf.sprintf "%s://%s:%s%s" dest.connection.s3protocol dest.connection.s3host dest.connection.s3port resource in
     let curl_method = match meth with | "GET" -> Ezcurl_lwt.GET | "PUT" -> Ezcurl_lwt.PUT | _ -> Ezcurl_lwt.HEAD in
     let config = Ezcurl_lwt.Config.default |>
-                  Ezcurl_lwt.Config.verbose true |> (* DEBUG: set verbose to true *)
+                  Ezcurl_lwt.Config.verbose false |> (* DEBUG: set verbose to true *)
                   Ezcurl_lwt.Config.username dest.creds.s3user |>
                   Ezcurl_lwt.Config.password dest.creds.s3password
                  in
@@ -350,11 +272,6 @@ let put_chunk_fs (dest : Distribution.FSSink.coq_Sink) fp =
     Lwt.return (fp, -1)
 
 
-let copy_chunks_minio (dest : Distribution.S3Sink.coq_Sink) fps =
-  if !arg_direction = "PUT" then
-    Lwt_list.mapi_s (fun _i fp -> put_chunk_minio dest fp) fps
-  else
-    Lwt_list.mapi_s (fun _i fp -> get_chunk_minio dest fp) fps
 let copy_chunks_s3 (dest : Distribution.S3Sink.coq_Sink) fps =
   let region = extract_s3_region dest.connection.s3host in
   let client = Ezcurl_lwt.make ~set_opts:(fun c -> Curl.set_aws_sigv4 c (Printf.sprintf "aws:amz:%s:s3" region)) () in
@@ -362,6 +279,7 @@ let copy_chunks_s3 (dest : Distribution.S3Sink.coq_Sink) fps =
     Lwt_list.mapi_s (fun _i fp -> put_chunk_s3 client dest fp) fps
   else
     Lwt_list.mapi_s (fun _i fp -> get_chunk_s3 client dest fp) fps
+
 let copy_chunks_fs (dest : Distribution.FSSink.coq_Sink) fps =
   if !arg_direction = "PUT" then
     Lwt_list.mapi_s (fun _i fp -> put_chunk_fs dest fp) fps
@@ -371,7 +289,6 @@ let copy_chunks_fs (dest : Distribution.FSSink.coq_Sink) fps =
 let copy_chunks os fps =
   match os with
   | Some (Distribution.FS s) -> copy_chunks_fs s fps
-  | Some (Distribution.MINIO s) -> copy_chunks_minio s fps
   | Some (Distribution.S3 s) -> copy_chunks_s3 s fps
   | _ -> Lwt.return []
 
@@ -411,7 +328,7 @@ let main () = Arg.parse argspec anon_args_fun "lxr_distribute: ";
   let zipfps = Zip.zip sinks fps' in
   let%lwt res = Lwt_list.mapi_s
     (fun i (os,ls) ->
-      let%lwt () = Lwt_io.printlf "%d : %s" (i + 1) (match os with | None -> "none" | Some (Distribution.FS s) -> "FS " ^ Distribution.name s | Some (Distribution.MINIO s) -> "MINIO " ^ Distribution.name s | Some (Distribution.S3 s) -> "S3 " ^ Distribution.name s) in
+      let%lwt () = Lwt_io.printlf "%d : %s" (i + 1) (match os with | None -> "none" | Some (Distribution.FS s) -> "FS " ^ Distribution.name s | Some (Distribution.S3 s) -> "S3 " ^ Distribution.name s) in
       let%lwt () = if !arg_verbose then
           Lwt_list.iteri_s (fun i fp -> Lwt_io.printlf "  %d: %s" (i + 1) fp) ls
         else Lwt.return_unit

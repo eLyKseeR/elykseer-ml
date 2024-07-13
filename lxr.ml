@@ -3181,26 +3181,21 @@ module Distribution =
 
   type sink_type =
   | S3 of S3Sink.coq_Sink
-  | MINIO of S3Sink.coq_Sink
   | FS of FSSink.coq_Sink
 
   (** val sink_type_rect :
-      (S3Sink.coq_Sink -> 'a1) -> (S3Sink.coq_Sink -> 'a1) ->
-      (FSSink.coq_Sink -> 'a1) -> sink_type -> 'a1 **)
+      (S3Sink.coq_Sink -> 'a1) -> (FSSink.coq_Sink -> 'a1) -> sink_type -> 'a1 **)
 
-  let sink_type_rect f f0 f1 = function
+  let sink_type_rect f f0 = function
   | S3 s0 -> f s0
-  | MINIO s0 -> f0 s0
-  | FS s0 -> f1 s0
+  | FS s0 -> f0 s0
 
   (** val sink_type_rec :
-      (S3Sink.coq_Sink -> 'a1) -> (S3Sink.coq_Sink -> 'a1) ->
-      (FSSink.coq_Sink -> 'a1) -> sink_type -> 'a1 **)
+      (S3Sink.coq_Sink -> 'a1) -> (FSSink.coq_Sink -> 'a1) -> sink_type -> 'a1 **)
 
-  let sink_type_rec f f0 f1 = function
+  let sink_type_rec f f0 = function
   | S3 s0 -> f s0
-  | MINIO s0 -> f0 s0
-  | FS s0 -> f1 s0
+  | FS s0 -> f0 s0
 
   (** val enumerate_chunk_paths :
       Configuration.configuration -> Assembly.aid_t -> Nchunks.t -> string
@@ -3608,7 +3603,7 @@ module Version =
   (** val build : string **)
 
   let build =
-    "12"
+    "13"
 
   (** val version : string **)
 

@@ -2,7 +2,7 @@
   "version": "1.0.0",
   "sinks": [
     {
-        "type": "MINIO",
+        "type": "S3",
         "name": "s3_minio",
         "description": "minio storage cluster",
         "credentials": {
@@ -11,6 +11,7 @@
         },
         "access": {
             "bucket": "lxr",
+            "prefix": "lxr",
             "host": "localhost",
             "port": "9000",
             "protocol": "https"
