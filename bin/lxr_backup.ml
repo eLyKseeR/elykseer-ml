@@ -76,7 +76,7 @@ let output_relations (ac : AssemblyCache.assemblycache) =
 let get_file_checksum config filename =
   let map : string StringMap.t = StringMap.empty in
   let%lwt relf = Relfiles.new_map config in
-  let fhash = Elykseer_crypto.Sha256.string (filename ^ !arg_myid) in
+  let fhash = Elykseer_crypto.Sha3_256.string (filename ^ !arg_myid) in
   match%lwt Relfiles.find fhash relf with
   | None -> Lwt.return (map)
   | Some rfbs ->
@@ -88,7 +88,7 @@ let get_file_checksum config filename =
 let get_file_blocks config filename =
 let map : (Assembly.blockinformation list) StringMap.t = StringMap.empty in
 let%lwt relf = Relfiles.new_map config in
-let fhash = Elykseer_crypto.Sha256.string (filename ^ !arg_myid) in
+let fhash = Elykseer_crypto.Sha3_256.string (filename ^ !arg_myid) in
 match%lwt Relfiles.find fhash relf with
 | None -> Lwt.return (map)
 | Some rfbs ->

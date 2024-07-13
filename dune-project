@@ -25,7 +25,6 @@
  (depends
    (ocaml (>= 5.1.1))
    dune
-   sha
    yojson
  )
  (tags
@@ -42,7 +41,7 @@
   (depends
     (ocaml (>= 5.1.1))
     (elykseer (= :version))
-    unix sha mlcpp_cstdio mlcpp_filesystem elykseer_crypto)
+    unix mlcpp_cstdio mlcpp_filesystem elykseer_crypto)
 )
 
 (package

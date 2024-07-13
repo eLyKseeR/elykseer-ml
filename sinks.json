@@ -1,0 +1,50 @@
+{
+  "version": "1.0.0",
+  "sinks": [
+    {
+        "type": "S3",
+        "name": "s3_minio",
+        "description": "minio storage cluster",
+        "credentials": {
+            "access-key": "minioadmin",
+            "secret-key": "s3cr3t"
+        },
+        "access": {
+            "bucket": "lxr",
+            "prefix": "lxr",
+            "host": "localhost",
+            "port": "9000",
+            "protocol": "https"
+        }
+    },
+    {
+        "type": "S3",
+        "name": "s3_aws",
+        "description": "AWS S3 storage",
+        "credentials": {
+            "access-key": "AKIA4VLHJ8YV6EXAMPEL",
+            "secret-key": "s3cr3t"
+        },
+        "access": {
+            "bucket": "mybucket",
+            "prefix": "lxr",
+            "host": "mybucket.s3.eu-west-3.amazonaws.com",
+            "port": "443",
+            "protocol": "https"
+        }
+    },
+    {
+        "type": "FS",
+        "name": "fs_copy",
+        "description": "filesystem copy",
+        "credentials": {
+            "user": "*",
+            "group": "root",
+            "permissions": "640"
+        },
+        "access": {
+            "basepath": "/data/secure_stick"
+        }
+    }
+  ]
+}

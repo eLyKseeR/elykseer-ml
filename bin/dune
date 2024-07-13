@@ -55,3 +55,12 @@
  (ocamlopt_flags -O3 -cclib -s)
  (libraries elykseer elykseer_crypto)
 )
+(executable
+ (public_name lxr_distribute)
+ (name lxr_distribute)
+ (package elykseer)
+ (modules lxr_distribute)
+ (preprocess (pps lwt_ppx))
+ (ocamlopt_flags -O3 -cclib -s)
+ (libraries elykseer elykseer_base elykseer_utils elykseer_crypto mlcpp_cstdio ezcurl-lwt yojson)
+)

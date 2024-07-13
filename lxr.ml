@@ -14,6 +14,11 @@ type nat =
 let fst = function
 | (x, _) -> x
 
+(** val snd : ('a1 * 'a2) -> 'a2 **)
+
+let snd = function
+| (_, y) -> y
+
 (** val length : 'a1 list -> nat **)
 
 let rec length = function
@@ -75,6 +80,18 @@ type z =
 | Z0
 | Zpos of positive
 | Zneg of positive
+
+module type EqLtLe =
+ sig
+  type t
+ end
+
+module MakeOrderTac =
+ functor (O:EqLtLe) ->
+ functor (P:sig
+ end) ->
+ struct
+ end
 
 module Pos =
  struct
@@ -439,6 +456,12 @@ let rec fold_left f l a0 =
   | [] -> a0
   | b :: t0 -> fold_left f t0 (f a0 b)
 
+(** val fold_right : ('a2 -> 'a1 -> 'a1) -> 'a1 -> 'a2 list -> 'a1 **)
+
+let rec fold_right f a0 = function
+| [] -> a0
+| b :: t0 -> f b (fold_right f a0 t0)
+
 (** val filter : ('a1 -> bool) -> 'a1 list -> 'a1 list **)
 
 let rec filter f = function
@@ -450,6 +473,45 @@ let rec filter f = function
 let rec seq start = function
 | O -> []
 | S len0 -> start :: (seq (S start) len0)
+
+(** val compare0 : char -> char -> comparison **)
+
+let compare0 = fun c1 c2 ->
+    let cmp = Char.compare c1 c2 in
+    if cmp < 0 then Lt else if cmp = 0 then Eq else Gt
+
+(** val compare1 : string -> string -> comparison **)
+
+let rec compare1 s1 s2 =
+  (* If this appears, you're using String internals. Please don't *)
+ (fun f0 f1 s ->
+    let l = String.length s in
+    if l = 0 then f0 () else f1 (String.get s 0) (String.sub s 1 (l-1)))
+
+    (fun _ ->
+    (* If this appears, you're using String internals. Please don't *)
+ (fun f0 f1 s ->
+    let l = String.length s in
+    if l = 0 then f0 () else f1 (String.get s 0) (String.sub s 1 (l-1)))
+
+      (fun _ -> Eq)
+      (fun _ _ -> Lt)
+      s2)
+    (fun c1 s1' ->
+    (* If this appears, you're using String internals. Please don't *)
+ (fun f0 f1 s ->
+    let l = String.length s in
+    if l = 0 then f0 () else f1 (String.get s 0) (String.sub s 1 (l-1)))
+
+      (fun _ -> Gt)
+      (fun c2 s2' ->
+      match compare0 c1 c2 with
+      | Eq -> compare1 s1' s2'
+      | x -> x)
+      s2)
+    s1
+
+
 
 module Conversion =
  struct
@@ -716,7 +778,7 @@ module Cstdio =
 
     (** val calc_checksum : buffer_t -> string **)
 
-    let calc_checksum = fun b -> Elykseer_crypto.Sha256.buffer b
+    let calc_checksum = fun b -> Elykseer_crypto.Sha3_256.buffer b
 
     (** val copy_sz_pos : buffer_t -> n -> n -> buffer_t -> n -> n **)
 
@@ -753,7 +815,7 @@ module Cstdio =
 
     (** val calc_checksum : buffer_t -> string **)
 
-    let calc_checksum = fun b -> Elykseer_crypto.Sha256.buffer b
+    let calc_checksum = fun b -> Elykseer_crypto.Sha3_256.buffer b
 
     (** val copy_sz_pos : buffer_t -> n -> n -> buffer_t -> n -> n **)
 
@@ -1269,6 +1331,24 @@ module Utilities =
   let make_list n0 =
     let natlist = seq (S O) (Coq_Pos.to_nat n0) in map Coq_Pos.of_nat natlist
 
+  (** val drop_list : nat -> 'a1 list -> 'a1 list **)
+
+  let rec drop_list n0 ls =
+    match n0 with
+    | O -> ls
+    | S k -> (match ls with
+              | [] -> []
+              | _ :: r -> drop_list k r)
+
+  (** val take_list : nat -> 'a1 list -> 'a1 list **)
+
+  let rec take_list n0 ls =
+    match n0 with
+    | O -> []
+    | S k -> (match ls with
+              | [] -> []
+              | a :: r -> a :: (take_list k r))
+
   (** val rnd : n -> n **)
 
   let rnd = 
@@ -1283,12 +1363,12 @@ module Utilities =
    x -> Elykseer_crypto.Random.with_rng (fun rng -> Elykseer_crypto.Random.random32 rng) |> string_of_int |>
      String.cat x |>
      String.cat (Unix.gethostname ()) |> String.cat (Unix.gettimeofday () |> string_of_float) |>
-     Elykseer_crypto.Sha256.string
+     Elykseer_crypto.Sha3_256.string
    
 
-  (** val sha256 : string -> string **)
+  (** val sha3_256 : string -> string **)
 
-  let sha256 = Elykseer_crypto.Sha256.string
+  let sha3_256 = Elykseer_crypto.Sha3_256.string
  end
 
 module Assembly =
@@ -1608,7 +1688,7 @@ module Assembly =
       let s = (Configuration.my_id config) ^
               (string_of_int (Conversion.p2i cid)) ^
               aid in
-      Elykseer_crypto.Sha256.string s
+      Elykseer_crypto.Sha3_256.string s
    
 
   (** val chunk_identifier_path :
@@ -1784,7 +1864,7 @@ module Filesupport =
   let get_file_information =   
     fun (c : Configuration.configuration) fn ->
         { fname = fn;
-          fhash = Elykseer_crypto.Sha256.string (fn ^ c.my_id);
+          fhash = Elykseer_crypto.Sha3_256.string (fn ^ c.my_id);
           fsize = Conversion.i2n (Elykseer_base.Fsutils.fsize fn);
           fowner = string_of_int (Elykseer_base.Fsutils.fowner fn);
           fpermissions = Conversion.i2n (Elykseer_base.Fsutils.fperm fn);
@@ -2493,6 +2573,656 @@ module AssemblyCache =
       (Store.KeyListStore.add aid0 ki ac.ackstore); acfistore = ac.acfistore }
  end
 
+type 'x compare2 =
+| LT
+| EQ
+| GT
+
+module type OrderedType =
+ sig
+  type t
+
+  val compare : t -> t -> t compare2
+
+  val eq_dec : t -> t -> bool
+ end
+
+module OrderedTypeFacts =
+ functor (O:OrderedType) ->
+ struct
+  module TO =
+   struct
+    type t = O.t
+   end
+
+  module IsTO =
+   struct
+   end
+
+  module OrderTac = MakeOrderTac(TO)(IsTO)
+
+  (** val eq_dec : O.t -> O.t -> bool **)
+
+  let eq_dec =
+    O.eq_dec
+
+  (** val lt_dec : O.t -> O.t -> bool **)
+
+  let lt_dec x y =
+    match O.compare x y with
+    | LT -> true
+    | _ -> false
+
+  (** val eqb : O.t -> O.t -> bool **)
+
+  let eqb x y =
+    if eq_dec x y then true else false
+ end
+
+module KeyOrderedType =
+ functor (O:OrderedType) ->
+ struct
+  module MO = OrderedTypeFacts(O)
+ end
+
+module String_as_OT =
+ struct
+  type t = string
+
+  (** val cmp : string -> string -> comparison **)
+
+  let cmp =
+    compare1
+
+  (** val compare : string -> string -> string compare2 **)
+
+  let compare a b =
+    match cmp a b with
+    | Eq -> EQ
+    | Lt -> LT
+    | Gt -> GT
+
+  (** val eq_dec : string -> string -> bool **)
+
+  let eq_dec =
+    (=)
+ end
+
+module Raw =
+ functor (X:OrderedType) ->
+ struct
+  module MX = OrderedTypeFacts(X)
+
+  module PX = KeyOrderedType(X)
+
+  type key = X.t
+
+  type 'elt t = (X.t * 'elt) list
+
+  (** val empty : 'a1 t **)
+
+  let empty =
+    []
+
+  (** val is_empty : 'a1 t -> bool **)
+
+  let is_empty = function
+  | [] -> true
+  | _ :: _ -> false
+
+  (** val mem : key -> 'a1 t -> bool **)
+
+  let rec mem k = function
+  | [] -> false
+  | p :: l ->
+    let (k', _) = p in
+    (match X.compare k k' with
+     | LT -> false
+     | EQ -> true
+     | GT -> mem k l)
+
+  (** val find : key -> 'a1 t -> 'a1 option **)
+
+  let rec find k = function
+  | [] -> None
+  | p :: s' ->
+    let (k', x) = p in
+    (match X.compare k k' with
+     | LT -> None
+     | EQ -> Some x
+     | GT -> find k s')
+
+  (** val add : key -> 'a1 -> 'a1 t -> 'a1 t **)
+
+  let rec add k x s = match s with
+  | [] -> (k, x) :: []
+  | p :: l ->
+    let (k', y) = p in
+    (match X.compare k k' with
+     | LT -> (k, x) :: s
+     | EQ -> (k, x) :: l
+     | GT -> (k', y) :: (add k x l))
+
+  (** val remove : key -> 'a1 t -> 'a1 t **)
+
+  let rec remove k s = match s with
+  | [] -> []
+  | p :: l ->
+    let (k', x) = p in
+    (match X.compare k k' with
+     | LT -> s
+     | EQ -> l
+     | GT -> (k', x) :: (remove k l))
+
+  (** val elements : 'a1 t -> 'a1 t **)
+
+  let elements m =
+    m
+
+  (** val fold : (key -> 'a1 -> 'a2 -> 'a2) -> 'a1 t -> 'a2 -> 'a2 **)
+
+  let rec fold f m acc =
+    match m with
+    | [] -> acc
+    | p :: m' -> let (k, e) = p in fold f m' (f k e acc)
+
+  (** val equal : ('a1 -> 'a1 -> bool) -> 'a1 t -> 'a1 t -> bool **)
+
+  let rec equal cmp0 m m' =
+    match m with
+    | [] -> (match m' with
+             | [] -> true
+             | _ :: _ -> false)
+    | p :: l ->
+      let (x, e) = p in
+      (match m' with
+       | [] -> false
+       | p0 :: l' ->
+         let (x', e') = p0 in
+         (match X.compare x x' with
+          | EQ -> (&&) (cmp0 e e') (equal cmp0 l l')
+          | _ -> false))
+
+  (** val map : ('a1 -> 'a2) -> 'a1 t -> 'a2 t **)
+
+  let rec map f = function
+  | [] -> []
+  | p :: m' -> let (k, e) = p in (k, (f e)) :: (map f m')
+
+  (** val mapi : (key -> 'a1 -> 'a2) -> 'a1 t -> 'a2 t **)
+
+  let rec mapi f = function
+  | [] -> []
+  | p :: m' -> let (k, e) = p in (k, (f k e)) :: (mapi f m')
+
+  (** val option_cons :
+      key -> 'a1 option -> (key * 'a1) list -> (key * 'a1) list **)
+
+  let option_cons k o l =
+    match o with
+    | Some e -> (k, e) :: l
+    | None -> l
+
+  (** val map2_l :
+      ('a1 option -> 'a2 option -> 'a3 option) -> 'a1 t -> 'a3 t **)
+
+  let rec map2_l f = function
+  | [] -> []
+  | p :: l -> let (k, e) = p in option_cons k (f (Some e) None) (map2_l f l)
+
+  (** val map2_r :
+      ('a1 option -> 'a2 option -> 'a3 option) -> 'a2 t -> 'a3 t **)
+
+  let rec map2_r f = function
+  | [] -> []
+  | p :: l' ->
+    let (k, e') = p in option_cons k (f None (Some e')) (map2_r f l')
+
+  (** val map2 :
+      ('a1 option -> 'a2 option -> 'a3 option) -> 'a1 t -> 'a2 t -> 'a3 t **)
+
+  let rec map2 f m = match m with
+  | [] -> map2_r f
+  | p :: l ->
+    let (k, e) = p in
+    let rec map2_aux m' = match m' with
+    | [] -> map2_l f m
+    | p0 :: l' ->
+      let (k', e') = p0 in
+      (match X.compare k k' with
+       | LT -> option_cons k (f (Some e) None) (map2 f l m')
+       | EQ -> option_cons k (f (Some e) (Some e')) (map2 f l l')
+       | GT -> option_cons k' (f None (Some e')) (map2_aux l'))
+    in map2_aux
+
+  (** val combine : 'a1 t -> 'a2 t -> ('a1 option * 'a2 option) t **)
+
+  let rec combine m = match m with
+  | [] -> map (fun e' -> (None, (Some e')))
+  | p :: l ->
+    let (k, e) = p in
+    let rec combine_aux m' = match m' with
+    | [] -> map (fun e0 -> ((Some e0), None)) m
+    | p0 :: l' ->
+      let (k', e') = p0 in
+      (match X.compare k k' with
+       | LT -> (k, ((Some e), None)) :: (combine l m')
+       | EQ -> (k, ((Some e), (Some e'))) :: (combine l l')
+       | GT -> (k', (None, (Some e'))) :: (combine_aux l'))
+    in combine_aux
+
+  (** val fold_right_pair :
+      ('a1 -> 'a2 -> 'a3 -> 'a3) -> ('a1 * 'a2) list -> 'a3 -> 'a3 **)
+
+  let fold_right_pair f l i =
+    fold_right (fun p -> f (fst p) (snd p)) i l
+
+  (** val map2_alt :
+      ('a1 option -> 'a2 option -> 'a3 option) -> 'a1 t -> 'a2 t ->
+      (key * 'a3) list **)
+
+  let map2_alt f m m' =
+    let m0 = combine m m' in
+    let m1 = map (fun p -> f (fst p) (snd p)) m0 in
+    fold_right_pair option_cons m1 []
+
+  (** val at_least_one :
+      'a1 option -> 'a2 option -> ('a1 option * 'a2 option) option **)
+
+  let at_least_one o o' =
+    match o with
+    | Some _ -> Some (o, o')
+    | None -> (match o' with
+               | Some _ -> Some (o, o')
+               | None -> None)
+
+  (** val at_least_one_then_f :
+      ('a1 option -> 'a2 option -> 'a3 option) -> 'a1 option -> 'a2 option ->
+      'a3 option **)
+
+  let at_least_one_then_f f o o' =
+    match o with
+    | Some _ -> f o o'
+    | None -> (match o' with
+               | Some _ -> f o o'
+               | None -> None)
+ end
+
+module Make =
+ functor (X:OrderedType) ->
+ struct
+  module Raw = Raw(X)
+
+  module E = X
+
+  type key = E.t
+
+  type 'elt slist =
+    'elt Raw.t
+    (* singleton inductive, whose constructor was Build_slist *)
+
+  (** val this : 'a1 slist -> 'a1 Raw.t **)
+
+  let this s =
+    s
+
+  type 'elt t = 'elt slist
+
+  (** val empty : 'a1 t **)
+
+  let empty =
+    Raw.empty
+
+  (** val is_empty : 'a1 t -> bool **)
+
+  let is_empty m =
+    Raw.is_empty (this m)
+
+  (** val add : key -> 'a1 -> 'a1 t -> 'a1 t **)
+
+  let add x e m =
+    Raw.add x e (this m)
+
+  (** val find : key -> 'a1 t -> 'a1 option **)
+
+  let find x m =
+    Raw.find x (this m)
+
+  (** val remove : key -> 'a1 t -> 'a1 t **)
+
+  let remove x m =
+    Raw.remove x (this m)
+
+  (** val mem : key -> 'a1 t -> bool **)
+
+  let mem x m =
+    Raw.mem x (this m)
+
+  (** val map : ('a1 -> 'a2) -> 'a1 t -> 'a2 t **)
+
+  let map f m =
+    Raw.map f (this m)
+
+  (** val mapi : (key -> 'a1 -> 'a2) -> 'a1 t -> 'a2 t **)
+
+  let mapi f m =
+    Raw.mapi f (this m)
+
+  (** val map2 :
+      ('a1 option -> 'a2 option -> 'a3 option) -> 'a1 t -> 'a2 t -> 'a3 t **)
+
+  let map2 f m m' =
+    Raw.map2 f (this m) (this m')
+
+  (** val elements : 'a1 t -> (key * 'a1) list **)
+
+  let elements m =
+    Raw.elements (this m)
+
+  (** val cardinal : 'a1 t -> nat **)
+
+  let cardinal m =
+    length (this m)
+
+  (** val fold : (key -> 'a1 -> 'a2 -> 'a2) -> 'a1 t -> 'a2 -> 'a2 **)
+
+  let fold f m i =
+    Raw.fold f (this m) i
+
+  (** val equal : ('a1 -> 'a1 -> bool) -> 'a1 t -> 'a1 t -> bool **)
+
+  let equal cmp0 m m' =
+    Raw.equal cmp0 (this m) (this m')
+ end
+
+module Distribution =
+ struct
+  (** val coq_ChunkId : char -> string -> string **)
+
+  let coq_ChunkId x x0 =
+    (* If this appears, you're using String internals. Please don't *)
+  (fun (c, s) -> String.make 1 c ^ s)
+
+      (x, x0)
+
+  module SMap = Make(String_as_OT)
+
+  type ('cONN, 'cREDS) sink = { name : string; creds : 'cREDS;
+                                connection : 'cONN }
+
+  (** val name : ('a1, 'a2) sink -> string **)
+
+  let name s =
+    s.name
+
+  (** val creds : ('a1, 'a2) sink -> 'a2 **)
+
+  let creds s =
+    s.creds
+
+  (** val connection : ('a1, 'a2) sink -> 'a1 **)
+
+  let connection s =
+    s.connection
+
+  module type SINK =
+   sig
+    type coq_K
+
+    type coq_B = Cstdio.BufferEncrypted.buffer_t
+
+    type coq_CONN
+
+    type coq_CREDS
+
+    type coq_Sink = (coq_CONN, coq_CREDS) sink
+
+    val init : Configuration.configuration -> coq_K SMap.t -> coq_Sink option
+
+    val push : coq_K -> coq_B -> coq_Sink -> coq_Sink
+
+    val pull : coq_K -> coq_Sink -> coq_Sink * coq_B option
+
+    val list_n : coq_Sink -> coq_Sink * coq_K list
+   end
+
+  type fssink =
+    string
+    (* singleton inductive, whose constructor was mkfssink *)
+
+  (** val fsbasepath : fssink -> string **)
+
+  let fsbasepath f =
+    f
+
+  type fscredentials =
+    string
+    (* singleton inductive, whose constructor was mkfscredentials *)
+
+  (** val fsuser : fscredentials -> string **)
+
+  let fsuser f =
+    f
+
+  module FSSink =
+   struct
+    type coq_K = string
+
+    type coq_B = Cstdio.BufferEncrypted.buffer_t
+
+    type coq_CONN = fssink
+
+    type coq_CREDS = fscredentials
+
+    type coq_Sink = (coq_CONN, coq_CREDS) sink
+
+    (** val fspush : coq_K -> coq_B -> coq_Sink -> coq_Sink **)
+
+    let fspush = fun k _b sink ->
+   print_string "fspush"; print_endline k; sink
+
+    (** val fspull : coq_K -> coq_Sink -> coq_Sink * coq_B option **)
+
+    let fspull = fun k sink ->
+   print_string "fspull"; print_endline k; (sink, None)
+
+    (** val fslist_n : coq_Sink -> coq_Sink * coq_K list **)
+
+    let fslist_n = fun sink ->
+   print_endline "fslist_n"; (sink, [])
+
+    (** val init :
+        Configuration.configuration -> coq_K SMap.t -> coq_Sink option **)
+
+    let init _ s =
+      match SMap.find "basepath" s with
+      | Some p ->
+        (match SMap.find "user" s with
+         | Some u ->
+           (match SMap.find "name" s with
+            | Some n0 -> Some { name = n0; creds = u; connection = p }
+            | None -> None)
+         | None -> None)
+      | None -> None
+
+    (** val push : coq_K -> coq_B -> coq_Sink -> coq_Sink **)
+
+    let push =
+      fspush
+
+    (** val pull : coq_K -> coq_Sink -> coq_Sink * coq_B option **)
+
+    let pull =
+      fspull
+
+    (** val list_n : coq_Sink -> coq_Sink * coq_K list **)
+
+    let list_n =
+      fslist_n
+   end
+
+  type s3sink = { s3protocol : string; s3host : string; s3port : string;
+                  s3bucket : string; s3prefix : string }
+
+  (** val s3protocol : s3sink -> string **)
+
+  let s3protocol s =
+    s.s3protocol
+
+  (** val s3host : s3sink -> string **)
+
+  let s3host s =
+    s.s3host
+
+  (** val s3port : s3sink -> string **)
+
+  let s3port s =
+    s.s3port
+
+  (** val s3bucket : s3sink -> string **)
+
+  let s3bucket s =
+    s.s3bucket
+
+  (** val s3prefix : s3sink -> string **)
+
+  let s3prefix s =
+    s.s3prefix
+
+  type s3credentials = { s3user : string; s3password : string }
+
+  (** val s3user : s3credentials -> string **)
+
+  let s3user s =
+    s.s3user
+
+  (** val s3password : s3credentials -> string **)
+
+  let s3password s =
+    s.s3password
+
+  module S3Sink =
+   struct
+    type coq_K = string
+
+    type coq_B = Cstdio.BufferEncrypted.buffer_t
+
+    type coq_CONN = s3sink
+
+    type coq_CREDS = s3credentials
+
+    type coq_Sink = (coq_CONN, coq_CREDS) sink
+
+    (** val s3push : coq_K -> coq_B -> coq_Sink -> coq_Sink **)
+
+    let s3push = fun k _b sink ->
+   print_string "s3push"; print_endline k; sink
+
+    (** val s3pull : coq_K -> coq_Sink -> coq_Sink * coq_B option **)
+
+    let s3pull = fun k sink ->
+   print_string "s3pull"; print_endline k; (sink, None)
+
+    (** val s3list_n : coq_Sink -> coq_Sink * coq_K list **)
+
+    let s3list_n = fun sink ->
+   print_endline "s3list_n"; (sink, [])
+
+    (** val init :
+        Configuration.configuration -> coq_K SMap.t -> coq_Sink option **)
+
+    let init _ s =
+      match SMap.find "access" s with
+      | Some u ->
+        (match SMap.find "secret" s with
+         | Some p ->
+           let creds0 = { s3user = u; s3password = p } in
+           (match SMap.find "bucket" s with
+            | Some b ->
+              (match SMap.find "prefix" s with
+               | Some prefix ->
+                 (match SMap.find "host" s with
+                  | Some h ->
+                    (match SMap.find "protocol" s with
+                     | Some prot ->
+                       (match SMap.find "port" s with
+                        | Some p0 ->
+                          let s3 = { s3protocol = prot; s3host = h; s3port =
+                            p0; s3bucket = b; s3prefix = prefix }
+                          in
+                          (match SMap.find "name" s with
+                           | Some n0 ->
+                             Some { name = n0; creds = creds0; connection =
+                               s3 }
+                           | None -> None)
+                        | None -> None)
+                     | None -> None)
+                  | None -> None)
+               | None -> None)
+            | None -> None)
+         | None -> None)
+      | None -> None
+
+    (** val push : coq_K -> coq_B -> coq_Sink -> coq_Sink **)
+
+    let push =
+      s3push
+
+    (** val pull : coq_K -> coq_Sink -> coq_Sink * coq_B option **)
+
+    let pull =
+      s3pull
+
+    (** val list_n : coq_Sink -> coq_Sink * coq_K list **)
+
+    let list_n =
+      s3list_n
+   end
+
+  type sink_type =
+  | S3 of S3Sink.coq_Sink
+  | FS of FSSink.coq_Sink
+
+  (** val sink_type_rect :
+      (S3Sink.coq_Sink -> 'a1) -> (FSSink.coq_Sink -> 'a1) -> sink_type -> 'a1 **)
+
+  let sink_type_rect f f0 = function
+  | S3 s0 -> f s0
+  | FS s0 -> f0 s0
+
+  (** val sink_type_rec :
+      (S3Sink.coq_Sink -> 'a1) -> (FSSink.coq_Sink -> 'a1) -> sink_type -> 'a1 **)
+
+  let sink_type_rec f f0 = function
+  | S3 s0 -> f s0
+  | FS s0 -> f0 s0
+
+  (** val enumerate_chunk_paths :
+      Configuration.configuration -> Assembly.aid_t -> Nchunks.t -> string
+      list **)
+
+  let enumerate_chunk_paths c aid0 nchunks0 =
+    let n0 = Nchunks.to_positive nchunks0 in
+    fold_left (fun acc cid ->
+      (Assembly.chunk_identifier_path c aid0 cid) :: acc)
+      (Utilities.make_list n0) []
+
+  (** val distribute_by_weight : string list -> n list -> string list list **)
+
+  let distribute_by_weight fps ws0 =
+    let n0 = N.of_nat (length fps) in
+    let ws = map (fun w -> if N.ltb n0 w then n0 else w) ws0 in
+    let repfps = fold_left (fun acc _ -> app fps acc) ws [] in
+    let (_, lls) =
+      fold_left (fun pat w ->
+        let (fps0, acc) = pat in
+        let w' = N.to_nat w in
+        ((Utilities.drop_list w' fps0),
+        ((Utilities.take_list w' fps0) :: acc))) ws (repfps, [])
+    in
+    let lls' = map rev lls in rev lls'
+ end
+
 module Processor =
  struct
   type processor = { config : Configuration.configuration;
@@ -2521,54 +3251,54 @@ module Processor =
   (** val update_cache :
       processor -> AssemblyCache.assemblycache -> processor **)
 
-  let update_cache this ac =
-    { config = this.config; cache = ac }
+  let update_cache this0 ac =
+    { config = this0.config; cache = ac }
 
   (** val backup_block :
       processor -> AssemblyCache.writequeueentity -> processor **)
 
-  let backup_block this wqe =
-    let filtered_var = AssemblyCache.enqueue_write_request this.cache wqe in
+  let backup_block this0 wqe =
+    let filtered_var = AssemblyCache.enqueue_write_request this0.cache wqe in
     let (b, cache') = filtered_var in
     if b
-    then update_cache this cache'
-    else let cache'0 = AssemblyCache.iterate_write_queue this.cache in
+    then update_cache this0 cache'
+    else let cache'0 = AssemblyCache.iterate_write_queue this0.cache in
          let filtered_var0 = AssemblyCache.enqueue_write_request cache'0 wqe
          in
          let (b0, cache'') = filtered_var0 in
-         if b0 then update_cache this cache'' else this
+         if b0 then update_cache this0 cache'' else this0
 
   (** val request_read :
       processor -> AssemblyCache.readqueueentity ->
       AssemblyCache.readqueueresult list * processor **)
 
-  let request_read this rqe =
-    let filtered_var = AssemblyCache.enqueue_read_request this.cache rqe in
+  let request_read this0 rqe =
+    let filtered_var = AssemblyCache.enqueue_read_request this0.cache rqe in
     let (b, cache') = filtered_var in
     if b
-    then ([], (update_cache this cache'))
-    else let (rres, cache'0) = AssemblyCache.iterate_read_queue this.cache in
+    then ([], (update_cache this0 cache'))
+    else let (rres, cache'0) = AssemblyCache.iterate_read_queue this0.cache in
          let filtered_var0 = AssemblyCache.enqueue_read_request cache'0 rqe in
          let (b0, cache'') = filtered_var0 in
-         if b0 then (rres, (update_cache this cache'')) else ([], this)
+         if b0 then (rres, (update_cache this0 cache'')) else ([], this0)
 
   (** val run_write_requests : processor -> processor **)
 
-  let run_write_requests this =
-    let cache' = AssemblyCache.iterate_write_queue this.cache in
-    update_cache this cache'
+  let run_write_requests this0 =
+    let cache' = AssemblyCache.iterate_write_queue this0.cache in
+    update_cache this0 cache'
 
   (** val run_read_requests :
       processor -> AssemblyCache.readqueueresult list * processor **)
 
-  let run_read_requests this =
-    let (rres, cache') = AssemblyCache.iterate_read_queue this.cache in
-    (rres, (update_cache this cache'))
+  let run_read_requests this0 =
+    let (rres, cache') = AssemblyCache.iterate_read_queue this0.cache in
+    (rres, (update_cache this0 cache'))
 
   (** val close : processor -> processor **)
 
-  let close this =
-    let ac = AssemblyCache.close this.cache in update_cache this ac
+  let close this0 =
+    let ac = AssemblyCache.close this0.cache in update_cache this0 ac
 
   (** val block_sz : n **)
 
@@ -2580,15 +3310,15 @@ module Processor =
       Assembly.blockinformation list -> processor -> string -> Cstdio.fptr ->
       processor option **)
 
-  let rec rec_file_backup_inner tgtfbs this fhash0 fptr0 =
+  let rec rec_file_backup_inner tgtfbs this0 fhash0 fptr0 =
     match tgtfbs with
-    | [] -> Some this
+    | [] -> Some this0
     | fb :: tgtfbs' ->
-      Tracer.optionalTrace this.config.Configuration.trace
+      Tracer.optionalTrace this0.config.Configuration.trace
         (Cstdio.fseek fptr0 fb.Assembly.filepos) Tracer.Coq_warning (Some
         ((^) "failed to fseek in file: " fhash0)) (fun _ -> None)
         Tracer.Coq_info None (fun fptr' ->
-        Tracer.optionalTrace this.config.Configuration.trace
+        Tracer.optionalTrace this0.config.Configuration.trace
           (Cstdio.fread fptr0 fb.Assembly.blocksize) Tracer.Coq_warning (Some
           ((^) "failed to fread from file: " fhash0)) (fun _ -> None)
           Tracer.Coq_info None (fun pat ->
@@ -2601,20 +3331,20 @@ module Processor =
                  (=) chksum fb.Assembly.bchecksum
           in
           let filtered_var =
-            Tracer.conditionalTrace this.config.Configuration.trace found
+            Tracer.conditionalTrace this0.config.Configuration.trace found
               Tracer.Coq_debug (Some
               ((^) "identical block found with id = "
                 (Conversion.i2s (Conversion.p2i fb.Assembly.blockid))))
               (fun _ ->
               let ac' =
-                AssemblyCache.add_fileblockinformation this.cache fhash0 fb
+                AssemblyCache.add_fileblockinformation this0.cache fhash0 fb
               in
-              Some (update_cache this ac')) Tracer.Coq_debug None (fun _ ->
+              Some (update_cache this0 ac')) Tracer.Coq_debug None (fun _ ->
               let wqe = { AssemblyCache.qfhash = fhash0;
                 AssemblyCache.qfpos = fb.Assembly.filepos;
                 AssemblyCache.qbuffer = b' }
               in
-              Some (backup_block this wqe))
+              Some (backup_block this0 wqe))
           in
           (match filtered_var with
            | Some this' -> rec_file_backup_inner tgtfbs' this' fhash0 fptr'
@@ -2624,12 +3354,12 @@ module Processor =
       processor -> Filesupport.fileinformation -> Assembly.blockinformation
       list -> processor option **)
 
-  let open_file_backup this fi tgtfbs =
+  let open_file_backup this0 fi tgtfbs =
     let filtered_var = Cstdio.fopen fi.Filesupport.fname Cstdio.read_mode in
     (match filtered_var with
      | Some fptr0 ->
-       Tracer.optionalTrace this.config.Configuration.trace
-         (rec_file_backup_inner tgtfbs this fi.Filesupport.fhash fptr0)
+       Tracer.optionalTrace this0.config.Configuration.trace
+         (rec_file_backup_inner tgtfbs this0 fi.Filesupport.fhash fptr0)
          Tracer.Coq_warning (Some
          ((^) "block backup failed of file: " fi.Filesupport.fname))
          (fun _ -> None) Tracer.Coq_info (Some
@@ -2644,20 +3374,20 @@ module Processor =
           | None -> Some proc'))
      | None ->
        let filtered_var0 =
-         Tracer.log this.config.Configuration.trace Tracer.Coq_warning
+         Tracer.log this0.config.Configuration.trace Tracer.Coq_warning
            ((^) "failed to open file: " fi.Filesupport.fname)
        in
        (match filtered_var0 with
         | Some _ -> None
-        | None -> Some this))
+        | None -> Some this0))
 
   (** val internal_restore_to :
       processor -> Cstdio.fptr -> AssemblyCache.readqueueresult list -> n **)
 
-  let internal_restore_to this fptr0 lrres =
+  let internal_restore_to this0 fptr0 lrres =
     fold_left (fun acc rres ->
       let filtered_var =
-        Tracer.optionalTrace this.config.Configuration.trace
+        Tracer.optionalTrace this0.config.Configuration.trace
           (Cstdio.fseek fptr0
             rres.AssemblyCache.readrequest.AssemblyCache.rqfpos)
           Tracer.Coq_warning (Some
@@ -2683,7 +3413,7 @@ module Processor =
       processor -> Cstdio.fptr -> AssemblyCache.assemblycache ->
       Assembly.blockinformation -> n * AssemblyCache.assemblycache **)
 
-  let restore_block_to this fptr0 ac block =
+  let restore_block_to this0 fptr0 ac block =
     let rreq = { AssemblyCache.rqaid = block.Assembly.blockaid;
       AssemblyCache.rqapos = block.Assembly.blockapos; AssemblyCache.rqrlen =
       block.Assembly.blocksize; AssemblyCache.rqfpos =
@@ -2694,7 +3424,7 @@ module Processor =
     if b
     then (N0, ac')
     else let (lrres, ac'') = AssemblyCache.iterate_read_queue ac' in
-         let n0 = internal_restore_to this fptr0 lrres in
+         let n0 = internal_restore_to this0 fptr0 lrres in
          let (_, ac''') = AssemblyCache.enqueue_read_request ac'' rreq in
          if N.ltb N0 n0 then (n0, ac''') else (N0, ac''')
 
@@ -2702,16 +3432,16 @@ module Processor =
       processor -> Cstdio.fptr -> Assembly.blockinformation list ->
       n * AssemblyCache.assemblycache **)
 
-  let restore_file_to this fptr0 blocks =
+  let restore_file_to this0 fptr0 blocks =
     let filtered_var =
       fold_left (fun pat block ->
         let (acc, ac) = pat in
-        let (n0, ac') = restore_block_to this fptr0 ac block in
-        ((N.add acc n0), ac')) blocks (N0, this.cache)
+        let (n0, ac') = restore_block_to this0 fptr0 ac block in
+        ((N.add acc n0), ac')) blocks (N0, this0.cache)
     in
     let (res, ac') = filtered_var in
     let (lrres, ac'') = AssemblyCache.iterate_read_queue ac' in
-    let n0 = internal_restore_to this fptr0 lrres in ((N.add n0 res), ac'')
+    let n0 = internal_restore_to this0 fptr0 lrres in ((N.add n0 res), ac'')
 
   (** val prepare_blocks' :
       nat -> positive -> n -> n -> Assembly.blockinformation list ->
@@ -2774,9 +3504,9 @@ module Processor =
       processor -> (string -> string option) -> (string ->
       Assembly.blockinformation list) -> Filesystem.path -> processor **)
 
-  let file_backup this find_fchecksum find_fblocks fp =
+  let file_backup this0 find_fchecksum find_fblocks fp =
     let fn = Filesystem.Path.to_string fp in
-    let fi = Filesupport.get_file_information this.config fn in
+    let fi = Filesupport.get_file_information this0.config fn in
     let found =
       let filtered_var = find_fchecksum fi.Filesupport.fhash in
       (match filtered_var with
@@ -2784,32 +3514,32 @@ module Processor =
        | None -> false)
     in
     let filtered_var =
-      Tracer.conditionalTrace this.config.Configuration.trace found
+      Tracer.conditionalTrace this0.config.Configuration.trace found
         Tracer.Coq_info (Some
         ((^) "file content checksum identical to meta data: " fn)) (fun _ ->
-        Some this) Tracer.Coq_info None (fun _ ->
+        Some this0) Tracer.Coq_info None (fun _ ->
         let curbs = find_fblocks fi.Filesupport.fhash in
         let tgtbs = prepare_blocks curbs fi.Filesupport.fsize in
-        let filtered_var = open_file_backup this fi tgtbs in
+        let filtered_var = open_file_backup this0 fi tgtbs in
         (match filtered_var with
          | Some proc1 -> let proc2 = run_write_requests proc1 in Some proc2
-         | None -> Some this))
+         | None -> Some this0))
     in
     (match filtered_var with
      | Some proc' -> proc'
-     | None -> this)
+     | None -> this0)
 
   (** val file_restore :
       processor -> Filesystem.path -> Filesystem.path ->
       Assembly.blockinformation list -> n * processor **)
 
-  let file_restore this basep fp blocks =
+  let file_restore this0 basep fp blocks =
     let targetp = Filesystem.Path.append basep fp in
     let filtered_var =
-      Tracer.conditionalTrace this.config.Configuration.trace
+      Tracer.conditionalTrace this0.config.Configuration.trace
         (Filesystem.Path.file_exists targetp) Tracer.Coq_warning (Some
         ((^) "file already exist: " (Filesystem.Path.to_string targetp)))
-        (fun _ -> Some (N0, this)) Tracer.Coq_info (Some
+        (fun _ -> Some (N0, this0)) Tracer.Coq_info (Some
         ((^) "restoring file "
           ((^) (Filesystem.Path.to_string fp)
             ((^) " from "
@@ -2824,15 +3554,15 @@ module Processor =
           else Filesystem.create_directories dirp
         in
         if mkdir
-        then Tracer.optionalTrace this.config.Configuration.trace
+        then Tracer.optionalTrace this0.config.Configuration.trace
                (Cstdio.fopen (Filesystem.Path.to_string targetp)
                  Cstdio.write_new_mode) Tracer.Coq_warning (Some
                ((^) "failed to open file: "
                  (Filesystem.Path.to_string targetp))) (fun _ -> None)
                Tracer.Coq_info None (fun fptr0 ->
-               let filtered_var = restore_file_to this fptr0 blocks in
+               let filtered_var = restore_file_to this0 fptr0 blocks in
                let (n0, ac') = filtered_var in
-               let proc' = update_cache this ac' in
+               let proc' = update_cache this0 ac' in
                let filtered_var0 = Cstdio.fclose fptr0 in
                (match filtered_var0 with
                 | Some _ -> Some (n0, proc')
@@ -2841,7 +3571,7 @@ module Processor =
     in
     (match filtered_var with
      | Some res -> res
-     | None -> (N0, this))
+     | None -> (N0, this0))
 
   (** val list_directory_entries :
       Filesystem.path -> Filesystem.path list * Filesystem.path list **)
@@ -2873,7 +3603,7 @@ module Version =
   (** val build : string **)
 
   let build =
-    "12"
+    "13"
 
   (** val version : string **)
 

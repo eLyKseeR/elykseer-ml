@@ -24,7 +24,7 @@ let anon_args_fun fn = arg_files := fn :: !arg_files
 
 
 let filename2aidlist fn relfiles : string list Lwt.t =
-  let%lwt rel = Relfiles.find (Elykseer_crypto.Sha256.string (fn ^ !arg_myid)) relfiles in
+  let%lwt rel = Relfiles.find (Elykseer_crypto.Sha3_256.string (fn ^ !arg_myid)) relfiles in
   match rel with
   | None -> Lwt.return []
   | Some r -> Lwt.return @@ List.map (fun (e : Assembly.blockinformation) -> e.blockaid) r.rfbs

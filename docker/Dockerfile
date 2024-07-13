@@ -19,7 +19,7 @@ RUN opam switch -y create 5.1.1
 RUN eval $(opam env) && opam repo add coq-released https://coq.inria.fr/opam/released
 
 RUN eval $(opam env) && opam -y pin add coq 8.18.0
-RUN eval $(opam env) && opam -y install yojson lwt_ppx sha irmin-git irmin-cli irmin alcotest alcotest-lwt ppx_optcomp
+RUN eval $(opam env) && opam -y install ezcurl-lwt yojson lwt_ppx irmin-git irmin-cli irmin alcotest alcotest-lwt ppx_optcomp
 
 # install into ~/.local: boost-1.83.0, zlib-1.3 (prebuilt)
 RUN tar xzf ./prebuilt/dot.local-$(uname -m).tgz
