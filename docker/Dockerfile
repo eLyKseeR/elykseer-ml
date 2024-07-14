@@ -2,7 +2,7 @@
 
 FROM debian:latest  AS build-env
 
-RUN apt update && apt upgrade -y && apt install -y opam bash git binutils texinfo automake autoconf less vim cmake gcc g++ gettext sed curl pandoc pkg-config cppcheck libdigest-sha3-perl libgmp-dev libffi-dev
+RUN apt update && apt upgrade -y && apt install -y opam bash git binutils texinfo automake autoconf less vim cmake gcc g++ gettext sed curl pandoc pkg-config cppcheck libdigest-sha3-perl libgmp-dev libffi-dev libcurl4-gnutls-dev
 
 RUN addgroup --gid 1000 coq && adduser --disabled-password --uid 1000 --gid 1000 coq
 
@@ -19,7 +19,9 @@ RUN opam switch -y create 5.1.1
 RUN eval $(opam env) && opam repo add coq-released https://coq.inria.fr/opam/released
 
 RUN eval $(opam env) && opam -y pin add coq 8.18.0
-RUN eval $(opam env) && opam -y install ezcurl-lwt yojson lwt_ppx irmin-git irmin-cli irmin alcotest alcotest-lwt ppx_optcomp
+RUN eval $(opam env) && opam -y install yojson lwt_ppx irmin-git irmin-cli irmin alcotest alcotest-lwt ppx_optcomp
+RUN eval $(opam env) && cd /tmp/ && git clone https://github.com/ygrek/ocurl.git ocurl.git && cd ocurl.git && ./configure && make && make install
+RUN eval $(opam env) && cd /tmp/ && git clone https://github.com/c-cube/ezcurl.git ezcurl.git && cd ezcurl.git && dune build && dune install -p ezcurl && dune install -p ezcurl-lwt
 
 # install into ~/.local: boost-1.83.0, zlib-1.3 (prebuilt)
 RUN tar xzf ./prebuilt/dot.local-$(uname -m).tgz
@@ -45,7 +47,7 @@ LABEL org.opencontainers.image.source=https://github.com/eLyKseeR/elykseer-ml
 LABEL org.opencontainers.image.description="formally specified & verified implementation of eLyKseeR in Coq / OCaml"
 LABEL org.opencontainers.image.licenses=GPL-3.0-or-later
 
-RUN apt update && apt upgrade -y && apt install -y sudo opam bash git jq binutils texinfo less vim gettext sed curl pkg-config libgmp-dev libffi-dev && apt autoremove -y
+RUN apt update && apt upgrade -y && apt install -y sudo opam bash git jq binutils texinfo less vim gettext sed curl pkg-config libgmp-dev libffi-dev libcurl4-gnutls-dev && apt autoremove -y
 
 RUN addgroup --gid 1000 coq && adduser --disabled-password --uid 1000 --gid 1000 coq
 
@@ -71,6 +73,8 @@ RUN echo 'export PATH=$PATH:${HOME}/.local/bin' >> ~/.bashrc
 RUN git clone https://github.com/eLyKseeR/elykseer-ml.git elykseer-ml.git
 
 WORKDIR /home/coq/elykseer-ml.git
+
+RUN git fetch && git pull
 
 RUN eval $(opam env) && coq_makefile -f _CoqProject -o Makefile
 
