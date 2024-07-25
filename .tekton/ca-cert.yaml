@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ca-cert
+  namespace: cicd
+data:
+  ca.crt: <<base64 encoded CA certificate>>

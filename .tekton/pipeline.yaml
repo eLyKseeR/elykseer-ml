@@ -1,0 +1,44 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: lxr-compile
+  namespace: cicd
+spec:
+  description: | 
+    This pipeline compiles elykseer-ml.
+  params:
+  - name: git-commit
+    type: string
+    description: The git commit hash to check out.
+  workspaces:
+  - name: minio-credentials
+    description: MinIO credentials to store the artefacts
+  - name: ca-cert
+    description: the self-signed certificate of our local MinIO cluster
+  tasks:
+  - name: compile-amd64
+    taskRef:
+      name: lxr-compile-amd64
+    workspaces:
+    - name: ca-cert
+      workspace: ca-cert
+    - name: minio-credentials
+      workspace: minio-credentials
+    params:
+    - name: git-commit
+      value: $(params.git-commit)
+  - name: compile-arm64
+    taskRef:
+      name: lxr-compile-arm64
+    workspaces:
+    - name: ca-cert
+      workspace: ca-cert
+    - name: minio-credentials
+      workspace: minio-credentials
+    params:
+    - name: git-commit
+      value: $(params.git-commit)
+  - name: cleanup
+    runAfter: ["compile-arm64", "compile-amd64"]
+    taskRef:
+      name: lxr-cleanup

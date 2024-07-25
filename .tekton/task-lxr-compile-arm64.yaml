@@ -1,0 +1,45 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: lxr-compile-arm64
+  namespace: cicd
+spec:
+  params:
+  - name: git-commit
+    type: string
+  workspaces:
+  - name: minio-credentials
+  - name: ca-cert
+  steps:
+    - name: compile
+      image: codieplusplus/elykseer-ml:arm64
+      env:
+        - name: GIT_COMMIT
+          value: $(params.git-commit)
+      script: |
+        #!/bin/bash -l
+        set -e
+        pwd
+        id
+        git fetch
+        git checkout ${GIT_COMMIT}
+        make clean
+        dune clean
+        make
+        dune build
+        MINIO_USER=$(cat /workspace/minio-credentials/minio-user | base64 -d)
+        MINIO_PASSWORD=$(cat /workspace/minio-credentials/minio-password | base64 -d)
+        MINIO_HOST=$(cat /workspace/minio-credentials/minio-host | base64 -d)
+        MINIO_PORT=$(cat /workspace/minio-credentials/minio-port | base64 -d)
+        REV=${GIT_COMMIT:0:8}
+        SYS=$(uname -s)
+        ARCH=$(uname -m)
+        BASED=_build/default/bin
+        TARGET_URL="https://${MINIO_HOST}:${MINIO_PORT}/dist/elykseer-ml/${REV}/${SYS}_${ARCH}/"
+        for X in $(basename -a -s .exe ${BASED}/*.exe); do
+          EXE="${BASED}/${X}.exe"
+          ls -l ${EXE}
+          curl -X PUT --cacert /workspace/ca-cert/ca.crt -T ${EXE} --aws-sigv4 "aws:amz:us-east-1:s3" --user "${MINIO_USER}:${MINIO_PASSWORD}" ${TARGET_URL}
+        done
+        EXE=$OPAM_SWITCH_PREFIX/bin/irmin
+        curl -X PUT --cacert /workspace/ca-cert/ca.crt -T ${EXE} --aws-sigv4 "aws:amz:us-east-1:s3" --user "${MINIO_USER}:${MINIO_PASSWORD}" ${TARGET_URL}
