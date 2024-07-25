@@ -1,0 +1,14 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: lxr-cleanup
+  namespace: cicd
+spec:
+  description: cleanup after a build run; not yet doing much.
+  steps:
+  - name: read
+    image: alpine:latest
+    script: | 
+      #!/usr/bin/env sh
+      id
+      echo "all done."

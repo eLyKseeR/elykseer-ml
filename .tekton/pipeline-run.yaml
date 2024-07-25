@@ -1,0 +1,32 @@
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  generateName: lxr-compile-run-
+  namespace: cicd
+spec:
+  pipelineRef:
+    name: lxr-compile
+  podTemplate:
+    securityContext:
+      fsGroup: 65532
+      runAsUser: 1000
+  serviceAccountName: sa-cicd
+  taskRunSpecs:
+    - pipelineTaskName: compile-amd64
+      taskPodTemplate:
+        nodeSelector:
+          kubernetes.io/arch: amd64
+    - pipelineTaskName: compile-arm64
+      taskPodTemplate:
+        nodeSelector:
+          kubernetes.io/arch: arm64
+  workspaces:
+  - name: minio-credentials
+    secret:
+      secretName: minio-credentials
+  - name: ca-cert
+    secret:
+      secretName: ca-cert
+  params:
+  - name: git-commit
+    value: <<the commit hash>>
