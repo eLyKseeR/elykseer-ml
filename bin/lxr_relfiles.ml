@@ -66,7 +66,7 @@ let benchmark_run cnt =
   let config : Configuration.configuration =
     { config_nchunks = Nchunks.from_int 16
     ; path_chunks = "lxr"
-    ; path_db = "/tmp/db"
+    ; path_db = Filename.concat (Filename.get_temp_dir_name ()) "db"
     ; my_id = "0123"
     ; trace = Tracer.nullTracer } in
   let%lwt rel = Relfiles.new_map config in
@@ -93,7 +93,7 @@ let example_output () =
   let config : Configuration.configuration =
     { config_nchunks = Nchunks.from_int 16
     ; path_chunks = "lxr"
-    ; path_db = "/tmp/db"
+    ; path_db = Filename.concat (Filename.get_temp_dir_name ()) "db"
     ; my_id = "4242"
     ; trace = Tracer.nullTracer } in
   let%lwt rel = Relfiles.new_map config in
@@ -131,7 +131,7 @@ let example_output () =
 
 module Config = struct
   let init () = ()
-  let root = "/tmp/db"
+  let root = Filename.concat (Filename.get_temp_dir_name ()) "db"
 end
 
 open Lwt.Syntax

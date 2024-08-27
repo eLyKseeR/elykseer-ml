@@ -44,3 +44,5 @@ testCHAR
 /html
 /mlihtml
 
+dist/
+docker/output/

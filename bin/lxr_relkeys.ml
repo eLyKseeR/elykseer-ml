@@ -8,7 +8,7 @@ let def_myid = "1234567890"
 
 let arg_verbose = ref false
 let arg_files = ref []
-let arg_dbpath = ref "/tmp/db"
+let arg_dbpath = ref (Filename.concat (Filename.get_temp_dir_name ()) "db")
 let arg_myid = ref def_myid
 
 let usage_msg = "lxr_relkeys [-v] [-i myid] [-d dbpath] <file1> [<file2>] ..."

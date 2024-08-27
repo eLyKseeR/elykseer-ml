@@ -10,9 +10,9 @@ let def_myid = "1234567890"
 
 let arg_verbose = ref false
 let arg_files = ref []
-let arg_dbpath = ref "/tmp/db"
+let arg_dbpath = ref (Filename.concat (Filename.get_temp_dir_name ()) "db")
 let arg_chunkpath = ref "lxr"
-let arg_outpath = ref "/tmp/"
+let arg_outpath = ref (Filename.get_temp_dir_name ())
 let arg_nchunks = ref 16
 let arg_myid = ref def_myid
 
