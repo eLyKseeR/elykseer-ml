@@ -47,10 +47,9 @@ let output_keys fns relfiles relkeys =
   match li with
   | [] -> Lwt.return_unit
   | _ ->
-    let%lwt () = Lwt_io.printl "\"myid\",\"nchunks\",\"version\",\"aid\",\"key\",\"iv\"" in
+    let%lwt () = Lwt_io.printl "\"nchunks\",\"version\",\"aid\",\"key\",\"iv\"" in
     Lwt_list.iter_s (fun ((aid,(version,ki)) : (string * (string * Assembly.keyinformation))) ->
-                          Lwt_io.printlf "%s,%d,\"%s\",\"%s\",\"%s\",\"%s\""
-                            ki.localid
+                          Lwt_io.printlf "%d,\"%s\",\"%s\",\"%s\",\"%s\""
                             (Conversion.p2i ki.localnchunks)
                             version aid ki.pkey ki.ivec ) li
 

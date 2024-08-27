@@ -530,6 +530,8 @@ module Assembly :
 
   val mkaid : Configuration.configuration -> aid_t
 
+  type snapshot_t = positive
+
   type assemblyinformation = { nchunks : Nchunks.Private.t; aid : aid_t;
                                apos : n }
 
@@ -539,14 +541,12 @@ module Assembly :
 
   val apos : assemblyinformation -> n
 
-  type keyinformation = { ivec : string; pkey : string; localid : string;
+  type keyinformation = { ivec : string; pkey : string;
                           localnchunks : positive }
 
   val ivec : keyinformation -> string
 
   val pkey : keyinformation -> string
-
-  val localid : keyinformation -> string
 
   val localnchunks : keyinformation -> positive
 

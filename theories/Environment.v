@@ -59,8 +59,7 @@ Module EnvironmentWritable <: ENV.
             let (a,b) := Assembly.finish a0 e0.(cur_buffer AB) in
             let ki := {| pkey := cpp_mk_key256 tt
                        ; ivec := cpp_mk_key128 tt
-                       ; localnchunks := e0.(econfig AB).(Configuration.config_nchunks)
-                       ; localid := e0.(econfig AB).(Configuration.my_id) |} in
+                       ; localnchunks := e0.(econfig AB).(Configuration.config_nchunks) |} in
             optionalTrace e0.(econfig AB).(trace) (Assembly.encrypt a b ki)
             (Tracer.warning) (Some ("failed to encrypt assembly: " ++ a.(aid))%string)
             (fun _ => None)

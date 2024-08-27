@@ -113,7 +113,7 @@ Local Program Fixpoint rec_file_backup_inner (tgtfbs : list blockinformation) (t
             (Tracer.info) (None) (* no message for: Some _ *)
             (fun '(nread, b) =>
                     let b' := BufferPlain.from_buffer b in
-                    (* compare *)
+                    (* compare for deduplication 2 *)
                     let found := if (fb.(bchecksum) =? "")
                         then false
                         else
@@ -255,7 +255,6 @@ Program Definition file_backup (find_fchecksum : string -> option string) (find_
         (fun _ => Some this)
         (Tracer.info) None
         (fun _ =>
-            (* deduplication level 2 per block *)
             let curbs := find_fblocks fi.(fhash) in
             let tgtbs := prepare_blocks curbs fi.(fsize) in
             match open_file_backup fi tgtbs with

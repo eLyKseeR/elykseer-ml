@@ -35,6 +35,8 @@ Definition aid_t := string.
 Definition mkaid (c : configuration) : aid_t :=
     Utilities.rnd256 (my_id c).
 
+Definition snapshot_t := positive.
+
 Definition RecordAssemblyInformation := Set.
 Record assemblyinformation : RecordAssemblyInformation :=
     mkassembly
@@ -47,7 +49,6 @@ Record keyinformation : RecordKeyInformation :=
     mkkeyinformation
         { ivec : string
         ; pkey : string
-        ; localid : string
         ; localnchunks : positive
         }.
 
