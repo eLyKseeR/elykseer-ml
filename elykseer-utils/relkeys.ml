@@ -88,6 +88,8 @@ let find aid db =
                | None -> None
              end
   | _ -> None
+
+  (** find_v: gets aid -> (version * keyinformation) option *)
 let find_v aid db =
   let fp = repo_path aid in
   let%lwt res = Git_store.get db fp in

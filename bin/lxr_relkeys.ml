@@ -57,7 +57,7 @@ let output_keys fns relfiles relkeys =
 let main () = Arg.parse argspec anon_args_fun usage_msg;
   if !arg_files != []
     then
-      let nchunks = Nchunks.from_int 16 in
+      let nchunks = Nchunks.from_int 16 in (* not needed *)
       let myid = !arg_myid in
       let conf : configuration = {
                       config_nchunks = nchunks;

@@ -95,12 +95,13 @@ let json2blocks_v1 blocks =
   | [] -> []
   | bs -> List.fold_left (fun acc b -> match json2block_v1 b with Some e -> e :: acc | None -> acc) [] bs
 
-let json2relation_versioned vmajor vfi varr =
+let json2relation_versioned vmajor vminor vbuild vfi varr =
+  let version = Printf.sprintf "%d.%d.%d" vmajor vminor vbuild in
   match vmajor with
   | 0
   | 1 -> let bs = json2blocks_v1 varr in
          let fi = json2fi_v1 vfi in
-         Some { rfi = fi; rfbs = bs }
+         Some (version, { rfi = fi; rfbs = bs })
   | _ -> None
 
 let json2blocks_opt (el : (string * Git_store.contents) list) =
@@ -109,9 +110,11 @@ let json2blocks_opt (el : (string * Git_store.contents) list) =
   | rs ->
     let vobj = Relutils.get_obj "version" rs in
     let vmajor = Relutils.get_int "major" vobj in
+    let vminor = Relutils.get_int "minor" vobj in
+    let vbuild = Relutils.get_int "build" vobj in
     let vfi = Relutils.get_obj "fileinformation" rs in
     let varr = Relutils.get_arr "blocks" rs in
-    json2relation_versioned vmajor vfi varr
+    json2relation_versioned vmajor vminor vbuild vfi varr
 
 (** find: gets fhash -> relation option *)
 let find fhash db =
@@ -120,7 +123,21 @@ let find fhash db =
                   let%lwt res = Git_store.get db fp in Lwt.return (Some res)
                 with _ -> Lwt.return None in
   Lwt.return @@ match res with
+  | Some (`O el) -> begin match json2blocks_opt el with
+                      | Some (_,ki) -> Some ki
+                      | None -> None
+                    end
+| _ -> None
+
+(** find_v: gets fhash -> (version * relation) option *)
+let find_v fhash db =
+  let fp = repo_path fhash in
+  let%lwt res = try%lwt 
+                  let%lwt res = Git_store.get db fp in Lwt.return (Some res)
+                with _ -> Lwt.return None in
+  Lwt.return @@ match res with
   | Some (`O el) -> json2blocks_opt el
   | _ -> None
+
 
 let close_map db = Git_store.Repo.close (Git_store.repo db)
