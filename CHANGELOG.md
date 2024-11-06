@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.9.14] - 2024-11-05
+
+### Change
+
+- field "localid" removed from structure "keyinformation"
+- the utility "lxr_relfiles" now outputs file meta data in CSV format
+
+
+## [0.9.13] - 2024-07-14
+
+### Fix
+
+- adapt Dockerfile
+
+
 ## [0.9.12] - 2024-05-24
 
 ### Added
