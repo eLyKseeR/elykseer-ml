@@ -1405,6 +1405,8 @@ module Assembly =
   let mkaid c =
     Utilities.rnd256 c.Configuration.my_id
 
+  type snapshot_t = positive
+
   type assemblyinformation = { nchunks : Nchunks.Private.t; aid : aid_t;
                                apos : n }
 
@@ -1423,7 +1425,7 @@ module Assembly =
   let apos a =
     a.apos
 
-  type keyinformation = { ivec : string; pkey : string; localid : string;
+  type keyinformation = { ivec : string; pkey : string;
                           localnchunks : positive }
 
   (** val ivec : keyinformation -> string **)
@@ -1435,11 +1437,6 @@ module Assembly =
 
   let pkey k =
     k.pkey
-
-  (** val localid : keyinformation -> string **)
-
-  let localid k =
-    k.localid
 
   (** val localnchunks : keyinformation -> positive **)
 
@@ -2087,8 +2084,7 @@ module Environment =
         (fun _ ->
         let (a, b) = Assembly.finish a0 e0.cur_buffer in
         let ki = { Assembly.ivec = (cpp_mk_key128 ()); Assembly.pkey =
-          (cpp_mk_key256 ()); Assembly.localid =
-          e0.econfig.Configuration.my_id; Assembly.localnchunks =
+          (cpp_mk_key256 ()); Assembly.localnchunks =
           e0.econfig.Configuration.config_nchunks }
         in
         Tracer.optionalTrace e0.econfig.Configuration.trace
@@ -3603,7 +3599,7 @@ module Version =
   (** val build : string **)
 
   let build =
-    "13"
+    "14"
 
   (** val version : string **)
 

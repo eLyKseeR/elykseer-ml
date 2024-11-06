@@ -47,10 +47,9 @@ let output_keys fns relfiles relkeys =
   match li with
   | [] -> Lwt.return_unit
   | _ ->
-    let%lwt () = Lwt_io.printl "\"myid\",\"nchunks\",\"version\",\"aid\",\"key\",\"iv\"" in
+    let%lwt () = Lwt_io.printl "\"nchunks\",\"version\",\"aid\",\"key\",\"iv\"" in
     Lwt_list.iter_s (fun ((aid,(version,ki)) : (string * (string * Assembly.keyinformation))) ->
-                          Lwt_io.printlf "%s,%d,\"%s\",\"%s\",\"%s\",\"%s\""
-                            ki.localid
+                          Lwt_io.printlf "%d,\"%s\",\"%s\",\"%s\",\"%s\""
                             (Conversion.p2i ki.localnchunks)
                             version aid ki.pkey ki.ivec ) li
 
@@ -58,7 +57,7 @@ let output_keys fns relfiles relkeys =
 let main () = Arg.parse argspec anon_args_fun usage_msg;
   if !arg_files != []
     then
-      let nchunks = Nchunks.from_int 16 in
+      let nchunks = Nchunks.from_int 16 in (* not needed *)
       let myid = !arg_myid in
       let conf : configuration = {
                       config_nchunks = nchunks;

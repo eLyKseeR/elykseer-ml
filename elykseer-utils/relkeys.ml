@@ -33,7 +33,6 @@ let version_obj : Git_store.contents =
 let key2json_v1 (k : Assembly.keyinformation) : Git_store.contents =
   `O [ ("ivec", `String k.ivec)
      ; ("pkey", `String k.pkey)
-     ; ("localid", `String k.localid)
      ; ("localnchunks", `String (string_of_int (Conversion.p2i k.localnchunks))) ]
 let keys2json_v1 (keys : Assembly.keyinformation) : Git_store.contents =
   `O [ "version", version_obj
@@ -58,7 +57,6 @@ let json2keys_v1 version obs : (string * Assembly.keyinformation) option =
   | bs -> Some (version,
     { ivec = Relutils.get_str "ivec" bs
     ; pkey = Relutils.get_str "pkey" bs
-    ; localid = Relutils.get_str "localid" bs
     ; localnchunks = Relutils.get_int "localnchunks" bs |> Conversion.i2p
     })
 
@@ -90,6 +88,8 @@ let find aid db =
                | None -> None
              end
   | _ -> None
+
+  (** find_v: gets aid -> (version * keyinformation) option *)
 let find_v aid db =
   let fp = repo_path aid in
   let%lwt res = Git_store.get db fp in
