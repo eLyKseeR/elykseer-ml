@@ -294,7 +294,7 @@ And, the environment variable `$MYID` is set to the same value as in the backup.
 
 extract keys to XML:
 
-`./_build/default/bin/lxr_relkeys.exe -v -x -d /data/elykseer.db -i $MYID test1G > b.xml`
+`./_build/default/bin/lxr_relfiles.exe -v -x -d /data/elykseer.db -i $MYID test1G > b.xml`
 
 verify data against XML schema:
 
