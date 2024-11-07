@@ -242,3 +242,62 @@ comparison of 1 file with 1 equal
 
 </details>
 
+<details>
+<summary>Encryption keys</summary>
+
+#### lxr_relkeys - export keys from meta data
+
+```
+lxr_relkeys [-v] [-i myid] [-d dbpath] <file1> [<file2>] ...
+  -v verbose output
+  -x XML output
+  -d sets database path
+  -i sets own identifier
+  -help  Display this list of options
+  --help  Display this list of options
+```
+
+##### example
+
+This examples assumes that an _irmin_ database exists at path `/data/elykseer.db`.
+And, the environment variable `$MYID` is set to the same value as in the backup.
+
+extract keys to XML:
+
+`./_build/default/bin/lxr_relkeys.exe -v -x -d /data/elykseer.db -i $MYID test1G > k.xml`
+
+verify data against XML schema:
+
+`xmllint --schema schema/keys.xsd k.xml --noout`
+
+</details>
+
+<details>
+<summary>File information and blocks</summary>
+
+#### lxr_relfiles - export file meta data
+
+```
+lxr_relfiles [-v] [-i myid] [-n nchunks] [-d dbpath] <file1> [<file2>] ...
+  -v verbose output
+  -x XML output
+  -d sets database path
+  -i sets own identifier
+  -help  Display this list of options
+  --help  Display this list of options
+```
+
+##### example
+
+This examples assumes that an _irmin_ database exists at path `/data/elykseer.db`.
+And, the environment variable `$MYID` is set to the same value as in the backup.
+
+extract keys to XML:
+
+`./_build/default/bin/lxr_relkeys.exe -v -x -d /data/elykseer.db -i $MYID test1G > b.xml`
+
+verify data against XML schema:
+
+`xmllint --schema schema/fileinformation.xsd b.xml --noout`
+
+</details>

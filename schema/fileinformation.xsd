@@ -1,0 +1,37 @@
+<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+<xs:element name="fileinformation">
+    <xs:complexType>
+    <xs:sequence>
+        <xs:element name="name" type="xs:string"/>
+        <xs:element name="size" type="xs:integer"/>
+        <xs:element name="owner" type="xs:string"/>
+        <xs:element name="permissions" type="xs:integer"/>
+        <xs:element name="modified" type="xs:string"/>
+        <xs:element name="checksum" type="xs:string"/>
+        <xs:element name="fileblocks">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="fileblock" maxOccurs="unbounded">
+                <xs:complexType>
+                    <xs:sequence>
+                        <xs:element name="aid" type="xs:string"/>
+                        <xs:element name="checksum" type="xs:string"/>
+                    </xs:sequence>
+                    <xs:attribute name="blockid" type="xs:integer" use="required"/>
+                    <xs:attribute name="blocksize" type="xs:integer" use="required"/>
+                    <xs:attribute name="filepos" type="xs:integer" use="required"/>
+                    <xs:attribute name="apos" type="xs:integer" use="required"/>
+                </xs:complexType>
+                </xs:element>
+            </xs:sequence>
+        </xs:complexType>
+        </xs:element>
+    </xs:sequence>
+    <xs:attribute name="version" type="xs:string" use="required"/>
+    <xs:attribute name="fhash" type="xs:string" use="required"/>
+    </xs:complexType>
+</xs:element>
+
+</xs:schema> 
