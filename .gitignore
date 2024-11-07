@@ -26,8 +26,8 @@ elykseer_utils.opam
 
 /.vscode
 
-/meta
-/lxr
+**/meta
+**/lxr
 
 test1M
 test1M.large
@@ -46,3 +46,6 @@ testCHAR
 
 dist/
 docker/output/
+
+irmin.yml
+
