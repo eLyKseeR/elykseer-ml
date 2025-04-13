@@ -148,7 +148,7 @@ Axiom id_buffer_t_from_full : AssemblyPlainFull.B -> BufferPlain.buffer_t.
 Axiom id_assembly_enc_buffer_t_from_buf : BufferEncrypted.buffer_t -> AssemblyEncrypted.B.
 Program Definition encrypt (a : assemblyinformation) (b : AssemblyPlainFull.B) (ki : keyinformation) : option (assemblyinformation * AssemblyEncrypted.B) :=
     let a' := set_apos a (assemblysize (nchunks a)) in
-    let benc  := Cstdio.encrypt (id_buffer_t_from_full b) (ivec ki) (pkey ki) in
+    let (_bsz, benc)  := Cstdio.encrypt (id_buffer_t_from_full b) (ivec ki) (pkey ki) in
     let b' := id_assembly_enc_buffer_t_from_buf benc in
     Some (a', b').
 
@@ -175,7 +175,7 @@ Axiom id_buffer_t_from_enc : AssemblyEncrypted.B -> BufferEncrypted.buffer_t.
 Axiom id_assembly_plain_buffer_t_from_buf : BufferPlain.buffer_t -> AssemblyPlainFull.B.
 Program Definition decrypt (a : assemblyinformation) (b : AssemblyEncrypted.B) (ki : keyinformation) : option (assemblyinformation * AssemblyPlainFull.B) :=
     let a' := set_apos a 0 in
-    let bdec := Cstdio.decrypt (id_buffer_t_from_enc b) (ivec ki) (pkey ki) in
+    let (_bsz, bdec) := Cstdio.decrypt (id_buffer_t_from_enc b) (ivec ki) (pkey ki) in
     let b' := id_assembly_plain_buffer_t_from_buf bdec in
     Some (a', b').
 

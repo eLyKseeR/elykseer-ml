@@ -839,23 +839,23 @@ module Cstdio =
    end
 
   (** val cpp_encrypt_buffer :
-      BufferPlain.buffer_t -> string -> string -> BufferEncrypted.buffer_t **)
+      BufferPlain.buffer_t -> string -> string -> n * BufferEncrypted.buffer_t **)
 
-  let cpp_encrypt_buffer = fun b siv spk -> Elykseer_crypto.Aes256.encrypt (Elykseer_crypto.Key128.from_hex siv) (Elykseer_crypto.Key256.from_hex spk) b
+  let cpp_encrypt_buffer = fun b siv spk -> Elykseer_crypto.Aes256.encrypt (Elykseer_crypto.Key128.from_hex siv) (Elykseer_crypto.Key256.from_hex spk) (Mlcpp_cstdio.Cstdio.File.Buffer.size b) b |> fun (cnt, b') -> (Conversion.i2n cnt, b')
 
   (** val encrypt :
-      BufferPlain.buffer_t -> string -> string -> BufferEncrypted.buffer_t **)
+      BufferPlain.buffer_t -> string -> string -> n * BufferEncrypted.buffer_t **)
 
   let encrypt =
     cpp_encrypt_buffer
 
   (** val cpp_decrypt_buffer :
-      BufferEncrypted.buffer_t -> string -> string -> BufferPlain.buffer_t **)
+      BufferEncrypted.buffer_t -> string -> string -> n * BufferPlain.buffer_t **)
 
-  let cpp_decrypt_buffer = fun b siv spk -> Elykseer_crypto.Aes256.decrypt (Elykseer_crypto.Key128.from_hex siv) (Elykseer_crypto.Key256.from_hex spk) b
+  let cpp_decrypt_buffer = fun b siv spk -> Elykseer_crypto.Aes256.decrypt (Elykseer_crypto.Key128.from_hex siv) (Elykseer_crypto.Key256.from_hex spk) (Mlcpp_cstdio.Cstdio.File.Buffer.size b) b |> fun (cnt, b') -> (Conversion.i2n cnt, b')
 
   (** val decrypt :
-      BufferEncrypted.buffer_t -> string -> string -> BufferPlain.buffer_t **)
+      BufferEncrypted.buffer_t -> string -> string -> n * BufferPlain.buffer_t **)
 
   let decrypt =
     cpp_decrypt_buffer
@@ -1353,14 +1353,14 @@ module Utilities =
 
   let rnd = 
     function
-     _ -> Elykseer_crypto.Random.with_rng (fun rng -> Elykseer_crypto.Random.random32 rng) |> Conversion.i2n
+     _ -> Elykseer_crypto.Random.random32 () |> Conversion.i2n
    
 
   (** val rnd256 : string -> string **)
 
   let rnd256 = 
    function
-   x -> Elykseer_crypto.Random.with_rng (fun rng -> Elykseer_crypto.Random.random32 rng) |> string_of_int |>
+   x -> Elykseer_crypto.Random.random32 () |> string_of_int |>
      String.cat x |>
      String.cat (Unix.gethostname ()) |> String.cat (Unix.gettimeofday () |> string_of_float) |>
      Elykseer_crypto.Sha3_256.string
@@ -1633,7 +1633,8 @@ module Assembly =
 
   let encrypt a b ki =
     let a' = set_apos a (assemblysize a.nchunks) in
-    let benc = Cstdio.encrypt (id_buffer_t_from_full b) ki.ivec ki.pkey in
+    let (_, benc) = Cstdio.encrypt (id_buffer_t_from_full b) ki.ivec ki.pkey
+    in
     let b' = id_assembly_enc_buffer_t_from_buf benc in Some (a', b')
 
   (** val assembly_get_content :
@@ -1675,7 +1676,7 @@ module Assembly =
 
   let decrypt a b ki =
     let a' = set_apos a N0 in
-    let bdec = Cstdio.decrypt (id_buffer_t_from_enc b) ki.ivec ki.pkey in
+    let (_, bdec) = Cstdio.decrypt (id_buffer_t_from_enc b) ki.ivec ki.pkey in
     let b' = id_assembly_plain_buffer_t_from_buf bdec in Some (a', b')
 
   (** val chunk_identifier :

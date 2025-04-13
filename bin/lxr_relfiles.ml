@@ -41,7 +41,7 @@ let rec mk_blocks i aid apos fpos =
                   blockaid = aid; blockapos = Conversion.i2n apos } in
     block :: mk_blocks (n - 1) aid (apos + blen) (fpos + blen)
 let mk_rel n aid rel =
-  let rnd = Elykseer_crypto.Random.with_rng (fun rng -> Elykseer_crypto.Random.r32_range rng 1 12) in
+  let rnd = Elykseer_crypto.Random.r32_range 1 12 in
   let blocks : Assembly.blockinformation list = mk_blocks rnd aid 1200 0 in
   let fname = Printf.sprintf "test_%04d.dat" n in
   let fhash = Elykseer_crypto.Sha3_256.string fname in
