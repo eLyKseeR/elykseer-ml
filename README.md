@@ -298,6 +298,6 @@ extract keys to XML:
 
 verify data against XML schema:
 
-`xmllint --schema schema/fileinformation.xsd b.xml --noout`
+`xmllint --schema schema/fileinformation.xsd b.xml --noout && echo OK || echo failed`
 
 </details>

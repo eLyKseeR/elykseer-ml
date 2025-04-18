@@ -16,7 +16,7 @@ let arg_files = ref []
 let arg_dbpath = ref (Filename.concat (Filename.get_temp_dir_name ()) "db")
 let arg_myid = ref def_myid
 
-let usage_msg = "lxr_relfiles [-v] [-i myid] [-n nchunks] [-d dbpath] <file1> [<file2>] ..."
+let usage_msg = "lxr_relfiles [-v] [-x] [-i myid] [-d dbpath] <file1> [<file2>] ..."
 
 let argspec =
   [
@@ -144,7 +144,10 @@ let csv_output_blocks fns relfiles =
 
 let xml_output_blocks fns relfiles =
   let%lwt () = Lwt_io.printl "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" in
-  Lwt_list.iter_s (fun (fn : string) -> xml_output_file_blocks fn relfiles) fns
+  let%lwt () = Lwt_io.printl "<files>" in
+  let%lwt () = Lwt_list.iter_s (fun (fn : string) -> xml_output_file_blocks fn relfiles) fns in
+  Lwt_io.printl "</files>"
+
 
 (* main *)
 let main () = Arg.parse argspec anon_args_fun usage_msg;
