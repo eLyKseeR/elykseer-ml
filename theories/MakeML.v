@@ -91,13 +91,13 @@ Extract Constant i2s => "string_of_int".
 Extract Constant rnd =>
    "
     function
-     _ -> Elykseer_crypto.Random.with_rng (fun rng -> Elykseer_crypto.Random.random32 rng) |> Conversion.i2n
+     _ -> Elykseer_crypto.Random.random32 () |> Conversion.i2n
    ".
 
 Extract Constant rnd256 =>
    "
    function
-   x -> Elykseer_crypto.Random.with_rng (fun rng -> Elykseer_crypto.Random.random32 rng) |> string_of_int |>
+   x -> Elykseer_crypto.Random.random32 () |> string_of_int |>
      String.cat x |>
      String.cat (Unix.gethostname ()) |> String.cat (Unix.gettimeofday () |> string_of_float) |>
      Elykseer_crypto.Sha3_256.string
@@ -265,8 +265,8 @@ Extract Constant id_enc_from_buffer_t => "fun b -> Helper.cpp_buffer_id b".
 Extract Constant id_assembly_full_buffer_from_writable => "fun b -> Helper.cpp_buffer_id b".
 Extract Constant id_assembly_full_ainfo_from_writable => "fun b -> Helper.cpp_buffer_id b".
 
-Extract Constant cpp_encrypt_buffer => "fun b siv spk -> Elykseer_crypto.Aes256.encrypt (Elykseer_crypto.Key128.from_hex siv) (Elykseer_crypto.Key256.from_hex spk) b".
-Extract Constant cpp_decrypt_buffer => "fun b siv spk -> Elykseer_crypto.Aes256.decrypt (Elykseer_crypto.Key128.from_hex siv) (Elykseer_crypto.Key256.from_hex spk) b".
+Extract Constant cpp_encrypt_buffer => "fun b siv spk -> Elykseer_crypto.Aes256.encrypt (Elykseer_crypto.Key128.from_hex siv) (Elykseer_crypto.Key256.from_hex spk) (Mlcpp_cstdio.Cstdio.File.Buffer.size b) b |> fun (cnt, b') -> (Conversion.i2n cnt, b')".
+Extract Constant cpp_decrypt_buffer => "fun b siv spk -> Elykseer_crypto.Aes256.decrypt (Elykseer_crypto.Key128.from_hex siv) (Elykseer_crypto.Key256.from_hex spk) (Mlcpp_cstdio.Cstdio.File.Buffer.size b) b |> fun (cnt, b') -> (Conversion.i2n cnt, b')".
 
 Extract Constant cpp_mk_key256 => "fun () -> Elykseer_crypto.Key256.mk () |> Elykseer_crypto.Key256.to_hex".
 Extract Constant cpp_mk_key128 => "fun () -> Elykseer_crypto.Key128.mk () |> Elykseer_crypto.Key128.to_hex".

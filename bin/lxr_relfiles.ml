@@ -10,19 +10,19 @@ open Mlcpp_chrono
 let def_myid = "1234567890"
 
 let arg_verbose = ref false
+let arg_xml = ref false
 let arg_bm = ref false
-let arg_irmin = ref false
 let arg_files = ref []
 let arg_dbpath = ref (Filename.concat (Filename.get_temp_dir_name ()) "db")
 let arg_myid = ref def_myid
 
-let usage_msg = "lxr_relfiles [-v] [-i myid] [-n nchunks] [-d dbpath] <file1> [<file2>] ..."
+let usage_msg = "lxr_relfiles [-v] [-x] [-i myid] [-d dbpath] <file1> [<file2>] ..."
 
 let argspec =
   [
     ("-v", Arg.Set arg_verbose, "verbose output");
     ("-b", Arg.Set arg_bm, "benchmark");
-    ("-x", Arg.Set arg_irmin, "test irmin");
+    ("-x", Arg.Set arg_xml, "XML output");
     ("-d", Arg.Set_string arg_dbpath, "sets database path");
     ("-i", Arg.Set_string arg_myid, "sets own identifier");
   ]
@@ -41,7 +41,7 @@ let rec mk_blocks i aid apos fpos =
                   blockaid = aid; blockapos = Conversion.i2n apos } in
     block :: mk_blocks (n - 1) aid (apos + blen) (fpos + blen)
 let mk_rel n aid rel =
-  let rnd = Elykseer_crypto.Random.with_rng (fun rng -> Elykseer_crypto.Random.r32_range rng 1 12) in
+  let rnd = Elykseer_crypto.Random.r32_range 1 12 in
   let blocks : Assembly.blockinformation list = mk_blocks rnd aid 1200 0 in
   let fname = Printf.sprintf "test_%04d.dat" n in
   let fhash = Elykseer_crypto.Sha3_256.string fname in
@@ -95,90 +95,7 @@ let benchmark_run cnt =
   Gc.print_stat stdout;
   Lwt.return ()
 
-(* let example_output () =
-  let config : Configuration.configuration =
-    { config_nchunks = Nchunks.from_int 16
-    ; path_chunks = "lxr"
-    ; path_db = Filename.concat (Filename.get_temp_dir_name ()) "db"
-    ; my_id = "4242"
-    ; trace = Tracer.nullTracer } in
-  let%lwt rel = Relfiles.new_map config in
-  let blocks1 = [({ blockid = Conversion.i2p 1; blockaid = "aid001";
-                    filepos = Conversion.i2n 0; blocksize = Conversion.i2n 1200;
-                    bchecksum = "check1"; blockapos = Conversion.i2n 37001
-                  } : Assembly.blockinformation)
-                ; { blockid = Conversion.i2p 2; blockaid = "aid001";
-                    filepos = Conversion.i2n 1200; blocksize = Conversion.i2n 670;
-                    bchecksum = "check2"; blockapos = Conversion.i2n (37001+1200)
-                  } ] in
-  let blocks2 = [({ blockid = Conversion.i2p 1; blockaid = "aid001";
-                    filepos = Conversion.i2n 0; blocksize = Conversion.i2n 1200;
-                    bchecksum = "check1"; blockapos = Conversion.i2n (37001+1200+670)
-                  } : Assembly.blockinformation)
-                ; { blockid = Conversion.i2p 2; blockaid = "aid001";
-                    filepos = Conversion.i2n 1200; blocksize = Conversion.i2n 860;
-                    bchecksum = "check2"; blockapos = Conversion.i2n (37001+1200+670+1200)
-                  }
-                ; { blockid = Conversion.i2p 3; blockaid = "aid002";
-                    filepos = Conversion.i2n (1200+860); blocksize = Conversion.i2n 323;
-                    bchecksum = "check3"; blockapos = Conversion.i2n 0
-                  } ] in
-  let fhash1 = Elykseer_crypto.Sha3_256.string ("testfile01.data" ^ config.my_id) in
-  let fhash2 = Elykseer_crypto.Sha3_256.string ("testfile02.data" ^ config.my_id) in
-  let rel1 : Relfiles.relation = { rfi={fname="testfile01.data";fhash=fhash1;fsize=Conversion.i2n 173;fowner="";fpermissions=Conversion.i2n 644;fmodified="";fchecksum=""}
-             ; rfbs=blocks1 } in
-  let rel2 : Relfiles.relation = { rfi={fname="testfile02.data";fhash=fhash2;fsize=Conversion.i2n 324;fowner="";fpermissions=Conversion.i2n 644;fmodified="";fchecksum=""}
-             ; rfbs=blocks2 } in
-  let%lwt _ = Relfiles.add fhash1 rel1 rel in
-  let%lwt _ = Relfiles.add fhash2 rel2 rel in
-  let%lwt _ = Relfiles.close_map rel in
-  Lwt_io.printl "done." *)
-
-
-module Config = struct
-  let init () = ()
-  let root = Filename.concat (Filename.get_temp_dir_name ()) "db"
-end
-
-open Lwt.Syntax
-
-let info = Irmin_git_unix.info
-
-module Store = Irmin_git_unix.FS.KV (Irmin.Contents.String)
-
-let update t k v =
-  let msg = Fmt.str "Updating /%s" (String.concat "/" k) in
-  print_endline msg;
-  Store.set_exn t ~info:(info "%s" msg) k v
-
-let read_exn t k =
-  let msg = Fmt.str "Reading /%s" (String.concat "/" k) in
-  print_endline msg;
-  Store.get t k
-
-let test_irmin () =
-  Config.init ();
-  let config = Irmin_git.config ~bare:true Config.root in
-  let* repo = Store.Repo.v config in
-  let* t = Store.main repo in
-  let* () = update t [ "root"; "misc"; "1.txt" ] "Hello world!" in
-  let* () = update t [ "root"; "misc"; "2.txt" ] "Hi!" in
-  let* () = update t [ "root"; "misc"; "3.txt" ] "How are you ?" in
-  let* _ = read_exn t [ "root"; "misc"; "2.txt" ] in
-  let* x = Store.clone ~src:t ~dst:"test" in
-  print_endline "cloning ...";
-  let* () = update t [ "root"; "misc"; "3.txt" ] "Hohoho" in
-  let* () = update x [ "root"; "misc"; "2.txt" ] "Cool!" in
-  let* r = Store.merge_into ~info:(info "t: Merge with 'x'") x ~into:t in
-  match r with
-  | Error _ -> failwith "conflict!"
-  | Ok () ->
-      print_endline "merging ...";
-      let* _ = read_exn t [ "root"; "misc"; "2.txt" ] in
-      let+ _ = read_exn t [ "root"; "misc"; "3.txt" ] in
-      ()
-
-let output_file_blocks fn relfiles : unit Lwt.t =
+let csv_output_file_blocks fn relfiles : unit Lwt.t =
   let%lwt rel = Relfiles.find_v (Elykseer_crypto.Sha3_256.string (fn ^ !arg_myid)) relfiles in
   match rel with
   | None -> Lwt.return ()
@@ -195,9 +112,42 @@ let output_file_blocks fn relfiles : unit Lwt.t =
         bs.bchecksum
     ) r.rfbs
 
-let output_blocks fns relfiles =
+let xml_output_file_blocks fn relfiles : unit Lwt.t =
+  let fhash = Elykseer_crypto.Sha3_256.string (fn ^ !arg_myid) in
+  let%lwt rel = Relfiles.find_v fhash relfiles in
+  match rel with
+  | None -> Lwt.return ()
+  | Some (v,r) ->
+    let%lwt () = Lwt_io.printlf "<fileinformation version=\"%s\" fhash=\"%s\">" v fhash in
+    let%lwt () = Lwt_io.printlf "<name>%s</name>" r.rfi.fname in
+    let%lwt () = Lwt_io.printlf "<size>%d</size>" (Conversion.n2i r.rfi.fsize) in
+    let%lwt () = Lwt_io.printlf "<owner>%s</owner>" r.rfi.fowner in
+    let%lwt () = Lwt_io.printlf "<permissions>%d</permissions>" (Conversion.n2i r.rfi.fpermissions) in
+    let%lwt () = Lwt_io.printlf "<modified>%s</modified>" r.rfi.fmodified in
+    let%lwt () = Lwt_io.printlf "<checksum>%s</checksum>" r.rfi.fchecksum in
+    let%lwt () = Lwt_io.printlf "<fileblocks>" in
+    let%lwt () = Lwt_list.iter_s (fun (bs: Elykseer__Lxr.Assembly.blockinformation) ->
+      Lwt_io.printlf "<fileblock blockid=\"%d\" blocksize=\"%d\" filepos=\"%d\" apos=\"%d\"><aid>%s</aid><checksum>%s</checksum></fileblock>"
+        (Conversion.p2i bs.blockid)
+        (Conversion.n2i bs.blocksize)
+        (Conversion.n2i bs.filepos)
+        (Conversion.n2i bs.blockapos)
+        bs.blockaid
+        bs.bchecksum
+      ) r.rfbs in
+    let%lwt () = Lwt_io.printl "</fileblocks>" in
+    Lwt_io.printl "</fileinformation>"
+
+let csv_output_blocks fns relfiles =
   let%lwt () = Lwt_io.printl "\"version\",\"fhash\",\"blockid\",\"blocksize\",\"filepos\",\"aid\",\"apos\",\"bchecksum\"" in
-  Lwt_list.iter_s (fun (fn : string) -> output_file_blocks fn relfiles) fns
+  Lwt_list.iter_s (fun (fn : string) -> csv_output_file_blocks fn relfiles) fns
+
+let xml_output_blocks fns relfiles =
+  let%lwt () = Lwt_io.printl "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" in
+  let%lwt () = Lwt_io.printl "<files>" in
+  let%lwt () = Lwt_list.iter_s (fun (fn : string) -> xml_output_file_blocks fn relfiles) fns in
+  Lwt_io.printl "</files>"
+
 
 (* main *)
 let main () = Arg.parse argspec anon_args_fun usage_msg;
@@ -206,23 +156,23 @@ let main () = Arg.parse argspec anon_args_fun usage_msg;
       let%lwt () = benchmark_run 1_000 in
       (* let%lwt () = benchmark_run 100_000 in *)
       Lwt.return ()
-    else if !arg_irmin
-        then
-          test_irmin ()
-        else if !arg_files != []
-          then 
-            let nchunks = Nchunks.from_int 16 in  (* not needed *)
-            let myid = !arg_myid in
-            let conf : configuration = {
-                            config_nchunks = nchunks;
-                            path_chunks = "lxr";
-                            path_db     = !arg_dbpath;
-                            my_id       = myid;
-                            trace       = Tracer.nullTracer } in
-            let%lwt relfiles = Relfiles.new_map conf in
-            output_blocks !arg_files relfiles
-          else
-            Lwt.return ()
+    else if !arg_files != []
+      then 
+        let nchunks = Nchunks.from_int 16 in  (* not needed *)
+        let myid = !arg_myid in
+        let conf : configuration = {
+                        config_nchunks = nchunks;
+                        path_chunks = "lxr";
+                        path_db     = !arg_dbpath;
+                        my_id       = myid;
+                        trace       = if !arg_verbose then Tracer.stdoutTracerDebug else Tracer.stdoutTracerWarning } in
+        let%lwt relfiles = Relfiles.new_map conf in
+        if !arg_xml then
+          xml_output_blocks !arg_files relfiles
+        else
+          csv_output_blocks !arg_files relfiles
+      else
+        Lwt.return ()
 
 let () = Lwt_main.run (main ())
 
