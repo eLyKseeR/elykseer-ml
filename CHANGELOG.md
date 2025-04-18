@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.9.15] - 2025-04-18
+
+### Added
+
+- export metadata as XML in utilities "lxr_relfiles" and "lxr_relkeys"
+- provided XML schema for validating XML data
+
+
 ## [0.9.14] - 2024-11-05
 
 ### Change
