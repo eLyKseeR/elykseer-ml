@@ -16,3 +16,4 @@ theories/Store.v
 theories/MakeML.v
 theories/Version.v
 theories/Processor.v
+theories/CheckApos.v
