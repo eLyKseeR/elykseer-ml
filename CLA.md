@@ -18,8 +18,8 @@ By signing this CLA, you accept and agree to the following terms for your presen
 
 You hereby grant to Alexander Diemand ("Project Owner") and to recipients of software distributed by the Project Owner a perpetual, worldwide, non-exclusive, no-charge, royalty-free, irrevocable copyright license to:
 
-Reproduce, prepare derivative works of, publicly display, publicly perform, and distribute your Contributions and such derivative works
-Sublicense these rights to third parties
+* Reproduce, prepare derivative works of, publicly display, publicly perform, and distribute your Contributions and such derivative works
+* Sublicense these rights to third parties
 
 ### 3. Grant of Patent License
 
