@@ -1,83 +1,98 @@
+# eLyKseeR
 
-# Preparations
+This project is about developing the cryptographic data archive _eLyKseeR_ using formal methods and implementing it in the functional language _Rocq_ (former _Coq_).
+
+Copyright (c) 2026 Alexander Diemand
+
+[License](LICENSE): [GNU General Public License v3 or later](https://www.gnu.org/licenses)
+
+## Contributing
+
+This is an open source project and open for your contributions! Before submitting your first pull request, please review our [Contributor License Agreement](CLA.md) (CLA). The CLA allows us to maintain _eLyKseeR_ under a dual-licensing model (GPLv3 for open source use, with commercial licenses available for proprietary applications).
+
+We very much appreciate user experience testimonials, bug reports, feature requests, documentation improvements, and code contributions. See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
+
+## Project setup and preparations
 
 0.) if not yet done: `opam init -a --bare`
 
 1.) create a compiler switch: `opam switch create 5.1.1`
 
+### Coq version used
 
-## Coq version used
-`opam pin add coq 8.18.0`
+`opam pin add coq 9.0.0`
 
-## more packages
+### more packages
+
 `opam repo add coq-released https://coq.inria.fr/opam/released`
 
 see the [Dockerfile](/Dockerfile) which other packages are installed.
 
-# Code generation
+## Code generation
 
-0) create _Coq_'s Makefile
-    `coq_makefile -f _CoqProject -o Makefile`
+0. create _Coq_'s Makefile
+   `coq_makefile -f _CoqProject -o Makefile`
 
-1) run proofs in _Coq_ and extract _ML_ code:
-    `make`
+1. run proofs in _Coq_ and extract _ML_ code:
+   `make`
 
-2) build library:
-    `dune build`
+2. build library:
+   `dune build`
 
-3) build and run executable (shows help):
-    `dune exec lxr_backup -- -h`
+3. build and run executable (shows help):
+   `dune exec lxr_backup -- -h`
 
-# Dependencies
+## Dependencies
 
-* [elykseer-crypto](https://github.com/eLyKseeR/elykseer-crypto)
+- [elykseer-crypto](https://github.com/eLyKseeR/elykseer-crypto)
   provides cryptographic primitives
 
-* [mlcpp_filesystem](https://github.com/CodiePP/ml-cpp-filesystem)
+- [mlcpp_filesystem](https://github.com/CodiePP/ml-cpp-filesystem)
   OCaml integration with C++ standard library &gt;filesystem&lt; module
 
-* [mlcpp_cstdio](https://github.com/CodiePP/ml-cpp-cstdio)
+- [mlcpp_cstdio](https://github.com/CodiePP/ml-cpp-cstdio)
   OCaml integration with C++ standard library &gt;cstdio&lt; module
 
-* [mlcpp_chrono](https://github.com/CodiePP/ml-cpp-chrono)
+- [mlcpp_chrono](https://github.com/CodiePP/ml-cpp-chrono)
   OCaml integration with C++ standard library &gt;chrono&lt; module
 
-* [Coq record update](https://github.com/tchajed/coq-record-update.git)
-  lightweight record update notation
-
-# Docker image
+## Docker image
 
 (in the following commands replace `arm64` with `amd64` if run on x86-64)
 
 either build the image locally:
+
 ```sh
 cd docker
 DOCKER_BUILDKIT=1 docker build -t codieplusplus/elykseer-ml.arm64:local .
 ```
+
 or, download it from Docker Hub:
+
 ```sh
 docker pull codieplusplus/elykseer-ml.arm64:latest
 ```
 
 run the image:
+
 ```sh
 docker run --rm -it codieplusplus/elykseer-ml.arm64
 ```
+
 (one can also attach a local Visual Code editor to this container; install extensions "VsCoq" and "OCaml Platform" for source code highlighting)
 
-
-#### experimenting with multiarch building
+### experimenting with multiarch building
 
 The images are available for Linux/amd64 and Linux/arm64 on [Docker hub](https://hub.docker.com/r/codieplusplus/elykseer-ml).
 
 `docker buildx build --platform linux/amd64,linux/arm64 -t codieplusplus/elykseer-ml:latest --push .`
 
-# Executables
+## Executables
 
 <details>
 <summary>Backup</summary>
 
-#### lxr_backup - backup files indicated on the command line to LXR
+### lxr_backup - backup files indicated on the command line to LXR
 
 ```
 lxr_backup: vyxdnji
@@ -96,14 +111,17 @@ lxr_backup: vyxdnji
 
 This examples assumes that an _irmin_ database exists at path `/data/elykseer.db`.
 Create here a file `irmin.yml` with content:
+
 ```
 root: /data/elykseer.db
 store: git
 contents: json-value
 ```
+
 and initialise: `irmin init`
 
 Moreover, the environment variable `$MYID` contains a unique string to distinguish between setups.
+
 ```
 MYID="424242"
 ```
@@ -124,6 +142,7 @@ irmin get ${MYID}/relfiles/${FHASH:4:2}/${FHASH} | jq -r '
 ```
 
 lists:
+
 ```
 86b16ef62a8334325e612629cf25b26a77aaa0a59f50024ba9be5b3eb64d90b5,"0fd37df6acbce4a3c99a89161ce7f629aab205cac51cc71126dca0540c4ce437","0","0","131072"
 86b16ef62a8334325e612629cf25b26a77aaa0a59f50024ba9be5b3eb64d90b5,"0fd37df6acbce4a3c99a89161ce7f629aab205cac51cc71126dca0540c4ce437","131072","131072","131072"
@@ -140,7 +159,7 @@ lists:
 <details>
 <summary>Restore</summary>
 
-#### lxr_restore - restore file(s) from LXR
+### lxr_restore - restore file(s) from LXR
 
 ```
 lxr_restore: vxodnji
@@ -155,7 +174,7 @@ lxr_restore: vxodnji
   --help  Display this list of options
 ```
 
-##### example
+#### example
 
 ```
 ./_build/default/bin/lxr_restore.exe -v -x /data/elykseer.chunks -d /data/elykseer.db -o /tmp/ -i $MYID test4M test8M
@@ -185,7 +204,7 @@ e4379d58904294ab7ab6431191cd9801  test8M
 <details>
 <summary>Verify</summary>
 
-#### lxr_compare - compare file(s) against backuped blocks in LXR
+### lxr_compare - compare file(s) against backuped blocks in LXR
 
 ```
 lxr_compare: vdi
@@ -196,7 +215,8 @@ lxr_compare: vdi
   --help  Display this list of options
 ```
 
-##### example
+#### example
+
 ```
 ./_build/default/bin/lxr_compare.exe -v -d /data/elykseer.db -i $MYID ./test4M
 ```
@@ -245,7 +265,7 @@ comparison of 1 file with 1 equal
 <details>
 <summary>Encryption keys</summary>
 
-#### lxr_relkeys - export keys from meta data
+### lxr_relkeys - export keys from meta data
 
 ```
 lxr_relkeys [-v] [-i myid] [-d dbpath] <file1> [<file2>] ...
@@ -257,7 +277,7 @@ lxr_relkeys [-v] [-i myid] [-d dbpath] <file1> [<file2>] ...
   --help  Display this list of options
 ```
 
-##### example
+#### example
 
 This examples assumes that an _irmin_ database exists at path `/data/elykseer.db`.
 And, the environment variable `$MYID` is set to the same value as in the backup.
@@ -275,7 +295,7 @@ verify data against XML schema:
 <details>
 <summary>File information and blocks</summary>
 
-#### lxr_relfiles - export file meta data
+### lxr_relfiles - export file meta data
 
 ```
 lxr_relfiles [-v] [-i myid] [-n nchunks] [-d dbpath] <file1> [<file2>] ...
@@ -287,7 +307,7 @@ lxr_relfiles [-v] [-i myid] [-n nchunks] [-d dbpath] <file1> [<file2>] ...
   --help  Display this list of options
 ```
 
-##### example
+#### example
 
 This examples assumes that an _irmin_ database exists at path `/data/elykseer.db`.
 And, the environment variable `$MYID` is set to the same value as in the backup.
