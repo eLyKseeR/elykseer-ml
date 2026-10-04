@@ -7,8 +7,8 @@
  Description: provides abstract definitions of file functions.
  *)
 
-From Coq Require Import Strings.String.
-Require Import NArith.
+From Stdlib Require Import Strings.String.
+From Stdlib Require Import NArith.
 
 From LXR Require Import Configuration.
 

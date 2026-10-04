@@ -2,8 +2,8 @@
       e L y K s e e R
 *)
 
-From Coq Require Import Strings.String.
-Require Import NArith.
+From Stdlib Require Import Strings.String.
+From Stdlib Require Import NArith.
 
 Module Export Filesystem.
 

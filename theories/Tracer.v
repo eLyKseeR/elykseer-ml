@@ -2,8 +2,8 @@
       e L y K s e e R
 *)
 
-Require Import NArith PArith.
-From Coq Require Import Strings.String.
+From Stdlib Require Import NArith PArith.
+From Stdlib Require Import Strings.String.
 
 Module Export Tracer.
 
@@ -12,7 +12,7 @@ Inductive loglevel : Set :=
     | info
     | warning
     | error .
-Print loglevel.
+(* Print loglevel. *)
 
 Record tracer :=
     mktracer

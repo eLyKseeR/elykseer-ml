@@ -1,0 +1,34 @@
+# syntax=docker/dockerfile:1
+# OCaml + Rocq toolchain base image; rebuild only when upgrading.
+# run from within docker/:
+#   VERSION=1
+#   docker buildx build -f Dockerfile.base --platform linux/amd64,linux/arm64 \
+#     -t codieplusplus/elykseer-ml:base_${VERSION} --push .
+# (see README.md for the two-step per-arch variant)
+
+FROM debian:latest
+
+ARG OCAML_VERSION=5.2.1
+ARG COQ_VERSION=9.0.0
+
+RUN apt update && apt upgrade -y && apt install -y opam bash git binutils texinfo automake autoconf less vim cmake ninja-build clang clang-tools gcc g++ gettext sed curl pandoc pkg-config cppcheck libdigest-sha3-perl libgmp-dev libffi-dev libcurl4-gnutls-dev
+
+RUN addgroup --gid 1000 coq && adduser --disabled-password --uid 1000 --gid 1000 coq
+
+USER coq
+
+WORKDIR /home/coq
+
+RUN opam init -a -q --bare --disable-sandboxing
+
+# fixed switch name, so paths in derived images survive OCaml upgrades
+RUN opam switch -y create lxr ocaml-base-compiler.${OCAML_VERSION}
+
+RUN eval $(opam env) && opam repo add coq-released https://coq.inria.fr/opam/released
+
+RUN eval $(opam env) && opam -y pin add coq ${COQ_VERSION}
+RUN eval $(opam env) && opam -y install yojson lwt_ppx irmin-git irmin-cli irmin alcotest alcotest-lwt ppx_optcomp
+RUN eval $(opam env) && cd /tmp/ && git clone https://github.com/ygrek/ocurl.git ocurl.git && cd ocurl.git && dune build && dune install
+RUN eval $(opam env) && cd /tmp/ && git clone https://github.com/c-cube/ezcurl.git ezcurl.git && cd ezcurl.git && dune build -p ezcurl,ezcurl-lwt && dune install -p ezcurl && dune install -p ezcurl-lwt
+
+RUN rm -rf /tmp/ocurl.git /tmp/ezcurl.git && opam clean -a -c -s --logs

@@ -2,9 +2,9 @@
       e L y K s e e R
 *)
 
-From Coq Require Import Strings.String Program.Basics.
-Require Import ZArith NArith PArith.
-From Coq Require Import NArith.BinNat.
+From Stdlib Require Import Strings.String Program.Basics.
+From Stdlib Require Import ZArith NArith PArith.
+From Stdlib Require Import NArith.BinNat.
 
 From LXR Require Import Nchunks Cstdio Configuration Conversion Filesystem Utilities.
 
@@ -81,7 +81,8 @@ Module AssemblyPlainWritable : ASS.
         let chunks := config_nchunks c in
         let b := BufferPlain.buffer_create (chunksize_N * Nchunks.to_N chunks) in
         let rb := Cstdio.ranbuf128 tt in
-        let nb := BufferPlain.copy_sz_pos rb 0 16 b 0 in
+        (* header bytes: n_chunks - 16; so tail is 16 bytes *)
+        let nb := BufferPlain.copy_sz_pos rb 0 (Nchunks.to_N chunks - 16) b 0 in
         (mkassembly chunks (mkaid c) nb, b).
 End AssemblyPlainWritable.
 (* Print AssemblyPlainWritable. *)

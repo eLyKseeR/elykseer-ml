@@ -1,0 +1,104 @@
+name: IT
+
+# Builds the binaries from the extracted and committed lxr.ml / lxr.mli
+# (no Rocq re-extraction here, see CI.yaml for that) and runs a considerable
+# backup+restore roundtrip test over random data, verified by checksum.
+# Uses the same prepared image as CI.yaml, since it already has the OCaml
+# toolchain and all vendored opam dependencies (irmin, elykseer_crypto,
+# mlcpp_*, ...) installed.
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'bin/**'
+      - 'elykseer-base/**'
+      - 'elykseer-utils/**'
+      - 'lxr.ml'
+      - 'lxr.mli'
+      - 'dune'
+      - 'dune-project'
+      - '.forgejo/workflows/IT.yaml'
+  pull_request:
+    paths:
+      - 'bin/**'
+      - 'elykseer-base/**'
+      - 'elykseer-utils/**'
+      - 'lxr.ml'
+      - 'lxr.mli'
+      - 'dune'
+      - 'dune-project'
+  workflow_dispatch: {}
+
+env:
+  NCHUNKS: 16
+  # sizes (MB) of the random files used for the roundtrip test
+  IT_SIZES_MB: "1 16 64 256"
+
+jobs:
+  roundtrip:
+    # adjust the label to whatever your Forgejo runner advertises
+    runs-on: docker
+    container:
+      image: codieplusplus/elykseer-ml:latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Make ~/.local/bin (irmin) available on PATH
+        run: echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Build binaries from committed lxr.ml / lxr.mli
+        run: |
+          eval "$(opam env)"
+          dune build
+
+      - name: Prepare test workspace
+        run: mkdir -p it/temp
+
+      - name: Generate random test data
+        working-directory: it
+        run: |
+          set -ex
+          FILES=""
+          for sz in ${IT_SIZES_MB}; do
+            f="test${sz}M"
+            dd if=/dev/urandom of="$f" bs=1M count="$sz"
+            FILES="$FILES $f"
+          done
+          echo "$FILES" > files.list
+          md5sum $FILES > md5sums
+          md5sum -c md5sums
+
+      - name: Backup
+        working-directory: it
+        run: |
+          set -ex
+          eval "$(opam env)"
+          MYID=$((RANDOM * RANDOM))
+          echo "MYID=$MYID" >> "$GITHUB_ENV"
+          FILES=$(cat files.list)
+          ../_build/default/bin/lxr_backup.exe -v -x ./elykseer.chunks -d ./elykseer.db -n "$NCHUNKS" -i "$MYID" $FILES
+
+      - name: Check first file was recorded (irmin metadata)
+        working-directory: it
+        run: |
+          set -ex
+          eval "$(opam env)"
+          FIRST=$(head -n1 -c200 files.list | cut -d ' ' -f1)
+          FHASH=$(../_build/default/bin/lxr_filehash.exe -f "$FIRST" -i "$MYID" | cut -d ' ' -f 2)
+          irmin list "${MYID}/relfiles/${FHASH:4:2}"
+
+      - name: Restore
+        working-directory: it
+        run: |
+          set -ex
+          eval "$(opam env)"
+          rm -fv ./temp/test*
+          FILES=$(cat files.list)
+          ../_build/default/bin/lxr_restore.exe -v -d ./elykseer.db -x ./elykseer.chunks -n "$NCHUNKS" -o ./temp/ -i "$MYID" $FILES
+
+      - name: Verify roundtrip checksums
+        working-directory: it/temp
+        run: md5sum -c ../md5sums

@@ -10,7 +10,8 @@
 # also, we check whether the presence of the encryption keys in the db and the number of blocks
 
 
-set -E
+#set -E
+set -ex
 
 IRMIN=$(which irmin)
 
@@ -22,7 +23,7 @@ TFILESMALL="test1M.small"
    # test101
 MYID=7357101
 NCHUNKS=16
-ELYKSEER_DB=../elykseer.db
+ELYKSEER_DB=${HOME}/elykseer.db
 ELYKSEER_LXR=../elykseer.chunks
 OUTPATH=/tmp
 
@@ -43,11 +44,11 @@ done
 #set -x
 
 # filehash of our test file
-export FHASH=$(dune exec bin/lxr_filehash.exe -- -f $TESTFILE)
+export FHASH=$(dune exec bin/lxr_filehash.exe -- -i $MYID -f $TESTFILE | cut -d ' ' -f 2)
 
 # backup small file first
 cp $TFILESMALL $TESTFILE
-dune exec bin/lxr_backup.exe --  -v -x $ELYKSEER_LXR -n $NCHUNKS -d $ELYKSEER_DB -j 1 -i $MYID $TESTFILE
+dune exec bin/lxr_backup.exe --  -v -x $ELYKSEER_LXR -n $NCHUNKS -d $ELYKSEER_DB -i $MYID $TESTFILE
 MAXBLOCK1=$(irmin get $MYID/relfiles/${FHASH:4:2}/${FHASH} | jq -r '.blocks[] | .blockid' | sort -r | head -1)
 echo
 AIDs=$(irmin get $MYID/relfiles/${FHASH:4:2}/${FHASH} | jq -r '.blocks[] | .blockaid' | sort | uniq)
@@ -59,7 +60,7 @@ for AID in $AIDs; do
 done
 echo
 rm -f $OUTPATH/$TESTFILE
-dune exec bin/lxr_restore.exe --  -v -x $ELYKSEER_LXR -n $NCHUNKS -d $ELYKSEER_DB -j 1 -i $MYID -o $OUTPATH $TESTFILE
+dune exec bin/lxr_restore.exe --  -v -x $ELYKSEER_LXR -n $NCHUNKS -d $ELYKSEER_DB -i $MYID -o $OUTPATH $TESTFILE
 MD5orig=$(md5sum $TFILESMALL | cut -f1 -d ' ')
 MD5test=$(md5sum $OUTPATH/$TESTFILE | cut -f1 -d ' ')
 [[ $MD5orig == $MD5test ]]
@@ -79,7 +80,7 @@ for AID in $AIDs; do
 done
 echo
 rm -f $OUTPATH/$TESTFILE
-dune exec bin/lxr_restore.exe --  -v -x $ELYKSEER_LXR -n $NCHUNKS -d $ELYKSEER_DB -j 1 -i $MYID -o $OUTPATH $TESTFILE
+dune exec bin/lxr_restore.exe --  -v -x $ELYKSEER_LXR -n $NCHUNKS -d $ELYKSEER_DB -i $MYID -o $OUTPATH $TESTFILE
 MD5orig=$(md5sum $TFILELARGE | cut -f1 -d ' ')
 MD5test=$(md5sum $OUTPATH/$TESTFILE | cut -f1 -d ' ')
 [[ $MD5orig == $MD5test ]]
@@ -99,7 +100,7 @@ for AID in $AIDs; do
 done
 echo
 rm -f $OUTPATH/$TESTFILE
-dune exec bin/lxr_restore.exe --  -v -x $ELYKSEER_LXR -n $NCHUNKS -d $ELYKSEER_DB -j 1 -i $MYID -o $OUTPATH $TESTFILE
+dune exec bin/lxr_restore.exe --  -v -x $ELYKSEER_LXR -n $NCHUNKS -d $ELYKSEER_DB 1 -i $MYID -o $OUTPATH $TESTFILE
 MD5orig=$(md5sum $TFILESMALL | cut -f1 -d ' ')
 MD5test=$(md5sum $OUTPATH/$TESTFILE | cut -f1 -d ' ')
 [ $MD5orig = $MD5test ]

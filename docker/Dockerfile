@@ -1,27 +1,13 @@
-# DOCKER_BUILDKIT=1 docker build -t codieplusplus/elykseer-ml.arm64:local .
+# syntax=docker/dockerfile:1
+# run from within docker/:
+#   docker buildx build --build-arg BASE_VERSION=1 --build-context elykseer-ml-git=../.git -t codieplusplus/elykseer-ml:latest .
+# the base image comes from Dockerfile.base
 
-FROM debian:latest  AS build-env
+ARG BASE_VERSION=1
 
-RUN apt update && apt upgrade -y && apt install -y opam bash git binutils texinfo automake autoconf less vim cmake gcc g++ gettext sed curl pandoc pkg-config cppcheck libdigest-sha3-perl libgmp-dev libffi-dev libcurl4-gnutls-dev
-
-RUN addgroup --gid 1000 coq && adduser --disabled-password --uid 1000 --gid 1000 coq
+FROM codieplusplus/elykseer-ml:base_${BASE_VERSION} AS build-env
 
 COPY --chown=1000 . /home/coq/
-
-USER coq
-
-WORKDIR /home/coq
-
-RUN opam init -a -q --bare --disable-sandboxing
-
-RUN opam switch -y create 5.1.1
-
-RUN eval $(opam env) && opam repo add coq-released https://coq.inria.fr/opam/released
-
-RUN eval $(opam env) && opam -y pin add coq 8.18.0
-RUN eval $(opam env) && opam -y install yojson lwt_ppx irmin-git irmin-cli irmin alcotest alcotest-lwt ppx_optcomp
-RUN eval $(opam env) && cd /tmp/ && git clone https://github.com/ygrek/ocurl.git ocurl.git && cd ocurl.git && ./configure && make && make install
-RUN eval $(opam env) && cd /tmp/ && git clone https://github.com/c-cube/ezcurl.git ezcurl.git && cd ezcurl.git && dune build && dune install -p ezcurl && dune install -p ezcurl-lwt
 
 # install into ~/.local: boost-1.83.0, zlib-1.3 (prebuilt)
 RUN tar xzf ./prebuilt/dot.local-$(uname -m).tgz
@@ -30,11 +16,19 @@ ENV PKG_CONFIG_PATH=/home/coq/.local/lib
 ENV BOOST_ROOT=/home/coq/.local
 ENV ZLIB_ROOT=/home/coq/.local
 
-RUN eval $(opam env) && cd /tmp/ && git clone https://github.com/tchajed/coq-record-update.git coq-record-update.git && cd coq-record-update.git && git checkout v0.3.3 && make && make install
+RUN eval $(opam env) && cd /tmp/ && git clone https://github.com/tchajed/coq-record-update.git coq-record-update.git && cd coq-record-update.git && git checkout v0.3.7 && make && make install
 RUN eval $(opam env) && cd /tmp/ && git clone https://github.com/CodiePP/ml-cpp-cstdio.git ml-cpp-cstdio.git && cd ml-cpp-cstdio.git && dune build && dune install
 RUN eval $(opam env) && cd /tmp/ && git clone https://github.com/CodiePP/ml-cpp-chrono.git ml-cpp-chrono.git && cd ml-cpp-chrono.git && dune build && dune install
 RUN eval $(opam env) && cd /tmp/ && git clone https://github.com/CodiePP/ml-cpp-filesystem.git ml-cpp-filesystem.git && cd ml-cpp-filesystem.git && dune build && dune install
-RUN eval $(opam env) && cd /tmp/ && git clone https://github.com/eLyKseeR/elykseer-crypto.git elykseer-crypto.git && cd elykseer-crypto.git && git submodule update --init && cd ext && make && cd ../build && sed -i 's/set(Boost_USE_STATIC_LIBS OFF)/set(Boost_USE_STATIC_LIBS ON)/' ./test/CMakeLists.txt && PKG_CONFIG_PATH=~/.local/lib cmake --fresh -DCMAKE_BUILD_TYPE=Release . && make && cd ../src/ml && dune build && dune install
+# dev.gnupg.org is unreliable (connection refused / HTTP 429); use the official GitHub mirrors
+RUN git config --global url."https://github.com/gpg/".insteadOf "https://dev.gnupg.org/source/"
+RUN cd /tmp/ && git clone https://github.com/eLyKseeR/elykseer-crypto.git elykseer-crypto.git && cd elykseer-crypto.git && git submodule update --init && make -C ext
+# C++20 modules need the Ninja generator; GCC 14 crashes (ICE) on elykseer-crypto's modules, so use Clang
+USER root
+RUN apt update && apt install -y ninja-build clang clang-tools
+USER coq
+# the prebuilt Boost in ~/.local is static only
+RUN eval $(opam env) && cd /tmp/elykseer-crypto.git && sed -i 's/set(Boost_USE_STATIC_LIBS OFF)/set(Boost_USE_STATIC_LIBS ON)/' test/cpp/CMakeLists.txt && cmake -S . -B build -G Ninja --fresh -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang++ && cmake --build build --target static_lib -j$(nproc) && cd src/ml && dune build -p elykseer_crypto && dune install -p elykseer_crypto
 
 RUN tar cvzf /tmp/coq.home.tgz -C /home/coq --exclude ./prebuilt/\* --exclude ./.local/\* --exclude ./.opam/download-cache/\* .
 
@@ -47,13 +41,13 @@ LABEL org.opencontainers.image.source=https://github.com/eLyKseeR/elykseer-ml
 LABEL org.opencontainers.image.description="formally specified & verified implementation of eLyKseeR in Coq / OCaml"
 LABEL org.opencontainers.image.licenses=GPL-3.0-or-later
 
-RUN apt update && apt upgrade -y && apt install -y sudo opam bash git jq binutils texinfo less vim gettext sed curl pkg-config libgmp-dev libffi-dev libcurl4-gnutls-dev && apt autoremove -y
+RUN apt update && apt upgrade -y && apt install -y sudo opam bash git jq binutils texinfo less vim gettext sed curl pkg-config libgmp-dev libffi-dev libcurl4-gnutls-dev nodejs && apt autoremove -y
 
 RUN addgroup --gid 1000 coq && adduser --disabled-password --uid 1000 --gid 1000 coq
 
 COPY sudoers.coq /etc/sudoers.d/coq
 
-COPY --chown=1000 --from=build-env /home/coq/.opam/5.1.1/bin/irmin /home/coq/.local/bin/irmin
+COPY --chown=1000 --from=build-env /home/coq/.opam/lxr/bin/irmin /home/coq/.local/bin/irmin
 
 COPY --chown=1000 --from=build-env /tmp/coq.home.tgz /tmp/
 
@@ -70,11 +64,15 @@ RUN echo 'eval $(opam env)' >> ~/.bashrc
 
 RUN echo 'export PATH=$PATH:${HOME}/.local/bin' >> ~/.bashrc
 
-RUN git clone https://github.com/eLyKseeR/elykseer-ml.git elykseer-ml.git
+# the repository's .git is passed in as a named build context:
+#   docker buildx build --build-context elykseer-ml-git=../.git ...
+COPY --chown=1000 --from=elykseer-ml-git . /tmp/elykseer-ml.git
+
+RUN git clone /tmp/elykseer-ml.git elykseer-ml.git \
+ && git -C elykseer-ml.git checkout --detach $(git --git-dir=/tmp/elykseer-ml.git rev-parse HEAD) \
+ && rm -rf /tmp/elykseer-ml.git
 
 WORKDIR /home/coq/elykseer-ml.git
-
-RUN git fetch && git pull
 
 RUN eval $(opam env) && coq_makefile -f _CoqProject -o Makefile
 

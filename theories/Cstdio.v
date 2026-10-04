@@ -2,8 +2,8 @@
       e L y K s e e R
 *)
 
-From Coq Require Import Strings.String.
-Require Import NArith.
+From Stdlib Require Import Strings.String.
+From Stdlib Require Import NArith.
 
 Module Export Cstdio.
 
@@ -15,7 +15,7 @@ Module Export Cstdio.
 Set Implicit Arguments.
 Unset Strict Implicit.
 Unset Printing Implicit Defensive.
- 
+
 Open Scope N_scope.
 Open Scope string_scope.
 
@@ -80,9 +80,11 @@ Module Export BufferPlain : BUF.
 End BufferPlain.
 (* Print BufferPlain. *)
 
-Axiom cpp_encrypt_buffer : BufferPlain.buffer_t -> string -> string -> N * BufferEncrypted.buffer_t.
+Axiom cpp_encrypt_buffer : BufferPlain.buffer_t -> N -> string -> string -> N * BufferEncrypted.buffer_t.
 Definition encrypt (bin : BufferPlain.buffer_t) (iv : string) (pw : string) : (N * BufferEncrypted.buffer_t) :=
-  cpp_encrypt_buffer bin iv pw.
+  let blen := BufferPlain.buffer_len bin in
+  (* the data length is the buffer length minus 16 bytes *)
+  cpp_encrypt_buffer bin (blen - 16) iv pw.
 Axiom cpp_decrypt_buffer : BufferEncrypted.buffer_t -> string -> string -> N * BufferPlain.buffer_t.
 Definition decrypt (bin : BufferEncrypted.buffer_t) (iv : string) (pw : string) : (N * BufferPlain.buffer_t) :=
   cpp_decrypt_buffer bin iv pw.

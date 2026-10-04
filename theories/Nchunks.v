@@ -2,8 +2,8 @@
       e L y K s e e R
 *)
 
-Require Import ZArith NArith PArith.
-From Coq Require Import NArith.BinNat Lia.
+From Stdlib Require Import ZArith NArith PArith.
+From Stdlib Require Import NArith.BinNat Lia.
 
 From LXR Require Import Conversion.
 

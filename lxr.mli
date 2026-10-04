@@ -52,23 +52,11 @@ module MakeOrderTac :
 
 module Pos :
  sig
-  type mask =
-  | IsNul
-  | IsPos of positive
-  | IsNeg
- end
-
-module Coq_Pos :
- sig
   val succ : positive -> positive
-
-  val add : positive -> positive -> positive
-
-  val add_carry : positive -> positive -> positive
 
   val pred_double : positive -> positive
 
-  type mask = Pos.mask =
+  type mask =
   | IsNul
   | IsPos of positive
   | IsNeg
@@ -83,15 +71,9 @@ module Coq_Pos :
 
   val sub_mask_carry : positive -> positive -> mask
 
-  val mul : positive -> positive -> positive
-
   val compare_cont : comparison -> positive -> positive -> comparison
 
   val compare : positive -> positive -> comparison
-
-  val min : positive -> positive -> positive
-
-  val max : positive -> positive -> positive
 
   val eqb : positive -> positive -> bool
 
@@ -99,9 +81,32 @@ module Coq_Pos :
 
   val to_nat : positive -> nat
 
-  val of_nat : nat -> positive
-
   val of_succ_nat : nat -> positive
+ end
+
+module Coq_Pos :
+ sig
+  val succ : positive -> positive
+
+  val add : positive -> positive -> positive
+
+  val add_carry : positive -> positive -> positive
+
+  val mul : positive -> positive -> positive
+
+  val compare_cont : comparison -> positive -> positive -> comparison
+
+  val compare : positive -> positive -> comparison
+
+  val iter_op : ('a1 -> 'a1 -> 'a1) -> positive -> 'a1 -> 'a1
+
+  val to_nat : positive -> nat
+
+  val min : positive -> positive -> positive
+
+  val max : positive -> positive -> positive
+
+  val of_nat : nat -> positive
  end
 
 module N :
@@ -110,21 +115,21 @@ module N :
 
   val double : n -> n
 
-  val add : n -> n -> n
-
   val sub : n -> n -> n
-
-  val mul : n -> n -> n
 
   val compare : n -> n -> comparison
 
-  val eqb : n -> n -> bool
-
   val leb : n -> n -> bool
 
-  val ltb : n -> n -> bool
-
   val pos_div_eucl : positive -> n -> n * n
+
+  val add : n -> n -> n
+
+  val mul : n -> n -> n
+
+  val eqb : n -> n -> bool
+
+  val ltb : n -> n -> bool
 
   val div_eucl : n -> n -> n * n
 
@@ -135,19 +140,19 @@ module N :
   val of_nat : nat -> n
  end
 
+val map : ('a1 -> 'a2) -> 'a1 list -> 'a2 list
+
+val seq : nat -> nat -> nat list
+
 val removelast : 'a1 list -> 'a1 list
 
 val rev : 'a1 list -> 'a1 list
-
-val map : ('a1 -> 'a2) -> 'a1 list -> 'a2 list
 
 val fold_left : ('a1 -> 'a2 -> 'a1) -> 'a2 list -> 'a1 -> 'a1
 
 val fold_right : ('a2 -> 'a1 -> 'a1) -> 'a1 -> 'a2 list -> 'a1
 
 val filter : ('a1 -> bool) -> 'a1 list -> 'a1 list
-
-val seq : nat -> nat -> nat list
 
 val compare0 : char -> char -> comparison
 
@@ -270,7 +275,8 @@ module Cstdio :
    BUF
 
   val cpp_encrypt_buffer :
-    BufferPlain.buffer_t -> string -> string -> n * BufferEncrypted.buffer_t
+    BufferPlain.buffer_t -> n -> string -> string ->
+    n * BufferEncrypted.buffer_t
 
   val encrypt :
     BufferPlain.buffer_t -> string -> string -> n * BufferEncrypted.buffer_t

@@ -2,8 +2,8 @@
       e L y K s e e R
 *)
 
-Require Import NArith PArith.
-From Coq Require Import NArith.BinNat Lists.List Strings.String Program.Basics.
+From Stdlib Require Import NArith PArith.
+From Stdlib Require Import NArith.BinNat Lists.List Strings.String Program.Basics.
 
 From LXR Require Import Assembly.
 From LXR Require Import Configuration.

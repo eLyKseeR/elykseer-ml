@@ -49,3 +49,6 @@ docker/output/
 
 irmin.yml
 
+.RData
+.Rhistory
+*.local

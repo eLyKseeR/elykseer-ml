@@ -2,9 +2,9 @@
       e L y K s e e R
 *)
 
-From Coq Require Import Strings.String Program.Basics.
-Require Import NArith PArith.
-From Coq Require Import NArith.BinNat.
+From Stdlib Require Import Strings.String Program.Basics.
+From Stdlib Require Import NArith PArith.
+From Stdlib Require Import NArith.BinNat.
 
 From LXR Require Import Assembly Nchunks Conversion.
 
@@ -32,36 +32,36 @@ Section Non_Local_Assembly.
 (* a non-local apos calculation that fits in 32 bits *)
 (* features: 
      - non-local by separating by n_chunks bytes
-     - not touching first n_chunks bytes (reserved for random data)
+     - not touching first (n_chunks - 16) bytes (reserved for random data), and last 16 bytes (tag)
      - index calculation fits in 32 bit *)
 Local Definition idx2apos32 (idx : N) (a : assemblyinformation) : N :=
     let nch : N := Nchunks.to_N (nchunks a) in
     let asize : N := assemblysize (nchunks a) in
     let eff_asize : N := asize - nch in
     let proj : N := idx * nch in
-    (proj mod eff_asize) + (N.div proj eff_asize) + nch.
+    (proj mod eff_asize) + (N.div proj eff_asize) + nch - 16.
 
 (* a non-local apos calculation that requires 64 bits *)
 (* features: 
      - non-local by separating by (chunkwidth * chunkheight - 1) bytes
-     - not touching first n_chunks bytes (reserved for random data)
+     - not touching first (n_chunks - 16) bytes (reserved for random data), and last 16 bytes (tag)
      - index calculation requires 64 bit *)
      Local Definition idx2apos64 (idx : N) (a : assemblyinformation) : N :=
      let nch : N := Nchunks.to_N (nchunks a) in
      let asize : N := assemblysize (nchunks a) in
      let eff_asize : N := asize - nch in
      let proj : N := idx * (chunksize_N - 1) in
-     (proj mod eff_asize) + (N.div proj eff_asize) + nch.
+     (proj mod eff_asize) + (N.div proj eff_asize) + nch - 16.
 
 Example apos32_of_index_0 :
     let ai := mkassembly (Nchunks.from_positive 17) "none" 0 in
-    idx2apos32 0 ai = 17.
+    idx2apos32 0 ai = 1.
 Proof.
     intros. eauto.
 Qed.
 Example apos64_of_index_0 :
     let ai := mkassembly (Nchunks.from_positive 17) "none" 0 in
-    idx2apos64 0 ai = 17.
+    idx2apos64 0 ai = 1.
 Proof.
     intros. eauto.
 Qed.

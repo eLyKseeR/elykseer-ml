@@ -1,0 +1,59 @@
+name: CI
+
+# Validates the Rocq specification (proofs must check) and confirms that the
+# OCaml code extracted from it (lxr.ml / lxr.mli) matches what is committed.
+# Uses the prepared build image that already has the full Rocq/opam toolchain
+# and all vendored dependencies installed (see docker/Dockerfile).
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'theories/**'
+      - '_CoqProject'
+      - 'Makefile.conf'
+      - 'dune-project'
+      - 'lxr.ml'
+      - 'lxr.mli'
+      - '.forgejo/workflows/CI.yaml'
+  pull_request:
+    paths:
+      - 'theories/**'
+      - '_CoqProject'
+      - 'Makefile.conf'
+      - 'dune-project'
+      - 'lxr.ml'
+      - 'lxr.mli'
+  workflow_dispatch: {}
+
+jobs:
+  spec-and-extraction:
+    # adjust the label to whatever your Forgejo runner advertises
+    runs-on: docker
+    container:
+      image: codieplusplus/elykseer-ml:latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set aside the committed extraction
+        run: |
+          cp lxr.ml lxr.ml.committed
+          cp lxr.mli lxr.mli.committed
+
+      - name: Regenerate Makefile from _CoqProject
+        run: |
+          eval "$(opam env)"
+          coq_makefile -f _CoqProject -o Makefile
+
+      - name: Check Rocq spec and extract code (make)
+        run: |
+          eval "$(opam env)"
+          make
+
+      - name: Verify extraction matches committed lxr.ml / lxr.mli
+        run: |
+          diff -u lxr.ml.committed lxr.ml
+          diff -u lxr.mli.committed lxr.mli
+          echo "extracted code is in sync with the committed lxr.ml / lxr.mli"

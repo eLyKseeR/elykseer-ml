@@ -7,7 +7,7 @@
  Description: conversion functions
  *)
 
-From Coq Require Import NArith.BinNat Strings.String.
+From Stdlib Require Import NArith.BinNat Strings.String.
 
 Module Export Conversion.
 

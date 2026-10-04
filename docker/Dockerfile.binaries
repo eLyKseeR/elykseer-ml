@@ -1,8 +1,8 @@
 # DOCKER_BUILDKIT=1 docker build -f Dockerfile.binaries -t codieplusplus/elykseer-ml-binaries:arm64 .
 
-FROM codieplusplus/elykseer-ml:arm64 AS build-env
+FROM codieplusplus/elykseer-ml:latest AS build-env
 
-RUN cp -iva /home/coq/.opam/5.1.1/bin/irmin /home/coq/.local/bin/irmin && chown 1000 /home/coq/.local/bin/irmin
+RUN cp -iva /home/coq/.opam/lxr/bin/irmin /home/coq/.local/bin/irmin && chown 1000 /home/coq/.local/bin/irmin
 
 USER coq
 

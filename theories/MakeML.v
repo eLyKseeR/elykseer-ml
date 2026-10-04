@@ -1,8 +1,8 @@
 
-Require Coq.extraction.Extraction.
+From Stdlib Require extraction.Extraction.
 Extraction Language OCaml.
 
-Require Import ZArith NArith.
+From Stdlib Require Import ZArith NArith.
 Open Scope positive_scope.
 
 From LXR Require Import Assembly.
@@ -21,39 +21,39 @@ From LXR Require Import Utilities.
 From LXR Require Import Tracer.
 From LXR Require Import Version.
 
-From Coq Require Import ExtrOcamlBasic.
-From Coq Require Import ExtrOcamlNativeString.
+From Stdlib Require Import ExtrOcamlBasic.
+From Stdlib Require Import ExtrOcamlNativeString.
 
 
 Extract Inductive bool => "bool" [ "true" "false" ].
 Extract Inductive sumbool => "bool" ["true" "false"].
 Extract Inductive option => option [ Some None ].
 
-(** the following were found in: https://github.com/coq-contribs/zchinese 
+(** the following were found in: https://github.com/coq-contribs/zchinese
     and are very useful to convert standard OCaml 'int' into positive|N|Z *)
 
 Extract Inlined Constant int => "int".
 
 Extract Constant i2p =>
-   "  
-    let rec i2p = function 
-       1 -> XH 
+   "
+    let rec i2p = function
+       1 -> XH
      | n -> let n' = i2p (n/2) in if (n mod 2)=0 then XO n' else XI n'
      in i2p
    ".
- 
+
 Extract Constant p2i =>
    "
-    let rec p2i = function 
+    let rec p2i = function
        XH -> 1
      | XO p -> 2*(p2i p)
      | XI p -> 2*(p2i p)+1
-     in p2i 
+     in p2i
    ".
 
 Extract Constant i2z =>
    "
-    function 
+    function
       0 -> Z0
     | n -> if n < 0 then Zneg (i2p (-n)) else Zpos (i2p n)
    ".
@@ -61,14 +61,14 @@ Extract Constant i2z =>
 Extract Constant z2i =>
    "
     function
-      Z0 -> 0 
+      Z0 -> 0
     | Zpos p -> p2i p
     | Zneg p -> -(p2i p)
    ".
 
 Extract Constant i2n =>
    "
-    function 
+    function
       0 -> N0
     | n -> Npos (i2p n)
    ".
@@ -76,7 +76,7 @@ Extract Constant i2n =>
 Extract Constant n2i =>
    "
     function
-      N0 -> 0 
+      N0 -> 0
     | Npos p -> p2i p
    ".
 
@@ -113,7 +113,7 @@ Extract Constant chunk_identifier =>
 
 Extract Constant chunk_identifier_path =>
    "fun config aid cid -> let cident = chunk_identifier config aid cid in
-      let subd = Helper.mk_cid_subdir cident in 
+      let subd = Helper.mk_cid_subdir cident in
       (Configuration.path_chunks config ^ ""/"" ^ subd ^ ""/"" ^ cident ^ "".lxr"")
    ".
 
@@ -265,7 +265,7 @@ Extract Constant id_enc_from_buffer_t => "fun b -> Helper.cpp_buffer_id b".
 Extract Constant id_assembly_full_buffer_from_writable => "fun b -> Helper.cpp_buffer_id b".
 Extract Constant id_assembly_full_ainfo_from_writable => "fun b -> Helper.cpp_buffer_id b".
 
-Extract Constant cpp_encrypt_buffer => "fun b siv spk -> Elykseer_crypto.Aes256.encrypt (Elykseer_crypto.Key128.from_hex siv) (Elykseer_crypto.Key256.from_hex spk) (Mlcpp_cstdio.Cstdio.File.Buffer.size b) b |> fun (cnt, b') -> (Conversion.i2n cnt, b')".
+Extract Constant cpp_encrypt_buffer => "fun b dlen siv spk -> Elykseer_crypto.Aes256.encrypt (Elykseer_crypto.Key128.from_hex siv) (Elykseer_crypto.Key256.from_hex spk) (Mlcpp_cstdio.Cstdio.File.Buffer.size b) b (Conversion.n2i dlen) |> fun (cnt, b') -> (Conversion.i2n cnt, b')".
 Extract Constant cpp_decrypt_buffer => "fun b siv spk -> Elykseer_crypto.Aes256.decrypt (Elykseer_crypto.Key128.from_hex siv) (Elykseer_crypto.Key256.from_hex spk) (Mlcpp_cstdio.Cstdio.File.Buffer.size b) b |> fun (cnt, b') -> (Conversion.i2n cnt, b')".
 
 Extract Constant cpp_mk_key256 => "fun () -> Elykseer_crypto.Key256.mk () |> Elykseer_crypto.Key256.to_hex".
@@ -301,7 +301,7 @@ Extract Constant BufferPlain.copy_sz_pos =>
    ".
 
 Extract Constant get_file_information =>
-   "  
+   "
     fun (c : Configuration.configuration) fn ->
         { fname = fn;
           fhash = Elykseer_crypto.Sha3_256.string (fn ^ c.my_id);
@@ -323,7 +323,7 @@ Axiom messageN : string -> N -> unit.
    ".
 *)
 
-Extract Constant output_stdout => "fun ll m -> 
+Extract Constant output_stdout => "fun ll m ->
    let _ = match ll with
    | Coq_debug -> print_string ""DEBUG ""
    | Coq_info -> print_string ""INFO ""

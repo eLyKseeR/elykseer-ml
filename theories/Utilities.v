@@ -2,7 +2,7 @@
       e L y K s e e R
 *)
 
-Require Import PArith Lists.List Strings.String.
+From Stdlib Require Import PArith Lists.List Strings.String.
 
 Set Implicit Arguments.
 

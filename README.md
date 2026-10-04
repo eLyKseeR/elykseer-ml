@@ -16,7 +16,7 @@ We very much appreciate user experience testimonials, bug reports, feature reque
 
 0.) if not yet done: `opam init -a --bare`
 
-1.) create a compiler switch: `opam switch create 5.1.1`
+1.) create a compiler switch: `opam switch create 5.2.1`
 
 ### Coq version used
 
@@ -26,7 +26,7 @@ We very much appreciate user experience testimonials, bug reports, feature reque
 
 `opam repo add coq-released https://coq.inria.fr/opam/released`
 
-see the [Dockerfile](/Dockerfile) which other packages are installed.
+see [docker/Dockerfile.base](docker/Dockerfile.base) and [docker/Dockerfile](docker/Dockerfile) which other packages are installed.
 
 ## Code generation
 
@@ -58,34 +58,125 @@ see the [Dockerfile](/Dockerfile) which other packages are installed.
 
 ## Docker image
 
-(in the following commands replace `arm64` with `amd64` if run on x86-64)
+The images are available for Linux/amd64 and Linux/arm64 on [Docker hub](https://hub.docker.com/r/codieplusplus/elykseer-ml).
+Docker picks the matching architecture automatically.
 
-either build the image locally:
-
-```sh
-cd docker
-DOCKER_BUILDKIT=1 docker build -t codieplusplus/elykseer-ml.arm64:local .
-```
-
-or, download it from Docker Hub:
+download it from Docker Hub:
 
 ```sh
-docker pull codieplusplus/elykseer-ml.arm64:latest
+docker pull codieplusplus/elykseer-ml:latest
 ```
 
 run the image:
 
 ```sh
-docker run --rm -it codieplusplus/elykseer-ml.arm64
+docker run --rm -it codieplusplus/elykseer-ml:latest
 ```
 
 (one can also attach a local Visual Code editor to this container; install extensions "VsCoq" and "OCaml Platform" for source code highlighting)
 
-### experimenting with multiarch building
+### building the images
 
-The images are available for Linux/amd64 and Linux/arm64 on [Docker hub](https://hub.docker.com/r/codieplusplus/elykseer-ml).
+The build is split into two images, all tags live in `codieplusplus/elykseer-ml`:
 
-`docker buildx build --platform linux/amd64,linux/arm64 -t codieplusplus/elykseer-ml:latest --push .`
+| image | Dockerfile | tag | contents | rebuild when |
+| ----- | ---------- | --- | -------- | ------------ |
+| base  | [docker/Dockerfile.base](docker/Dockerfile.base) | `base_${BASE_VERSION}` | Debian, OCaml, Rocq, opam packages (irmin, lwt, ezcurl, ...) | upgrading OCaml, Rocq or opam packages |
+| main  | [docker/Dockerfile](docker/Dockerfile) | `${VERSION}`, `latest` | C++ dependencies, elykseer-crypto, proofs, extracted code, `lxr_*` binaries | every release |
+
+Building the base image takes a long time; it only needs to be done once, and again on upgrades.
+All commands are run from within `docker/` and need `docker buildx`.
+
+#### 1. base image
+
+OCaml and Rocq versions are build arguments (defaults: `OCAML_VERSION=5.2.1`, `COQ_VERSION=9.0.0`).
+
+in one step, both architectures:
+
+```sh
+cd docker/
+BASE_VERSION=1  # increment on every upgrade
+
+docker buildx build -f Dockerfile.base --platform linux/amd64,linux/arm64 \
+  --build-arg OCAML_VERSION=5.2.1 --build-arg COQ_VERSION=9.0.0 \
+  -t codieplusplus/elykseer-ml:base_${BASE_VERSION} \
+  --push .
+```
+
+or, in two separate steps (each on a native builder, which avoids slow emulation), then combined:
+
+```sh
+cd docker/
+BASE_VERSION=1
+
+# amd64 leg
+docker buildx build -f Dockerfile.base --platform linux/amd64 \
+  -t codieplusplus/elykseer-ml:base_amd64_${BASE_VERSION} \
+  --push .
+
+# arm64 leg (e.g. native Apple Silicon)
+docker buildx build -f Dockerfile.base --platform linux/arm64 \
+  -t codieplusplus/elykseer-ml:base_arm64_${BASE_VERSION} \
+  --push .
+
+docker buildx imagetools create \
+  -t codieplusplus/elykseer-ml:base_${BASE_VERSION} \
+  codieplusplus/elykseer-ml:base_amd64_${BASE_VERSION} \
+  codieplusplus/elykseer-ml:base_arm64_${BASE_VERSION}
+```
+
+#### 2. main image
+
+The main image builds from the committed state of this repository: its `.git` is passed in as the named build context `elykseer-ml-git`.
+Uncommitted changes are not included.
+Select the base image with `--build-arg BASE_VERSION=...`.
+
+in one step, both architectures:
+
+```sh
+cd docker/
+VERSION="v0.9.16"  # adapt
+BASE_VERSION=1
+
+docker buildx build --build-context elykseer-ml-git=../.git \
+  --build-arg BASE_VERSION=${BASE_VERSION} \
+  --platform linux/amd64,linux/arm64 \
+  -t codieplusplus/elykseer-ml:latest \
+  -t codieplusplus/elykseer-ml:${VERSION} \
+  --push -f Dockerfile .
+```
+
+or, in two separate steps, then combined:
+
+```sh
+cd docker/
+VERSION="v0.9.16"  # adapt
+BASE_VERSION=1
+
+# amd64 leg
+docker buildx build --build-context elykseer-ml-git=../.git \
+  --build-arg BASE_VERSION=${BASE_VERSION} --platform linux/amd64 \
+  -t codieplusplus/elykseer-ml:amd64_${VERSION} \
+  --push -f Dockerfile .
+
+# arm64 leg (e.g. native Apple Silicon)
+docker buildx build --build-context elykseer-ml-git=../.git \
+  --build-arg BASE_VERSION=${BASE_VERSION} --platform linux/arm64 \
+  -t codieplusplus/elykseer-ml:arm64_${VERSION} \
+  --push -f Dockerfile .
+
+docker buildx imagetools create \
+  -t codieplusplus/elykseer-ml:latest \
+  -t codieplusplus/elykseer-ml:${VERSION} \
+  codieplusplus/elykseer-ml:amd64_${VERSION} \
+  codieplusplus/elykseer-ml:arm64_${VERSION}
+```
+
+check that both architectures are present:
+
+```sh
+docker buildx imagetools inspect codieplusplus/elykseer-ml:${VERSION}
+```
 
 ## Executables
 

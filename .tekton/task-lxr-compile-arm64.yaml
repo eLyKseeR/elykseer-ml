@@ -12,7 +12,7 @@ spec:
   - name: ca-cert
   steps:
     - name: compile
-      image: codieplusplus/elykseer-ml:arm64
+      image: codieplusplus/elykseer-ml:latest
       env:
         - name: GIT_COMMIT
           value: $(params.git-commit)

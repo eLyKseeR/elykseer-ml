@@ -95,59 +95,12 @@ module MakeOrderTac =
 
 module Pos =
  struct
-  type mask =
-  | IsNul
-  | IsPos of positive
-  | IsNeg
- end
-
-module Coq_Pos =
- struct
   (** val succ : positive -> positive **)
 
   let rec succ = function
   | XI p -> XO (succ p)
   | XO p -> XI p
   | XH -> XO XH
-
-  (** val add : positive -> positive -> positive **)
-
-  let rec add x y =
-    match x with
-    | XI p ->
-      (match y with
-       | XI q -> XO (add_carry p q)
-       | XO q -> XI (add p q)
-       | XH -> XO (succ p))
-    | XO p ->
-      (match y with
-       | XI q -> XI (add p q)
-       | XO q -> XO (add p q)
-       | XH -> XI p)
-    | XH -> (match y with
-             | XI q -> XO (succ q)
-             | XO q -> XI q
-             | XH -> XO XH)
-
-  (** val add_carry : positive -> positive -> positive **)
-
-  and add_carry x y =
-    match x with
-    | XI p ->
-      (match y with
-       | XI q -> XI (add_carry p q)
-       | XO q -> XO (add_carry p q)
-       | XH -> XI (succ p))
-    | XO p ->
-      (match y with
-       | XI q -> XO (add_carry p q)
-       | XO q -> XI (add p q)
-       | XH -> XO (succ p))
-    | XH ->
-      (match y with
-       | XI q -> XI (succ q)
-       | XO q -> XO (succ q)
-       | XH -> XI XH)
 
   (** val pred_double : positive -> positive **)
 
@@ -156,7 +109,7 @@ module Coq_Pos =
   | XO p -> XI (pred_double p)
   | XH -> XH
 
-  type mask = Pos.mask =
+  type mask =
   | IsNul
   | IsPos of positive
   | IsNeg
@@ -215,6 +168,111 @@ module Coq_Pos =
        | XH -> double_pred_mask p)
     | XH -> IsNeg
 
+  (** val compare_cont : comparison -> positive -> positive -> comparison **)
+
+  let rec compare_cont r x y =
+    match x with
+    | XI p ->
+      (match y with
+       | XI q -> compare_cont r p q
+       | XO q -> compare_cont Gt p q
+       | XH -> Gt)
+    | XO p ->
+      (match y with
+       | XI q -> compare_cont Lt p q
+       | XO q -> compare_cont r p q
+       | XH -> Gt)
+    | XH -> (match y with
+             | XH -> r
+             | _ -> Lt)
+
+  (** val compare : positive -> positive -> comparison **)
+
+  let compare =
+    compare_cont Eq
+
+  (** val eqb : positive -> positive -> bool **)
+
+  let rec eqb p q =
+    match p with
+    | XI p0 -> (match q with
+                | XI q0 -> eqb p0 q0
+                | _ -> false)
+    | XO p0 -> (match q with
+                | XO q0 -> eqb p0 q0
+                | _ -> false)
+    | XH -> (match q with
+             | XH -> true
+             | _ -> false)
+
+  (** val iter_op : ('a1 -> 'a1 -> 'a1) -> positive -> 'a1 -> 'a1 **)
+
+  let rec iter_op op p a =
+    match p with
+    | XI p0 -> op a (iter_op op p0 (op a a))
+    | XO p0 -> iter_op op p0 (op a a)
+    | XH -> a
+
+  (** val to_nat : positive -> nat **)
+
+  let to_nat x =
+    iter_op add x (S O)
+
+  (** val of_succ_nat : nat -> positive **)
+
+  let rec of_succ_nat = function
+  | O -> XH
+  | S x -> succ (of_succ_nat x)
+ end
+
+module Coq_Pos =
+ struct
+  (** val succ : positive -> positive **)
+
+  let rec succ = function
+  | XI p -> XO (succ p)
+  | XO p -> XI p
+  | XH -> XO XH
+
+  (** val add : positive -> positive -> positive **)
+
+  let rec add x y =
+    match x with
+    | XI p ->
+      (match y with
+       | XI q -> XO (add_carry p q)
+       | XO q -> XI (add p q)
+       | XH -> XO (succ p))
+    | XO p ->
+      (match y with
+       | XI q -> XI (add p q)
+       | XO q -> XO (add p q)
+       | XH -> XI p)
+    | XH -> (match y with
+             | XI q -> XO (succ q)
+             | XO q -> XI q
+             | XH -> XO XH)
+
+  (** val add_carry : positive -> positive -> positive **)
+
+  and add_carry x y =
+    match x with
+    | XI p ->
+      (match y with
+       | XI q -> XI (add_carry p q)
+       | XO q -> XO (add_carry p q)
+       | XH -> XI (succ p))
+    | XO p ->
+      (match y with
+       | XI q -> XO (add_carry p q)
+       | XO q -> XI (add p q)
+       | XH -> XO (succ p))
+    | XH ->
+      (match y with
+       | XI q -> XI (succ q)
+       | XO q -> XO (succ q)
+       | XH -> XI XH)
+
   (** val mul : positive -> positive -> positive **)
 
   let rec mul x y =
@@ -246,6 +304,19 @@ module Coq_Pos =
   let compare =
     compare_cont Eq
 
+  (** val iter_op : ('a1 -> 'a1 -> 'a1) -> positive -> 'a1 -> 'a1 **)
+
+  let rec iter_op op p a =
+    match p with
+    | XI p0 -> op a (iter_op op p0 (op a a))
+    | XO p0 -> iter_op op p0 (op a a)
+    | XH -> a
+
+  (** val to_nat : positive -> nat **)
+
+  let to_nat x =
+    iter_op Coq__1.add x (S O)
+
   (** val min : positive -> positive -> positive **)
 
   let min p p' =
@@ -260,33 +331,6 @@ module Coq_Pos =
     | Gt -> p
     | _ -> p'
 
-  (** val eqb : positive -> positive -> bool **)
-
-  let rec eqb p q =
-    match p with
-    | XI p0 -> (match q with
-                | XI q0 -> eqb p0 q0
-                | _ -> false)
-    | XO p0 -> (match q with
-                | XO q0 -> eqb p0 q0
-                | _ -> false)
-    | XH -> (match q with
-             | XH -> true
-             | _ -> false)
-
-  (** val iter_op : ('a1 -> 'a1 -> 'a1) -> positive -> 'a1 -> 'a1 **)
-
-  let rec iter_op op p a =
-    match p with
-    | XI p0 -> op a (iter_op op p0 (op a a))
-    | XO p0 -> iter_op op p0 (op a a)
-    | XH -> a
-
-  (** val to_nat : positive -> nat **)
-
-  let to_nat x =
-    iter_op Coq__1.add x (S O)
-
   (** val of_nat : nat -> positive **)
 
   let rec of_nat = function
@@ -294,12 +338,6 @@ module Coq_Pos =
   | S x -> (match x with
             | O -> XH
             | S _ -> succ (of_nat x))
-
-  (** val of_succ_nat : nat -> positive **)
-
-  let rec of_succ_nat = function
-  | O -> XH
-  | S x -> succ (of_succ_nat x)
  end
 
 module N =
@@ -316,15 +354,6 @@ module N =
   | N0 -> N0
   | Npos p -> Npos (XO p)
 
-  (** val add : n -> n -> n **)
-
-  let add n0 m =
-    match n0 with
-    | N0 -> m
-    | Npos p -> (match m with
-                 | N0 -> n0
-                 | Npos q -> Npos (Coq_Pos.add p q))
-
   (** val sub : n -> n -> n **)
 
   let sub n0 m =
@@ -334,18 +363,9 @@ module N =
       (match m with
        | N0 -> n0
        | Npos m' ->
-         (match Coq_Pos.sub_mask n' m' with
-          | Coq_Pos.IsPos p -> Npos p
+         (match Pos.sub_mask n' m' with
+          | Pos.IsPos p -> Npos p
           | _ -> N0))
-
-  (** val mul : n -> n -> n **)
-
-  let mul n0 m =
-    match n0 with
-    | N0 -> N0
-    | Npos p -> (match m with
-                 | N0 -> N0
-                 | Npos q -> Npos (Coq_Pos.mul p q))
 
   (** val compare : n -> n -> comparison **)
 
@@ -356,18 +376,7 @@ module N =
              | Npos _ -> Lt)
     | Npos n' -> (match m with
                   | N0 -> Gt
-                  | Npos m' -> Coq_Pos.compare n' m')
-
-  (** val eqb : n -> n -> bool **)
-
-  let eqb n0 m =
-    match n0 with
-    | N0 -> (match m with
-             | N0 -> true
-             | Npos _ -> false)
-    | Npos p -> (match m with
-                 | N0 -> false
-                 | Npos q -> Coq_Pos.eqb p q)
+                  | Npos m' -> Pos.compare n' m')
 
   (** val leb : n -> n -> bool **)
 
@@ -375,13 +384,6 @@ module N =
     match compare x y with
     | Gt -> false
     | _ -> true
-
-  (** val ltb : n -> n -> bool **)
-
-  let ltb x y =
-    match compare x y with
-    | Lt -> true
-    | _ -> false
 
   (** val pos_div_eucl : positive -> n -> n * n **)
 
@@ -402,6 +404,42 @@ module N =
                     | XH -> ((Npos XH), N0)
                     | _ -> (N0, (Npos XH))))
 
+  (** val add : n -> n -> n **)
+
+  let add n0 m =
+    match n0 with
+    | N0 -> m
+    | Npos p -> (match m with
+                 | N0 -> n0
+                 | Npos q -> Npos (Coq_Pos.add p q))
+
+  (** val mul : n -> n -> n **)
+
+  let mul n0 m =
+    match n0 with
+    | N0 -> N0
+    | Npos p -> (match m with
+                 | N0 -> N0
+                 | Npos q -> Npos (Coq_Pos.mul p q))
+
+  (** val eqb : n -> n -> bool **)
+
+  let eqb n0 m =
+    match n0 with
+    | N0 -> (match m with
+             | N0 -> true
+             | Npos _ -> false)
+    | Npos p -> (match m with
+                 | N0 -> false
+                 | Npos q -> Pos.eqb p q)
+
+  (** val ltb : n -> n -> bool **)
+
+  let ltb x y =
+    match compare x y with
+    | Lt -> true
+    | _ -> false
+
   (** val div_eucl : n -> n -> n * n **)
 
   let div_eucl a b =
@@ -420,22 +458,34 @@ module N =
 
   let to_nat = function
   | N0 -> O
-  | Npos p -> Coq_Pos.to_nat p
+  | Npos p -> Pos.to_nat p
 
   (** val of_nat : nat -> n **)
 
   let of_nat = function
   | O -> N0
-  | S n' -> Npos (Coq_Pos.of_succ_nat n')
+  | S n' -> Npos (Pos.of_succ_nat n')
  end
+
+(** val map : ('a1 -> 'a2) -> 'a1 list -> 'a2 list **)
+
+let rec map f = function
+| [] -> []
+| a :: l0 -> (f a) :: (map f l0)
+
+(** val seq : nat -> nat -> nat list **)
+
+let rec seq start = function
+| O -> []
+| S len0 -> start :: (seq (S start) len0)
 
 (** val removelast : 'a1 list -> 'a1 list **)
 
 let rec removelast = function
 | [] -> []
-| a :: l0 -> (match l0 with
+| a :: l' -> (match l' with
               | [] -> []
-              | _ :: _ -> a :: (removelast l0))
+              | _ :: _ -> a :: (removelast l'))
 
 (** val rev : 'a1 list -> 'a1 list **)
 
@@ -443,36 +493,24 @@ let rec rev = function
 | [] -> []
 | x :: l' -> app (rev l') (x :: [])
 
-(** val map : ('a1 -> 'a2) -> 'a1 list -> 'a2 list **)
-
-let rec map f = function
-| [] -> []
-| a :: t0 -> (f a) :: (map f t0)
-
 (** val fold_left : ('a1 -> 'a2 -> 'a1) -> 'a2 list -> 'a1 -> 'a1 **)
 
 let rec fold_left f l a0 =
   match l with
   | [] -> a0
-  | b :: t0 -> fold_left f t0 (f a0 b)
+  | b :: l0 -> fold_left f l0 (f a0 b)
 
 (** val fold_right : ('a2 -> 'a1 -> 'a1) -> 'a1 -> 'a2 list -> 'a1 **)
 
 let rec fold_right f a0 = function
 | [] -> a0
-| b :: t0 -> f b (fold_right f a0 t0)
+| b :: l0 -> f b (fold_right f a0 l0)
 
 (** val filter : ('a1 -> bool) -> 'a1 list -> 'a1 list **)
 
 let rec filter f = function
 | [] -> []
 | x :: l0 -> if f x then x :: (filter f l0) else filter f l0
-
-(** val seq : nat -> nat -> nat list **)
-
-let rec seq start = function
-| O -> []
-| S len0 -> start :: (seq (S start) len0)
 
 (** val compare0 : char -> char -> comparison **)
 
@@ -527,9 +565,9 @@ module Conversion =
 
   (** val i2p : int -> positive **)
 
-  let i2p =   
-    let rec i2p = function 
-       1 -> XH 
+  let i2p = 
+    let rec i2p = function
+       1 -> XH
      | n -> let n' = i2p (n/2) in if (n mod 2)=0 then XO n' else XI n'
      in i2p
    
@@ -537,17 +575,17 @@ module Conversion =
   (** val p2i : positive -> int **)
 
   let p2i = 
-    let rec p2i = function 
+    let rec p2i = function
        XH -> 1
      | XO p -> 2*(p2i p)
      | XI p -> 2*(p2i p)+1
-     in p2i 
+     in p2i
    
 
   (** val i2z : int -> z **)
 
   let i2z = 
-    function 
+    function
       0 -> Z0
     | n -> if n < 0 then Zneg (i2p (-n)) else Zpos (i2p n)
    
@@ -556,7 +594,7 @@ module Conversion =
 
   let z2i = 
     function
-      Z0 -> 0 
+      Z0 -> 0
     | Zpos p -> p2i p
     | Zneg p -> -(p2i p)
    
@@ -564,7 +602,7 @@ module Conversion =
   (** val i2n : int -> n **)
 
   let i2n = 
-    function 
+    function
       0 -> N0
     | n -> Npos (i2p n)
    
@@ -573,7 +611,7 @@ module Conversion =
 
   let n2i = 
     function
-      N0 -> 0 
+      N0 -> 0
     | Npos p -> p2i p
    
 
@@ -839,15 +877,17 @@ module Cstdio =
    end
 
   (** val cpp_encrypt_buffer :
-      BufferPlain.buffer_t -> string -> string -> n * BufferEncrypted.buffer_t **)
+      BufferPlain.buffer_t -> n -> string -> string ->
+      n * BufferEncrypted.buffer_t **)
 
-  let cpp_encrypt_buffer = fun b siv spk -> Elykseer_crypto.Aes256.encrypt (Elykseer_crypto.Key128.from_hex siv) (Elykseer_crypto.Key256.from_hex spk) (Mlcpp_cstdio.Cstdio.File.Buffer.size b) b |> fun (cnt, b') -> (Conversion.i2n cnt, b')
+  let cpp_encrypt_buffer = fun b dlen siv spk -> Elykseer_crypto.Aes256.encrypt (Elykseer_crypto.Key128.from_hex siv) (Elykseer_crypto.Key256.from_hex spk) (Mlcpp_cstdio.Cstdio.File.Buffer.size b) b (Conversion.n2i dlen) |> fun (cnt, b') -> (Conversion.i2n cnt, b')
 
   (** val encrypt :
       BufferPlain.buffer_t -> string -> string -> n * BufferEncrypted.buffer_t **)
 
-  let encrypt =
-    cpp_encrypt_buffer
+  let encrypt bin iv pw =
+    let blen = BufferPlain.buffer_len bin in
+    cpp_encrypt_buffer bin (N.sub blen (Npos (XO (XO (XO (XO XH)))))) iv pw
 
   (** val cpp_decrypt_buffer :
       BufferEncrypted.buffer_t -> string -> string -> n * BufferPlain.buffer_t **)
@@ -932,7 +972,7 @@ module Tracer =
 
   (** val output_stdout : loglevel -> string -> unit option **)
 
-  let output_stdout = fun ll m -> 
+  let output_stdout = fun ll m ->
    let _ = match ll with
    | Coq_debug -> print_string "DEBUG "
    | Coq_info -> print_string "INFO "
@@ -1513,8 +1553,8 @@ module Assembly =
       in
       let rb = Cstdio.ranbuf128 () in
       let nb =
-        Cstdio.BufferPlain.copy_sz_pos rb N0 (Npos (XO (XO (XO (XO XH))))) b
-          N0
+        Cstdio.BufferPlain.copy_sz_pos rb N0
+          (N.sub (Nchunks.to_N chunks) (Npos (XO (XO (XO (XO XH)))))) b N0
       in
       ({ nchunks = chunks; aid = (mkaid c); apos = nb }, b)
    end
@@ -1693,7 +1733,7 @@ module Assembly =
       Configuration.configuration -> aid_t -> positive -> string **)
 
   let chunk_identifier_path = fun config aid cid -> let cident = chunk_identifier config aid cid in
-      let subd = Helper.mk_cid_subdir cident in 
+      let subd = Helper.mk_cid_subdir cident in
       (Configuration.path_chunks config ^ "/" ^ subd ^ "/" ^ cident ^ ".lxr")
    
 
@@ -1751,7 +1791,8 @@ module Assembly =
                   (Cstdio.BufferEncrypted.copy_sz_pos cb N0 chunksize_N b
                     apos0)
            else nread
-         | None -> nread)) cidlist N0
+         | None -> nread))
+        cidlist N0
     in
     let a' = set_apos a nread in
     let b' = id_enc_from_buffer_t b in
@@ -1859,7 +1900,7 @@ module Filesupport =
   (** val get_file_information :
       Configuration.configuration -> filename -> fileinformation **)
 
-  let get_file_information =   
+  let get_file_information = 
     fun (c : Configuration.configuration) fn ->
         { fname = fn;
           fhash = Elykseer_crypto.Sha3_256.string (fn ^ c.my_id);
@@ -2077,8 +2118,8 @@ module Environment =
     let finalise_assembly e0 =
       let a0 = e0.cur_assembly in
       let apos0 = a0.Assembly.apos in
-      Tracer.conditionalTrace e0.econfig.Configuration.trace
-        (N.ltb (Npos (XO (XO (XO (XO XH))))) apos0) Tracer.Coq_info (Some
+      Tracer.conditionalTrace e0.econfig.Configuration.trace (N.ltb N0 apos0)
+        Tracer.Coq_info (Some
         ((^) "finalising assembly "
           ((^) a0.Assembly.aid
             ((^) " with apos = " (Conversion.i2s (Conversion.n2i apos0))))))
@@ -2119,8 +2160,11 @@ module Environment =
 
     let backup e0 _ fpos content =
       let afree =
-        N.sub (Assembly.assemblysize e0.econfig.Configuration.config_nchunks)
-          e0.cur_assembly.Assembly.apos
+        N.sub
+          (N.sub
+            (Assembly.assemblysize e0.econfig.Configuration.config_nchunks)
+            e0.cur_assembly.Assembly.apos)
+          (Npos (XO (XO (XO (XO XH)))))
       in
       let blen = Cstdio.BufferPlain.buffer_len content in
       let (ki, e1) =
@@ -2872,64 +2916,64 @@ module Make =
 
   (** val is_empty : 'a1 t -> bool **)
 
-  let is_empty m =
-    Raw.is_empty (this m)
+  let is_empty =
+    Raw.is_empty
 
   (** val add : key -> 'a1 -> 'a1 t -> 'a1 t **)
 
-  let add x e m =
-    Raw.add x e (this m)
+  let add =
+    Raw.add
 
   (** val find : key -> 'a1 t -> 'a1 option **)
 
-  let find x m =
-    Raw.find x (this m)
+  let find =
+    Raw.find
 
   (** val remove : key -> 'a1 t -> 'a1 t **)
 
-  let remove x m =
-    Raw.remove x (this m)
+  let remove =
+    Raw.remove
 
   (** val mem : key -> 'a1 t -> bool **)
 
-  let mem x m =
-    Raw.mem x (this m)
+  let mem =
+    Raw.mem
 
   (** val map : ('a1 -> 'a2) -> 'a1 t -> 'a2 t **)
 
-  let map f m =
-    Raw.map f (this m)
+  let map =
+    Raw.map
 
   (** val mapi : (key -> 'a1 -> 'a2) -> 'a1 t -> 'a2 t **)
 
-  let mapi f m =
-    Raw.mapi f (this m)
+  let mapi =
+    Raw.mapi
 
   (** val map2 :
       ('a1 option -> 'a2 option -> 'a3 option) -> 'a1 t -> 'a2 t -> 'a3 t **)
 
-  let map2 f m m' =
-    Raw.map2 f (this m) (this m')
+  let map2 =
+    Raw.map2
 
   (** val elements : 'a1 t -> (key * 'a1) list **)
 
-  let elements m =
-    Raw.elements (this m)
+  let elements =
+    Raw.elements
 
   (** val cardinal : 'a1 t -> nat **)
 
-  let cardinal m =
-    length (this m)
+  let cardinal =
+    length
 
   (** val fold : (key -> 'a1 -> 'a2 -> 'a2) -> 'a1 t -> 'a2 -> 'a2 **)
 
-  let fold f m i =
-    Raw.fold f (this m) i
+  let fold =
+    Raw.fold
 
   (** val equal : ('a1 -> 'a1 -> bool) -> 'a1 t -> 'a1 t -> bool **)
 
-  let equal cmp0 m m' =
-    Raw.equal cmp0 (this m) (this m')
+  let equal =
+    Raw.equal
  end
 
 module Distribution =
@@ -3404,7 +3448,8 @@ module Processor =
       in
       (match filtered_var with
        | Some k -> k
-       | None -> N0)) lrres N0
+       | None -> N0))
+      lrres N0
 
   (** val restore_block_to :
       processor -> Cstdio.fptr -> AssemblyCache.assemblycache ->
@@ -3543,7 +3588,8 @@ module Processor =
               ((^)
                 (Conversion.i2s
                   (Conversion.n2i (Conversion.nat2N (length blocks))))
-                " blocks"))))) (fun _ ->
+                " blocks")))))
+        (fun _ ->
         let dirp = Filesystem.Path.parent targetp in
         let mkdir =
           if Filesystem.Path.is_directory dirp
@@ -3553,10 +3599,11 @@ module Processor =
         if mkdir
         then Tracer.optionalTrace this0.config.Configuration.trace
                (Cstdio.fopen (Filesystem.Path.to_string targetp)
-                 Cstdio.write_new_mode) Tracer.Coq_warning (Some
+                 Cstdio.write_new_mode)
+               Tracer.Coq_warning (Some
                ((^) "failed to open file: "
-                 (Filesystem.Path.to_string targetp))) (fun _ -> None)
-               Tracer.Coq_info None (fun fptr0 ->
+                 (Filesystem.Path.to_string targetp)))
+               (fun _ -> None) Tracer.Coq_info None (fun fptr0 ->
                let filtered_var = restore_file_to this0 fptr0 blocks in
                let (n0, ac') = filtered_var in
                let proc' = update_cache this0 ac' in
@@ -3600,7 +3647,7 @@ module Version =
   (** val build : string **)
 
   let build =
-    "15"
+    "16"
 
   (** val version : string **)
 

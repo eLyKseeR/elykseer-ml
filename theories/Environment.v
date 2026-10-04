@@ -2,8 +2,8 @@
       e L y K s e e R
 *)
 
-Require Import NArith PArith.
-From Coq Require Import NArith.BinNat Lists.List Strings.String Program.Basics.
+From Stdlib Require Import NArith PArith.
+From Stdlib Require Import NArith.BinNat Lists.List Strings.String Program.Basics.
 
 From LXR Require Import Assembly.
 From LXR Require Import Configuration.
@@ -53,7 +53,7 @@ Module EnvironmentWritable <: ENV.
     Definition finalise_assembly (e0 : environment AB) : option (aid_t * keyinformation) :=
         let a0 := e0.(cur_assembly AB) in
         let apos := Assembly.apos a0 in
-        conditionalTrace e0.(econfig AB).(trace) (N.ltb 16 apos) (* apos > 16 *)
+        conditionalTrace e0.(econfig AB).(trace) (N.ltb 0 apos) (* apos > 0 *)
         (Tracer.info) (Some ("finalising assembly " ++ a0.(aid) ++ " with apos = " ++ i2s (n2i apos))%string)
         (fun _ =>
             let (a,b) := Assembly.finish a0 e0.(cur_buffer AB) in
@@ -82,7 +82,7 @@ Module EnvironmentWritable <: ENV.
         end.
     
     Program Definition backup (e0 : environment AB) (fp : string) (fpos : N) (content : BufferPlain.buffer_t) : (environment AB * (blockinformation * option (aid_t * keyinformation))) :=
-        let afree := (Assembly.assemblysize e0.(econfig AB).(Configuration.config_nchunks)) - e0.(cur_assembly AB).(apos) in
+        let afree := (Assembly.assemblysize e0.(econfig AB).(Configuration.config_nchunks)) - e0.(cur_assembly AB).(apos) - 16 in
         let blen := BufferPlain.buffer_len content in
         let (ki, e1) := if afree <? blen then
                             match finalise_and_recreate_assembly e0 with

@@ -2,9 +2,9 @@
       e L y K s e e R
 *)
 
-Require Import Program.
-Require Import NArith PArith.
-From Coq Require Import NArith.BinNat Lists.List Strings.String Lia.
+From Stdlib Require Import Program.
+From Stdlib Require Import NArith PArith.
+From Stdlib Require Import NArith.BinNat Lists.List Strings.String Lia.
 
 From LXR Require Import Assembly.
 From LXR Require Import Configuration.
