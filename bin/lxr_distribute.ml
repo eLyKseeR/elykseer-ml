@@ -27,6 +27,7 @@ let arg_nchunks : int ref = ref 16
 let arg_myid = ref def_myid
 let arg_direction = ref "PUT"  (* or GET *)
 let arg_parallel = ref 1
+let arg_insecure = ref false
 
 let argspec =
   [
@@ -38,6 +39,7 @@ let argspec =
     ("-i", Arg.Set_string arg_myid, "sets own identifier");
     ("-j", Arg.Set_int arg_parallel, "sets number of parallel jobs (default is 1)");
     ("-c", Arg.Set_string arg_configpath, "sets path for sink configuration file");
+    ("--insecure", Arg.Set arg_insecure, "allows http to non-local hosts and a sink configuration with inline secrets that is readable by group or others");
   ]
 
 let anon_args_fun fn = arg_weights := (int_of_string fn) :: !arg_weights
@@ -61,11 +63,11 @@ let from_json_s3_sink c nm cs ac =
   match nm with
   | None -> None
   | Some name ->
-    match Yojson.Basic.Util.member "access-key" cs |> Yojson.Basic.Util.to_string_option with
-    | None -> None
+    match Sinkcheck.resolve_secret cs "access-key" with
+    | None -> Printf.eprintf "sink '%s': missing access-key (or access-key-env)\n" name; None
     | Some user ->
-      match Yojson.Basic.Util.member "secret-key" cs |> Yojson.Basic.Util.to_string_option with
-      | None -> None
+      match Sinkcheck.resolve_secret cs "secret-key" with
+      | None -> Printf.eprintf "sink '%s': missing secret-key (or secret-key-env)\n" name; None
       | Some password ->
         match Yojson.Basic.Util.member "bucket" ac |> Yojson.Basic.Util.to_string_option with
         | None -> None
@@ -83,6 +85,9 @@ let from_json_s3_sink c nm cs ac =
                 match Yojson.Basic.Util.member "protocol" ac |> Yojson.Basic.Util.to_string_option with
                 | None -> None
                 | Some protocol ->
+                  match Sinkcheck.check_protocol ~insecure:!arg_insecure ~host protocol with
+                  | Error msg -> Printf.eprintf "sink '%s': %s\n" name msg; None
+                  | Ok () ->
                   let smap = List.fold_left (fun acc (k,v) -> Distribution.SMap.add k v acc ) Distribution.SMap.empty  [("name", name); ("access", user); ("secret", password); ("bucket", bucket); ("prefix", prefix); ("protocol", protocol); ("host", host); ("port", port)] in
                   Distribution.S3Sink.init c smap
 
@@ -272,6 +277,8 @@ let put_chunk_fs (dest : Distribution.FSSink.coq_Sink) fp =
     Lwt.return (fp, -1)
 
 
+(* requests are signed with AWS SigV4 by curl, using the access and secret key
+   that are set as username and password on each request *)
 let copy_chunks_s3 (dest : Distribution.S3Sink.coq_Sink) fps =
   let region = extract_s3_region dest.connection.s3host in
   let client = Ezcurl_lwt.make ~set_opts:(fun c -> Curl.set_aws_sigv4 c (Printf.sprintf "aws:amz:%s:s3" region)) () in
@@ -321,7 +328,18 @@ let main () = Arg.parse argspec anon_args_fun "lxr_distribute: ";
                   path_db     = Filename.concat (Filename.get_temp_dir_name ()) "db";
                   my_id       = myid;
                   trace       = tracer } in
-  let sinks = Yojson.Basic.from_file !arg_configpath |> from_json_sinks conf in
+  let jconf = Yojson.Basic.from_file !arg_configpath in
+  let inline_secrets = match Yojson.Basic.Util.member "sinks" jconf with
+    | `List ss -> List.exists (fun s ->
+                    let cs = Yojson.Basic.Util.member "credentials" s in
+                    Sinkcheck.has_inline_secret cs "access-key" || Sinkcheck.has_inline_secret cs "secret-key") ss
+    | _ -> false in
+  let () = match Sinkcheck.check_config_mode ~insecure:!arg_insecure ~inline_secrets !arg_configpath with
+    | Ok () -> ()
+    | Error msg -> Printf.eprintf "%s\n" msg; exit 2 in
+  let sinks = from_json_sinks conf jconf in
+  let () = if List.exists Option.is_none sinks then begin
+      Printf.eprintf "invalid sink configuration in '%s'\n" !arg_configpath; exit 2 end in
   let fps = Distribution.enumerate_chunk_paths conf !arg_aid nchunks in
   let ws = List.map (fun w -> Conversion.i2n w) (List.rev !arg_weights) in
   let fps' = Distribution.distribute_by_weight fps ws in

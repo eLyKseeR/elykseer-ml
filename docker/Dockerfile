@@ -7,22 +7,33 @@ ARG BASE_VERSION=1
 
 FROM codieplusplus/elykseer-ml:base_${BASE_VERSION} AS build-env
 
+# third-party sources pinned to commits (DEP-1); update deliberately
+# v0.3.7
+ARG COQ_RECORD_UPDATE_COMMIT=2732f29e98d1bcb0a636c05810873e6e3cfaab25
+ARG ML_CPP_CSTDIO_COMMIT=ef6ebd4dcc23ab1536a1293e2fce2fe11ff1cb63
+ARG ML_CPP_CHRONO_COMMIT=4919fc3329dacc11853369f25723b9ab1aa114a8
+ARG ML_CPP_FILESYSTEM_COMMIT=b3e2039ee7018070c8175aa5490b427077167b82
+# v2.2.0
+ARG ELYKSEER_CRYPTO_COMMIT=a58a3d4a4adb2605aff78d0ad080a75c6ca11c02
+
 COPY --chown=1000 . /home/coq/
 
-# install into ~/.local: boost-1.83.0, zlib-1.3 (prebuilt)
-RUN tar xzf ./prebuilt/dot.local-$(uname -m).tgz
+# install into ~/.local: boost-1.83.0, zlib-1.3 (prebuilt, see prebuilt/README.md);
+# the tarball must match its recorded checksum
+RUN cd prebuilt && grep " dot.local-$(uname -m).tgz\$" SHA256SUMS | sha256sum -c - && cd .. \
+ && tar xzf ./prebuilt/dot.local-$(uname -m).tgz
 
 ENV PKG_CONFIG_PATH=/home/coq/.local/lib
 ENV BOOST_ROOT=/home/coq/.local
 ENV ZLIB_ROOT=/home/coq/.local
 
-RUN eval $(opam env) && cd /tmp/ && git clone https://github.com/tchajed/coq-record-update.git coq-record-update.git && cd coq-record-update.git && git checkout v0.3.7 && make && make install
-RUN eval $(opam env) && cd /tmp/ && git clone https://github.com/CodiePP/ml-cpp-cstdio.git ml-cpp-cstdio.git && cd ml-cpp-cstdio.git && dune build && dune install
-RUN eval $(opam env) && cd /tmp/ && git clone https://github.com/CodiePP/ml-cpp-chrono.git ml-cpp-chrono.git && cd ml-cpp-chrono.git && dune build && dune install
-RUN eval $(opam env) && cd /tmp/ && git clone https://github.com/CodiePP/ml-cpp-filesystem.git ml-cpp-filesystem.git && cd ml-cpp-filesystem.git && dune build && dune install
+RUN eval $(opam env) && cd /tmp/ && git clone https://github.com/tchajed/coq-record-update.git coq-record-update.git && cd coq-record-update.git && git checkout --detach ${COQ_RECORD_UPDATE_COMMIT} && make && make install
+RUN eval $(opam env) && cd /tmp/ && git clone https://github.com/CodiePP/ml-cpp-cstdio.git ml-cpp-cstdio.git && cd ml-cpp-cstdio.git && git checkout --detach ${ML_CPP_CSTDIO_COMMIT} && dune build && dune install
+RUN eval $(opam env) && cd /tmp/ && git clone https://github.com/CodiePP/ml-cpp-chrono.git ml-cpp-chrono.git && cd ml-cpp-chrono.git && git checkout --detach ${ML_CPP_CHRONO_COMMIT} && dune build && dune install
+RUN eval $(opam env) && cd /tmp/ && git clone https://github.com/CodiePP/ml-cpp-filesystem.git ml-cpp-filesystem.git && cd ml-cpp-filesystem.git && git checkout --detach ${ML_CPP_FILESYSTEM_COMMIT} && dune build && dune install
 # dev.gnupg.org is unreliable (connection refused / HTTP 429); use the official GitHub mirrors
 RUN git config --global url."https://github.com/gpg/".insteadOf "https://dev.gnupg.org/source/"
-RUN cd /tmp/ && git clone https://github.com/eLyKseeR/elykseer-crypto.git elykseer-crypto.git && cd elykseer-crypto.git && git submodule update --init && make -C ext
+RUN cd /tmp/ && git clone https://github.com/eLyKseeR/elykseer-crypto.git elykseer-crypto.git && cd elykseer-crypto.git && git checkout --detach ${ELYKSEER_CRYPTO_COMMIT} && git submodule update --init && make -C ext
 # C++20 modules need the Ninja generator; GCC 14 crashes (ICE) on elykseer-crypto's modules, so use Clang
 USER root
 RUN apt update && apt install -y ninja-build clang clang-tools
@@ -34,7 +45,8 @@ RUN tar cvzf /tmp/coq.home.tgz -C /home/coq --exclude ./prebuilt/\* --exclude ./
 
 ###############################################################################
 
-FROM debian:latest
+# pinned by version and digest, same as Dockerfile.base
+FROM debian:trixie-20260918@sha256:9cc080028c43b27d2074d63a5f9caf7166d731494965616c1a6d2827a004585c
 
 # 
 LABEL org.opencontainers.image.source=https://github.com/eLyKseeR/elykseer-ml

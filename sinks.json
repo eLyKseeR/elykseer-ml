@@ -22,8 +22,8 @@
         "name": "s3_aws",
         "description": "AWS S3 storage",
         "credentials": {
-            "access-key": "AKIA4VLHJ8YV6EXAMPEL",
-            "secret-key": "s3cr3t"
+            "access-key-env": "AWS_ACCESS_KEY_ID",
+            "secret-key-env": "AWS_SECRET_ACCESS_KEY"
         },
         "access": {
             "bucket": "mybucket",

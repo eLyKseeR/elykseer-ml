@@ -281,6 +281,8 @@ outputs:
   restored 2 files with 12582911 bytes in total
 ```
 
+File names are restored relative to the output directory: an absolute name like `/home/me/test4M` is restored to `/tmp/home/me/test4M`; names containing `..` are refused.
+
 The files were extracted to `/tmp/` and can be compared with: `md5sum /tmp/test4M test4M /tmp/test8M test8M`
 
 ```

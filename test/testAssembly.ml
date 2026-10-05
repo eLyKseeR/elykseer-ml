@@ -90,6 +90,43 @@ let test_gcm_tampered () =
   Alcotest.(check bool) "tampered ciphertext fails" true
     (Option.is_none (L.Assembly.decrypt ae be ki))
 
+(* GCM nonce = first 12 bytes (24 hex chars) of the ivec *)
+let gcm_nonce (ki : L.Assembly.keyinformation) = String.sub ki.ivec 0 24
+
+let all_distinct ls = List.length (List.sort_uniq compare ls) = List.length ls
+
+(* the key generators used by finalise_assembly never repeat a key or a nonce *)
+let test_key_uniqueness () =
+  let n = 1000 in
+  let kis = List.init n (fun _ ->
+      { L.Assembly.ivec = L.Environment.cpp_mk_key128 ()
+      ; pkey = L.Environment.cpp_mk_key256 ()
+      ; localnchunks = L.Conversion.i2p 16 }) in
+  Alcotest.(check int) "pkey length" 64 (String.length (List.hd kis).pkey);
+  Alcotest.(check int) "ivec length" 32 (String.length (List.hd kis).ivec);
+  Alcotest.(check bool) "keys distinct" true
+    (all_distinct (List.map (fun (ki : L.Assembly.keyinformation) -> ki.pkey) kis));
+  Alcotest.(check bool) "nonces distinct" true
+    (all_distinct (List.map gcm_nonce kis))
+
+(* two finalised assemblies never share aid, key or nonce *)
+let test_finalise_fresh_keys () =
+  let chunkdir = Filename.temp_dir "lxr_test_chunks" "" in
+  let conf = { (gcm_config ()) with L.Configuration.path_chunks = chunkdir } in
+  let finalise () =
+    let e0 = L.Environment.EnvironmentWritable.initial_environment conf in
+    let content = L.Cstdio.BufferPlain.from_buffer (Cstdio.File.Buffer.from_string gcm_content) in
+    let e1, _ = L.Environment.EnvironmentWritable.backup e0 "testfile" (L.Conversion.i2n 0) content in
+    match L.Environment.EnvironmentWritable.finalise_assembly e1 with
+    | None -> Alcotest.fail "finalise_assembly failed"
+    | Some (aid, ki) -> (aid, ki) in
+  let (aid1, ki1) = finalise () in
+  let (aid2, ki2) = finalise () in
+  ignore (Sys.command (Filename.quote_command "rm" ["-rf"; chunkdir]));
+  Alcotest.(check bool) "aids differ" true (aid1 <> aid2);
+  Alcotest.(check bool) "keys differ" true (ki1.pkey <> ki2.pkey);
+  Alcotest.(check bool) "nonces differ" true (gcm_nonce ki1 <> gcm_nonce ki2)
+
 (* a disabled log level must not skip the traced computation *)
 let test_tracer_disabled_level () =
   let run t = L.Tracer.conditionalTrace t true
@@ -110,5 +147,7 @@ let test =
     test_case "gcm wrong key" `Quick test_gcm_wrong_key;
     test_case "gcm wrong aid" `Quick test_gcm_wrong_aid;
     test_case "gcm tampered" `Quick test_gcm_tampered;
+    test_case "key and nonce uniqueness" `Quick test_key_uniqueness;
+    test_case "finalise uses fresh keys" `Quick test_finalise_fresh_keys;
     test_case "tracer disabled level" `Quick test_tracer_disabled_level;
   ]

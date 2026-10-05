@@ -28,6 +28,19 @@ let argspec =
 
 let anon_args_fun fn = arg_files := fn :: !arg_files
 
+(* the restored file must stay below the output directory, also when
+   following symlinks that already exist in it *)
+let contained_target basep fname =
+  match Pathutils.restore_relpath fname with
+  | Error msg -> Error msg
+  | Ok relp ->
+    let targetp = Filesystem.Path.append basep (Filesystem.Path.from_string relp) in
+    match Filesystem.Path.weakly_canonical basep, Filesystem.Path.weakly_canonical targetp with
+    | Some cbase, Some ctarget
+      when Pathutils.is_below ~base:(Filesystem.Path.to_string cbase) (Filesystem.Path.to_string ctarget) ->
+        Ok (Filesystem.Path.from_string relp, targetp)
+    | _ -> Error (Printf.sprintf "file name '%s' resolves outside of the output directory" fname)
+
 (* restores a file and returns (bytes restored, success, processor);
    a file that could not be completely restored is removed again *)
 let restore_file proc relf _relk basep fname =
@@ -35,13 +48,15 @@ let restore_file proc relf _relk basep fname =
   match ofbs with
   | None -> let%lwt () = Lwt_io.printlf "  cannot restore file '%s': no meta data found" fname in Lwt.return (0,false,proc)
   | Some rfbs ->
-      let targetp = Filesystem.Path.append basep (Filesystem.Path.from_string fname) in
+    match contained_target basep fname with
+    | Error msg -> let%lwt () = Lwt_io.printlf "  cannot restore file '%s': %s" fname msg in Lwt.return (0,false,proc)
+    | Ok (relp, targetp) ->
       let target = Filesystem.Path.to_string targetp in
       if Filesystem.Path.exists targetp then
         let%lwt () = Lwt_io.printlf "  cannot restore file '%s': '%s' already exists" fname target in
         Lwt.return (0,false,proc)
       else
-        let (n, proc') = Processor.file_restore proc basep (Filesystem.Path.from_string fname) rfbs.rfbs in
+        let (n, proc') = Processor.file_restore proc basep relp rfbs.rfbs in
         let n = Conversion.n2i n
         and fsize = Conversion.n2i rfbs.rfi.fsize in
         if n = fsize then

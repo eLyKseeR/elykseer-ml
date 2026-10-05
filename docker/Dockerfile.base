@@ -6,10 +6,15 @@
 #     -t codieplusplus/elykseer-ml:base_${VERSION} --push .
 # (see README.md for the two-step per-arch variant)
 
-FROM debian:latest
+# base image pinned by version and digest; update both together:
+#   docker buildx imagetools inspect debian:trixie-YYYYMMDD
+FROM debian:trixie-20260918@sha256:9cc080028c43b27d2074d63a5f9caf7166d731494965616c1a6d2827a004585c
 
 ARG OCAML_VERSION=5.2.1
 ARG COQ_VERSION=9.0.0
+# third-party sources pinned to commits (DEP-1); update deliberately
+ARG OCURL_COMMIT=dc00dcb3ec5c1b55a28448a2f301fa1ce6af3019
+ARG EZCURL_COMMIT=3a7d246b7e29935dee96007f47c66ee2356e90cf
 
 RUN apt update && apt upgrade -y && apt install -y opam bash git binutils texinfo automake autoconf less vim cmake ninja-build clang clang-tools gcc g++ gettext sed curl pandoc pkg-config cppcheck libdigest-sha3-perl libgmp-dev libffi-dev libcurl4-gnutls-dev
 
@@ -28,7 +33,7 @@ RUN eval $(opam env) && opam repo add coq-released https://coq.inria.fr/opam/rel
 
 RUN eval $(opam env) && opam -y pin add coq ${COQ_VERSION}
 RUN eval $(opam env) && opam -y install yojson lwt_ppx irmin-git irmin-cli irmin alcotest alcotest-lwt ppx_optcomp
-RUN eval $(opam env) && cd /tmp/ && git clone https://github.com/ygrek/ocurl.git ocurl.git && cd ocurl.git && dune build && dune install
-RUN eval $(opam env) && cd /tmp/ && git clone https://github.com/c-cube/ezcurl.git ezcurl.git && cd ezcurl.git && dune build -p ezcurl,ezcurl-lwt && dune install -p ezcurl && dune install -p ezcurl-lwt
+RUN eval $(opam env) && cd /tmp/ && git clone https://github.com/ygrek/ocurl.git ocurl.git && cd ocurl.git && git checkout --detach ${OCURL_COMMIT} && dune build && dune install
+RUN eval $(opam env) && cd /tmp/ && git clone https://github.com/c-cube/ezcurl.git ezcurl.git && cd ezcurl.git && git checkout --detach ${EZCURL_COMMIT} && dune build -p ezcurl,ezcurl-lwt && dune install -p ezcurl && dune install -p ezcurl-lwt
 
 RUN rm -rf /tmp/ocurl.git /tmp/ezcurl.git && opam clean -a -c -s --logs

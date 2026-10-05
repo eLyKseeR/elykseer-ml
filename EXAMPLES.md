@@ -87,7 +87,7 @@ file `sinks.json`:
   "version": "1.0.0",
   "sinks": [
     {
-        "type": "MINIO",
+        "type": "S3",
         "name": "s3_minio",
         "description": "minio storage cluster",
         "credentials": {
@@ -118,9 +118,19 @@ file `sinks.json`:
 }
 ```
 
+Credentials:
+- S3 requests are signed with AWS SigV4 (by curl); this works with AWS S3 and MinIO.
+- instead of inline secrets, `"access-key-env"` and `"secret-key-env"` can name environment variables that hold the secrets, e.g. `"secret-key-env": "AWS_SECRET_ACCESS_KEY"`; these take precedence.
+- a configuration file with inline secrets must not be readable by group or others: `chmod 600 sinks.json`
+- only `https` is accepted as protocol, `http` only for `localhost`/loopback.
+- `--insecure` disables the last two checks.
+
+An invalid sink in the configuration (unknown type, missing field, rejected protocol) makes `lxr_distribute` exit with code 2.
+
 copy half of the chunks of the assembly to each storage locations:
 ```sh
 AID=<something>
+chmod 600 sinks.json
 
 dune exec bin/lxr_distribute.exe -- -v -d PUT -n 16 -x ${ELYKSEER_chunks} -i $MYID -a $AID -c sinks.json 8 8
 ```

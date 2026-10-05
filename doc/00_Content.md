@@ -12,3 +12,5 @@
 ## 05 [Caching](05_AssemblyCache.md) data
 
 ## 06 File backup [Processor](06_Processor.md)
+
+## 07 Encryption [keys and nonces](07_Keys_and_Nonces.md)
