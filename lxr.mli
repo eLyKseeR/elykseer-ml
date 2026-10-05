@@ -274,18 +274,23 @@ module Cstdio :
   module BufferPlain :
    BUF
 
+  val tag_len : n
+
   val cpp_encrypt_buffer :
-    BufferPlain.buffer_t -> n -> string -> string ->
-    n * BufferEncrypted.buffer_t
+    BufferPlain.buffer_t -> n -> string -> string -> string ->
+    (n * BufferEncrypted.buffer_t) option
 
   val encrypt :
-    BufferPlain.buffer_t -> string -> string -> n * BufferEncrypted.buffer_t
+    BufferPlain.buffer_t -> string -> string -> string ->
+    (n * BufferEncrypted.buffer_t) option
 
   val cpp_decrypt_buffer :
-    BufferEncrypted.buffer_t -> string -> string -> n * BufferPlain.buffer_t
+    BufferEncrypted.buffer_t -> string -> string -> string ->
+    (n * BufferPlain.buffer_t) option
 
   val decrypt :
-    BufferEncrypted.buffer_t -> string -> string -> n * BufferPlain.buffer_t
+    BufferEncrypted.buffer_t -> string -> string -> string ->
+    (n * BufferPlain.buffer_t) option
 
   val cpp_ranbuf128 : unit -> cstdio_buffer
 

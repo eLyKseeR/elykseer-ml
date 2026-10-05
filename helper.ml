@@ -8,7 +8,8 @@ external cpp_buffer_id : 'a -> 'b = "cpp_buffer_id"
 *)
 external mk_cid_subdir : string -> string = "cpp_mk_cid_subdir"
 
+(** 128 bytes of random data (8 x 16 bytes), same size as in elykseer-rs *)
 let ranbuf128 () =
-  let r = Elykseer_crypto.Key128.mk () |> Elykseer_crypto.Key128.to_bytes in
-  let b = Cstdio.File.Buffer.create (16) in
-  Cstdio.File.Buffer.copy_string r b 16; b
+  let r = String.concat "" (List.init 8 (fun _ -> Elykseer_crypto.Key128.mk () |> Elykseer_crypto.Key128.to_bytes)) in
+  let b = Cstdio.File.Buffer.create (128) in
+  Cstdio.File.Buffer.copy_string r b 128; b

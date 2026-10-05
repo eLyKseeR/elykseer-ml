@@ -22,7 +22,8 @@ Record tracer :=
         ; logError : string -> option unit
         }.
 
-Definition ignore {A} (x : A) : option unit := None.
+(* a disabled log level must succeed, otherwise the traced computation is skipped *)
+Definition ignore {A} (x : A) : option unit := Some tt.
 
 Definition nullTracer : tracer :=
     mktracer ignore ignore ignore ignore.

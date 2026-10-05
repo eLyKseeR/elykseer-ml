@@ -6,7 +6,7 @@ From Stdlib Require Import Strings.String Program.Basics.
 From Stdlib Require Import NArith PArith.
 From Stdlib Require Import NArith.BinNat.
 
-From LXR Require Import Assembly Nchunks Conversion.
+From LXR Require Import Assembly Cstdio Nchunks Conversion.
 
 Module CheckApos.
 
@@ -32,26 +32,26 @@ Section Non_Local_Assembly.
 (* a non-local apos calculation that fits in 32 bits *)
 (* features: 
      - non-local by separating by n_chunks bytes
-     - not touching first (n_chunks - 16) bytes (reserved for random data), and last 16 bytes (tag)
+     - not touching first (n_chunks - tag_len) bytes (reserved for random data), and last tag_len bytes (GCM tag)
      - index calculation fits in 32 bit *)
 Local Definition idx2apos32 (idx : N) (a : assemblyinformation) : N :=
     let nch : N := Nchunks.to_N (nchunks a) in
     let asize : N := assemblysize (nchunks a) in
     let eff_asize : N := asize - nch in
     let proj : N := idx * nch in
-    (proj mod eff_asize) + (N.div proj eff_asize) + nch - 16.
+    (proj mod eff_asize) + (N.div proj eff_asize) + nch - Cstdio.tag_len.
 
 (* a non-local apos calculation that requires 64 bits *)
 (* features: 
      - non-local by separating by (chunkwidth * chunkheight - 1) bytes
-     - not touching first (n_chunks - 16) bytes (reserved for random data), and last 16 bytes (tag)
+     - not touching first (n_chunks - tag_len) bytes (reserved for random data), and last tag_len bytes (GCM tag)
      - index calculation requires 64 bit *)
      Local Definition idx2apos64 (idx : N) (a : assemblyinformation) : N :=
      let nch : N := Nchunks.to_N (nchunks a) in
      let asize : N := assemblysize (nchunks a) in
      let eff_asize : N := asize - nch in
      let proj : N := idx * (chunksize_N - 1) in
-     (proj mod eff_asize) + (N.div proj eff_asize) + nch - 16.
+     (proj mod eff_asize) + (N.div proj eff_asize) + nch - Cstdio.tag_len.
 
 Example apos32_of_index_0 :
     let ai := mkassembly (Nchunks.from_positive 17) "none" 0 in

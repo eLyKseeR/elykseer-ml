@@ -876,26 +876,34 @@ module Cstdio =
       Plain
    end
 
-  (** val cpp_encrypt_buffer :
-      BufferPlain.buffer_t -> n -> string -> string ->
-      n * BufferEncrypted.buffer_t **)
+  (** val tag_len : n **)
 
-  let cpp_encrypt_buffer = fun b dlen siv spk -> Elykseer_crypto.Aes256.encrypt (Elykseer_crypto.Key128.from_hex siv) (Elykseer_crypto.Key256.from_hex spk) (Mlcpp_cstdio.Cstdio.File.Buffer.size b) b (Conversion.n2i dlen) |> fun (cnt, b') -> (Conversion.i2n cnt, b')
+  let tag_len =
+    Npos (XO (XO (XO (XO XH))))
+
+  (** val cpp_encrypt_buffer :
+      BufferPlain.buffer_t -> n -> string -> string -> string ->
+      (n * BufferEncrypted.buffer_t) option **)
+
+  let cpp_encrypt_buffer = fun b dlen saad siv spk -> if String.length siv < 24 then None else Elykseer_crypto.Aes256gcm.encrypt (Elykseer_crypto.Key96.from_hex (String.sub siv 0 24)) (Elykseer_crypto.Key256.from_hex spk) saad (Mlcpp_cstdio.Cstdio.File.Buffer.size b) b (Conversion.n2i dlen) |> fun (cnt, b') -> if cnt < 0 then None else Some (Conversion.i2n cnt, b')
 
   (** val encrypt :
-      BufferPlain.buffer_t -> string -> string -> n * BufferEncrypted.buffer_t **)
+      BufferPlain.buffer_t -> string -> string -> string ->
+      (n * BufferEncrypted.buffer_t) option **)
 
-  let encrypt bin iv pw =
+  let encrypt bin aad iv pw =
     let blen = BufferPlain.buffer_len bin in
-    cpp_encrypt_buffer bin (N.sub blen (Npos (XO (XO (XO (XO XH)))))) iv pw
+    cpp_encrypt_buffer bin (N.sub blen tag_len) aad iv pw
 
   (** val cpp_decrypt_buffer :
-      BufferEncrypted.buffer_t -> string -> string -> n * BufferPlain.buffer_t **)
+      BufferEncrypted.buffer_t -> string -> string -> string ->
+      (n * BufferPlain.buffer_t) option **)
 
-  let cpp_decrypt_buffer = fun b siv spk -> Elykseer_crypto.Aes256.decrypt (Elykseer_crypto.Key128.from_hex siv) (Elykseer_crypto.Key256.from_hex spk) (Mlcpp_cstdio.Cstdio.File.Buffer.size b) b |> fun (cnt, b') -> (Conversion.i2n cnt, b')
+  let cpp_decrypt_buffer = fun b saad siv spk -> if String.length siv < 24 then None else Elykseer_crypto.Aes256gcm.decrypt (Elykseer_crypto.Key96.from_hex (String.sub siv 0 24)) (Elykseer_crypto.Key256.from_hex spk) saad (Mlcpp_cstdio.Cstdio.File.Buffer.size b) b |> fun (cnt, b') -> if cnt < 0 then None else Some (Conversion.i2n cnt, b')
 
   (** val decrypt :
-      BufferEncrypted.buffer_t -> string -> string -> n * BufferPlain.buffer_t **)
+      BufferEncrypted.buffer_t -> string -> string -> string ->
+      (n * BufferPlain.buffer_t) option **)
 
   let decrypt =
     cpp_decrypt_buffer
@@ -962,7 +970,7 @@ module Tracer =
   (** val ignore : 'a1 -> unit option **)
 
   let ignore _ =
-    None
+    Some ()
 
   (** val nullTracer : tracer **)
 
@@ -1554,7 +1562,7 @@ module Assembly =
       let rb = Cstdio.ranbuf128 () in
       let nb =
         Cstdio.BufferPlain.copy_sz_pos rb N0
-          (N.sub (Nchunks.to_N chunks) (Npos (XO (XO (XO (XO XH)))))) b N0
+          (N.sub (Nchunks.to_N chunks) Cstdio.tag_len) b N0
       in
       ({ nchunks = chunks; aid = (mkaid c); apos = nb }, b)
    end
@@ -1673,9 +1681,14 @@ module Assembly =
 
   let encrypt a b ki =
     let a' = set_apos a (assemblysize a.nchunks) in
-    let (_, benc) = Cstdio.encrypt (id_buffer_t_from_full b) ki.ivec ki.pkey
+    let filtered_var =
+      Cstdio.encrypt (id_buffer_t_from_full b) a.aid ki.ivec ki.pkey
     in
-    let b' = id_assembly_enc_buffer_t_from_buf benc in Some (a', b')
+    (match filtered_var with
+     | Some p ->
+       let (_, benc) = p in
+       let b' = id_assembly_enc_buffer_t_from_buf benc in Some (a', b')
+     | None -> None)
 
   (** val assembly_get_content :
       AssemblyPlainFull.coq_B -> n -> n -> Cstdio.BufferPlain.buffer_t -> n **)
@@ -1716,8 +1729,14 @@ module Assembly =
 
   let decrypt a b ki =
     let a' = set_apos a N0 in
-    let (_, bdec) = Cstdio.decrypt (id_buffer_t_from_enc b) ki.ivec ki.pkey in
-    let b' = id_assembly_plain_buffer_t_from_buf bdec in Some (a', b')
+    let filtered_var =
+      Cstdio.decrypt (id_buffer_t_from_enc b) a.aid ki.ivec ki.pkey
+    in
+    (match filtered_var with
+     | Some p ->
+       let (_, bdec) = p in
+       let b' = id_assembly_plain_buffer_t_from_buf bdec in Some (a', b')
+     | None -> None)
 
   (** val chunk_identifier :
       Configuration.configuration -> aid_t -> positive -> string **)
@@ -2164,7 +2183,7 @@ module Environment =
           (N.sub
             (Assembly.assemblysize e0.econfig.Configuration.config_nchunks)
             e0.cur_assembly.Assembly.apos)
-          (Npos (XO (XO (XO (XO XH)))))
+          Cstdio.tag_len
       in
       let blen = Cstdio.BufferPlain.buffer_len content in
       let (ki, e1) =
@@ -3420,7 +3439,7 @@ module Processor =
        in
        (match filtered_var0 with
         | Some _ -> None
-        | None -> Some this0))
+        | None -> None))
 
   (** val internal_restore_to :
       processor -> Cstdio.fptr -> AssemblyCache.readqueueresult list -> n **)
@@ -3642,12 +3661,12 @@ module Version =
   (** val minor : string **)
 
   let minor =
-    "9"
+    "10"
 
   (** val build : string **)
 
   let build =
-    "16"
+    "0"
 
   (** val version : string **)
 

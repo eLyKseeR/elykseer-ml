@@ -81,8 +81,8 @@ Module AssemblyPlainWritable : ASS.
         let chunks := config_nchunks c in
         let b := BufferPlain.buffer_create (chunksize_N * Nchunks.to_N chunks) in
         let rb := Cstdio.ranbuf128 tt in
-        (* header bytes: n_chunks - 16; so tail is 16 bytes *)
-        let nb := BufferPlain.copy_sz_pos rb 0 (Nchunks.to_N chunks - 16) b 0 in
+        (* header bytes: n_chunks - tag_len; the tail of tag_len bytes holds the GCM tag *)
+        let nb := BufferPlain.copy_sz_pos rb 0 (Nchunks.to_N chunks - Cstdio.tag_len) b 0 in
         (mkassembly chunks (mkaid c) nb, b).
 End AssemblyPlainWritable.
 (* Print AssemblyPlainWritable. *)
@@ -149,9 +149,12 @@ Axiom id_buffer_t_from_full : AssemblyPlainFull.B -> BufferPlain.buffer_t.
 Axiom id_assembly_enc_buffer_t_from_buf : BufferEncrypted.buffer_t -> AssemblyEncrypted.B.
 Program Definition encrypt (a : assemblyinformation) (b : AssemblyPlainFull.B) (ki : keyinformation) : option (assemblyinformation * AssemblyEncrypted.B) :=
     let a' := set_apos a (assemblysize (nchunks a)) in
-    let (_bsz, benc)  := Cstdio.encrypt (id_buffer_t_from_full b) (ivec ki) (pkey ki) in
-    let b' := id_assembly_enc_buffer_t_from_buf benc in
-    Some (a', b').
+    match Cstdio.encrypt (id_buffer_t_from_full b) (aid a) (ivec ki) (pkey ki) with
+    | None => None
+    | Some (_bsz, benc) =>
+        let b' := id_assembly_enc_buffer_t_from_buf benc in
+        Some (a', b')
+    end.
 
 Axiom assembly_get_content : AssemblyPlainFull.B -> N -> N -> BufferPlain.buffer_t -> N.
 Program Definition restore (b : AssemblyPlainFull.B) (bi : blockinformation) : option BufferPlain.buffer_t :=
@@ -176,9 +179,13 @@ Axiom id_buffer_t_from_enc : AssemblyEncrypted.B -> BufferEncrypted.buffer_t.
 Axiom id_assembly_plain_buffer_t_from_buf : BufferPlain.buffer_t -> AssemblyPlainFull.B.
 Program Definition decrypt (a : assemblyinformation) (b : AssemblyEncrypted.B) (ki : keyinformation) : option (assemblyinformation * AssemblyPlainFull.B) :=
     let a' := set_apos a 0 in
-    let (_bsz, bdec) := Cstdio.decrypt (id_buffer_t_from_enc b) (ivec ki) (pkey ki) in
-    let b' := id_assembly_plain_buffer_t_from_buf bdec in
-    Some (a', b').
+    (* fails if the key, the ivec, or the aid do not match, or the data was tampered with *)
+    match Cstdio.decrypt (id_buffer_t_from_enc b) (aid a) (ivec ki) (pkey ki) with
+    | None => None
+    | Some (_bsz, bdec) =>
+        let b' := id_assembly_plain_buffer_t_from_buf bdec in
+        Some (a', b')
+    end.
 
 Axiom chunk_identifier : configuration -> aid_t -> positive -> string.
 Axiom chunk_identifier_path : configuration -> aid_t -> positive -> string.

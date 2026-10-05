@@ -265,8 +265,9 @@ Extract Constant id_enc_from_buffer_t => "fun b -> Helper.cpp_buffer_id b".
 Extract Constant id_assembly_full_buffer_from_writable => "fun b -> Helper.cpp_buffer_id b".
 Extract Constant id_assembly_full_ainfo_from_writable => "fun b -> Helper.cpp_buffer_id b".
 
-Extract Constant cpp_encrypt_buffer => "fun b dlen siv spk -> Elykseer_crypto.Aes256.encrypt (Elykseer_crypto.Key128.from_hex siv) (Elykseer_crypto.Key256.from_hex spk) (Mlcpp_cstdio.Cstdio.File.Buffer.size b) b (Conversion.n2i dlen) |> fun (cnt, b') -> (Conversion.i2n cnt, b')".
-Extract Constant cpp_decrypt_buffer => "fun b siv spk -> Elykseer_crypto.Aes256.decrypt (Elykseer_crypto.Key128.from_hex siv) (Elykseer_crypto.Key256.from_hex spk) (Mlcpp_cstdio.Cstdio.File.Buffer.size b) b |> fun (cnt, b') -> (Conversion.i2n cnt, b')".
+(* AES-256-GCM: nonce = first 12 bytes of the 16-byte ivec; a negative count signals failure *)
+Extract Constant cpp_encrypt_buffer => "fun b dlen saad siv spk -> if String.length siv < 24 then None else Elykseer_crypto.Aes256gcm.encrypt (Elykseer_crypto.Key96.from_hex (String.sub siv 0 24)) (Elykseer_crypto.Key256.from_hex spk) saad (Mlcpp_cstdio.Cstdio.File.Buffer.size b) b (Conversion.n2i dlen) |> fun (cnt, b') -> if cnt < 0 then None else Some (Conversion.i2n cnt, b')".
+Extract Constant cpp_decrypt_buffer => "fun b saad siv spk -> if String.length siv < 24 then None else Elykseer_crypto.Aes256gcm.decrypt (Elykseer_crypto.Key96.from_hex (String.sub siv 0 24)) (Elykseer_crypto.Key256.from_hex spk) saad (Mlcpp_cstdio.Cstdio.File.Buffer.size b) b |> fun (cnt, b') -> if cnt < 0 then None else Some (Conversion.i2n cnt, b')".
 
 Extract Constant cpp_mk_key256 => "fun () -> Elykseer_crypto.Key256.mk () |> Elykseer_crypto.Key256.to_hex".
 Extract Constant cpp_mk_key128 => "fun () -> Elykseer_crypto.Key128.mk () |> Elykseer_crypto.Key128.to_hex".

@@ -28,7 +28,7 @@ let check_bm i rel =
   | Some _k -> Lwt.return 1
 
 let benchmark_run cnt _ () =
-  let%lwt () = Lwt_io.printlf "benchmarking %d repetitions" cnt in
+  Printf.printf "benchmarking %d repetitions\n" cnt;
   let config : Configuration.configuration =
     { config_nchunks = Nchunks.from_int 16
     ; path_chunks = "lxr"
@@ -43,15 +43,15 @@ let benchmark_run cnt _ () =
   (* bm2 *)
   let%lwt () = for%lwt i = 1 to cnt do
     let%lwt nbm = check_bm i rel' in
-    if nbm > 0 then Lwt_io.print "√" else Lwt_io.print "x"
+    Lwt.return (if nbm > 0 then print_string "√" else print_string "x")
   done in
   let clock2 = Chrono.Clock.System.now () in
   let tdiff1 = Chrono.Clock.System.diff clock1 clock0 in
   let tdiff2 = Chrono.Clock.System.diff clock2 clock1 in
-  let%lwt () = Lwt_io.printlf "preparation time:  %s" (Chrono.Duration.to_string @@ Chrono.Duration.cast_ms tdiff1) in
-  let%lwt () = Lwt_io.printlf "verification time: %s" (Chrono.Duration.to_string @@ Chrono.Duration.cast_ms tdiff2) in
+  Printf.printf "preparation time:  %s\n" (Chrono.Duration.to_string @@ Chrono.Duration.cast_ms tdiff1);
+  Printf.printf "verification time: %s\n" (Chrono.Duration.to_string @@ Chrono.Duration.cast_ms tdiff2);
   Gc.print_stat stdout;
-  Lwt.return ()
+  Relkeys.close_map rel'
 
 let example_output _ () =
   let config : Configuration.configuration =
@@ -65,7 +65,8 @@ let example_output _ () =
   let k2 : Assembly.keyinformation = {pkey="key0002";ivec="12";localnchunks=Conversion.i2p 24} in
   let%lwt _ = Relkeys.add "aid001" k1 rel in
   let%lwt _ = Relkeys.add "aid002" k2 rel in
-  Lwt_io.printl "done."
+  let%lwt () = Relkeys.close_map rel in
+  print_endline "done."; Lwt.return ()
 
 
 (* Runner *)

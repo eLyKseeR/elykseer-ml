@@ -80,14 +80,19 @@ Module Export BufferPlain : BUF.
 End BufferPlain.
 (* Print BufferPlain. *)
 
-Axiom cpp_encrypt_buffer : BufferPlain.buffer_t -> N -> string -> string -> N * BufferEncrypted.buffer_t.
-Definition encrypt (bin : BufferPlain.buffer_t) (iv : string) (pw : string) : (N * BufferEncrypted.buffer_t) :=
+(* AES-256-GCM authentication tag, stored in the last tag_len bytes of an assembly *)
+Definition tag_len : N := 16.
+
+(* AES-256-GCM: the nonce is derived from the ivec, the aad is authenticated but not encrypted *)
+Axiom cpp_encrypt_buffer : BufferPlain.buffer_t -> N -> string -> string -> string -> option (N * BufferEncrypted.buffer_t).
+Definition encrypt (bin : BufferPlain.buffer_t) (aad : string) (iv : string) (pw : string) : option (N * BufferEncrypted.buffer_t) :=
   let blen := BufferPlain.buffer_len bin in
-  (* the data length is the buffer length minus 16 bytes *)
-  cpp_encrypt_buffer bin (blen - 16) iv pw.
-Axiom cpp_decrypt_buffer : BufferEncrypted.buffer_t -> string -> string -> N * BufferPlain.buffer_t.
-Definition decrypt (bin : BufferEncrypted.buffer_t) (iv : string) (pw : string) : (N * BufferPlain.buffer_t) :=
-  cpp_decrypt_buffer bin iv pw.
+  (* the data length is the buffer length minus the tag *)
+  cpp_encrypt_buffer bin (blen - tag_len) aad iv pw.
+(* returns None if the authentication tag does not verify *)
+Axiom cpp_decrypt_buffer : BufferEncrypted.buffer_t -> string -> string -> string -> option (N * BufferPlain.buffer_t).
+Definition decrypt (bin : BufferEncrypted.buffer_t) (aad : string) (iv : string) (pw : string) : option (N * BufferPlain.buffer_t) :=
+  cpp_decrypt_buffer bin aad iv pw.
 
 Axiom cpp_ranbuf128 : unit -> cstdio_buffer.
 Program Definition ranbuf128 (_ : unit) : BufferPlain.buffer_t :=

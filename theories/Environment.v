@@ -82,7 +82,7 @@ Module EnvironmentWritable <: ENV.
         end.
     
     Program Definition backup (e0 : environment AB) (fp : string) (fpos : N) (content : BufferPlain.buffer_t) : (environment AB * (blockinformation * option (aid_t * keyinformation))) :=
-        let afree := (Assembly.assemblysize e0.(econfig AB).(Configuration.config_nchunks)) - e0.(cur_assembly AB).(apos) - 16 in
+        let afree := (Assembly.assemblysize e0.(econfig AB).(Configuration.config_nchunks)) - e0.(cur_assembly AB).(apos) - Cstdio.tag_len in
         let blen := BufferPlain.buffer_len content in
         let (ki, e1) := if afree <? blen then
                             match finalise_and_recreate_assembly e0 with

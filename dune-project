@@ -14,7 +14,7 @@
 
 (maintainers "Alexander Diemand <codieplusplus@apax.net>")
 
-(license LICENSE)
+(license GPL-3.0-or-later)
 
 (documentation https://url/to/documentation)
 
@@ -26,6 +26,8 @@
    (ocaml (>= 5.1.1))
    dune
    yojson
+   (elykseer_crypto (and (>= 2.2.0) (< 3.0.0)))
+   (mlcpp_chrono (and (>= 0.9.0) (< 0.10.0)))
  )
  (tags
   ("elixir for your data"
@@ -41,7 +43,7 @@
   (depends
     (ocaml (>= 5.1.1))
     (elykseer (= :version))
-    unix mlcpp_cstdio mlcpp_filesystem elykseer_crypto)
+    mlcpp_cstdio mlcpp_filesystem (elykseer_crypto (>= 2.2.0)))
 )
 
 (package
@@ -50,6 +52,5 @@
   (depends
     (ocaml (>= 5.1.1))
     (elykseer (= :version))
-    yojson mlcpp_cstdio mlcpp_filesystem elykseer_crypto)
+    yojson mlcpp_cstdio mlcpp_filesystem (elykseer_crypto (>= 2.2.0)))
 )
-

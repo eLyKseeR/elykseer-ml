@@ -160,7 +160,7 @@ Local Program Definition open_file_backup (fi : fileinformation) (tgtfbs : list 
     | None =>
         match Tracer.log this.(config).(trace) (Tracer.warning) ("failed to open file: " ++ fi.(fname))
         with | Some tt => None
-             | None => Some this
+             | None => None
         end
     end.
 

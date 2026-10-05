@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.10.0] - 2026-10-04
+
+### Change
+
+- assemblies are encrypted with AES-256-GCM instead of AES-256-CBC; the last 16 bytes of an assembly hold the authentication tag
+- the assembly id (aid) is bound to the encryption as additional authenticated data (AAD)
+- the GCM nonce is the first 12 bytes of the 16-byte ivec; the key information format is unchanged
+- the random header of an assembly is now up to 128 bytes (as in elykseer-rs)
+
+### Fix
+
+- decryption fails explicitly on a wrong key, a wrong aid, or tampered/corrupted data, instead of returning garbage
+- log levels disabled in the tracer no longer skip the traced computation; "lxr_backup" without "-v" did not write any chunks
+- "lxr_restore" checks that a file was completely restored; an incomplete file is removed, the failure is reported, and the exit code is 1
+- the Relkeys tests are run again (Alcotest.run exited the process before)
+
+### Incompatible
+
+- archives written by 0.9.x (AES-256-CBC) cannot be decrypted by this version
+- requires elykseer-crypto with module Aes256gcm
+
 ## [0.9.15] - 2025-04-18
 
 ### Added

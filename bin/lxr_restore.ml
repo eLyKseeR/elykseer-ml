@@ -28,17 +28,30 @@ let argspec =
 
 let anon_args_fun fn = arg_files := fn :: !arg_files
 
+(* restores a file and returns (bytes restored, success, processor);
+   a file that could not be completely restored is removed again *)
 let restore_file proc relf _relk basep fname =
   let%lwt ofbs = Relfiles.find (Elykseer_crypto.Sha3_256.string (fname ^ !arg_myid)) relf in
   match ofbs with
-  | None -> let%lwt () = Lwt_io.printlf "  cannot restore file '%s'" fname in Lwt.return (0,proc)
+  | None -> let%lwt () = Lwt_io.printlf "  cannot restore file '%s': no meta data found" fname in Lwt.return (0,false,proc)
   | Some rfbs ->
-      (* let%lwt () = if !arg_verbose then
-        Lwt_io.printlf "  restoring %d bytes in file '%s' from %d blocks" (Conversion.n2i rfbs.rfi.fsize) fname (List.length rfbs.rfbs)
-        else Lwt.return () in *)
-      let (n, proc') = Processor.file_restore proc basep (Filesystem.Path.from_string fname) rfbs.rfbs in
-      (* let%lwt _ = Lwt_io.printlf "     -> %d bytes" (Conversion.n2i n) in *)
-      Lwt.return (Conversion.n2i n, proc')
+      let targetp = Filesystem.Path.append basep (Filesystem.Path.from_string fname) in
+      let target = Filesystem.Path.to_string targetp in
+      if Filesystem.Path.exists targetp then
+        let%lwt () = Lwt_io.printlf "  cannot restore file '%s': '%s' already exists" fname target in
+        Lwt.return (0,false,proc)
+      else
+        let (n, proc') = Processor.file_restore proc basep (Filesystem.Path.from_string fname) rfbs.rfbs in
+        let n = Conversion.n2i n
+        and fsize = Conversion.n2i rfbs.rfi.fsize in
+        if n = fsize then
+          Lwt.return (n,true,proc')
+        else begin
+          (* missing blocks: e.g. lost chunks, wrong key, or corrupted data *)
+          if Sys.file_exists target then Sys.remove target;
+          let%lwt () = Lwt_io.printlf "  failed to restore file '%s': restored %d of %d bytes" fname n fsize in
+          Lwt.return (0,false,proc')
+        end
 
 (* find all assembly ids in the file blocks to be restored
    and put their encryption keys into the key store of the
@@ -62,20 +75,22 @@ let ensure_keys_available (ac0 : AssemblyCache.assemblycache) relf relk fns =
                     in
   Lwt.return { ac0 with ackstore = kstore' }
 
+(* returns the number of files that failed to restore *)
 let restore_files (proc0 : Processor.processor) relf relk basep fns =
     match fns with
-    | [] -> Lwt.return ()
+    | [] -> Lwt.return 0
     | _  -> let%lwt ac' = ensure_keys_available proc0.cache relf relk fns in
             let proc1 = { proc0 with cache = ac'} in
               let nf = List.length fns in
-              let%lwt (cnt,_proc') = Lwt_list.fold_left_s (fun (c,proc) fn ->
-                                       let%lwt (c',proc') = restore_file proc relf relk basep fn in
-                                       Lwt.return(c + c',proc')
-                                     ) (0,proc1) fns in
-              let%lwt () = if !arg_verbose then
-                Lwt_io.printlf "  restored %d files with %d bytes in total" nf cnt
+              let%lwt (cnt,nok,_proc') = Lwt_list.fold_left_s (fun (c,k,proc) fn ->
+                                       let%lwt (c',ok,proc') = restore_file proc relf relk basep fn in
+                                       Lwt.return(c + c', (if ok then k + 1 else k), proc')
+                                     ) (0,0,proc1) fns in
+              let nfailed = nf - nok in
+              let%lwt () = if !arg_verbose || nfailed > 0 then
+                Lwt_io.printlf "  restored %d of %d files with %d bytes in total" nok nf cnt
                 else Lwt.return () in
-              Lwt.return ()
+              Lwt.return nfailed
 
 let exists_output_dir d =
   let dp = Filesystem.Path.from_string d in
@@ -105,6 +120,7 @@ let main () = Arg.parse argspec anon_args_fun "lxr_restore: vxodnji";
       let basep = Filesystem.Path.from_string !arg_outpath in
       restore_files proc relf relk basep !arg_files
     else
-      Lwt_io.printl "nothing to do."
+      let%lwt () = Lwt_io.printl "nothing to do." in
+      Lwt.return 0
 
-let () = Lwt_main.run (main ())
+let () = if Lwt_main.run (main ()) > 0 then exit 1
