@@ -43,4 +43,4 @@ WORKDIR /home/coq
 
 RUN echo 'export PATH=$PATH:${HOME}/.local/bin' >> ~/.bashrc
 
-CMD bash
+CMD ["bash"]

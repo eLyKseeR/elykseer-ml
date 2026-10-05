@@ -440,6 +440,13 @@ module N =
     | Lt -> true
     | _ -> false
 
+  (** val min : n -> n -> n **)
+
+  let min n0 n' =
+    match compare n0 n' with
+    | Gt -> n'
+    | _ -> n0
+
   (** val div_eucl : n -> n -> n * n **)
 
   let div_eucl a b =
@@ -568,6 +575,7 @@ module Conversion =
   let i2p = 
     let rec i2p = function
        1 -> XH
+     | n when n < 1 -> invalid_arg ("i2p: not positive: " ^ string_of_int n)
      | n -> let n' = i2p (n/2) in if (n mod 2)=0 then XO n' else XI n'
      in i2p
    
@@ -604,6 +612,7 @@ module Conversion =
   let i2n = 
     function
       0 -> N0
+    | n when n < 0 -> invalid_arg ("i2n: negative: " ^ string_of_int n)
     | n -> Npos (i2p n)
    
 
@@ -1408,9 +1417,8 @@ module Utilities =
 
   let rnd256 = 
    function
-   x -> Elykseer_crypto.Random.random32 () |> string_of_int |>
+   x -> Elykseer_crypto.Key256.mk () |> Elykseer_crypto.Key256.to_hex |>
      String.cat x |>
-     String.cat (Unix.gethostname ()) |> String.cat (Unix.gettimeofday () |> string_of_float) |>
      Elykseer_crypto.Sha3_256.string
    
 
@@ -1562,7 +1570,9 @@ module Assembly =
       let rb = Cstdio.ranbuf128 () in
       let nb =
         Cstdio.BufferPlain.copy_sz_pos rb N0
-          (N.sub (Nchunks.to_N chunks) Cstdio.tag_len) b N0
+          (N.min (N.sub (Nchunks.to_N chunks) Cstdio.tag_len) (Npos (XO (XO
+            (XO (XO (XO (XO (XO XH)))))))))
+          b N0
       in
       ({ nchunks = chunks; aid = (mkaid c); apos = nb }, b)
    end
@@ -2178,12 +2188,13 @@ module Environment =
         option) **)
 
     let backup e0 _ fpos content =
+      let nch = Nchunks.to_N e0.econfig.Configuration.config_nchunks in
       let afree =
         N.sub
           (N.sub
             (Assembly.assemblysize e0.econfig.Configuration.config_nchunks)
             e0.cur_assembly.Assembly.apos)
-          Cstdio.tag_len
+          (N.mul Cstdio.tag_len nch)
       in
       let blen = Cstdio.BufferPlain.buffer_len content in
       let (ki, e1) =

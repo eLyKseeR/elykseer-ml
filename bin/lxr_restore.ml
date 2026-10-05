@@ -6,24 +6,26 @@ open Elykseer_utils
 
 open Mlcpp_filesystem
 
-let def_myid = "1234567890"
-
 let arg_verbose = ref false
 let arg_files = ref []
-let arg_dbpath = ref (Filename.concat (Filename.get_temp_dir_name ()) "db")
-let arg_chunkpath = ref "lxr"
+let arg_dbpath = ref ""
+let arg_chunkpath = ref ""
 let arg_outpath = ref (Filename.get_temp_dir_name ())
 let arg_nchunks = ref 16
-let arg_myid = ref def_myid
+let arg_myid = ref Cli.default_myid
+let arg_verify = ref false
+
+let usage_msg = "lxr_restore -x chunkpath -d dbpath [-o outpath] [-v] [-n nchunks] [-i myid] <file1> [<file2>] ...\n       lxr_restore --verify -x chunkpath -d dbpath [-v] [-n nchunks] [-i myid] [<file1> ...]"
 
 let argspec =
   [
     ("-v", Arg.Set arg_verbose, "verbose output");
     ("-x", Arg.Set_string arg_chunkpath, "sets path for encrypted chunks");
-    ("-o", Arg.Set_string arg_outpath, "sets output path for restored files");
+    ("-o", Arg.Set_string arg_outpath, "sets output path for restored files (default: temp directory)");
     ("-d", Arg.Set_string arg_dbpath, "sets database path");
-    ("-n", Arg.Set_int arg_nchunks, "sets number of chunks (16-256) per assembly");
+    ("-n", Cli.nchunks_spec arg_nchunks, "sets number of chunks (16-256) per assembly");
     ("-i", Arg.Set_string arg_myid, "sets own identifier");
+    ("--verify", Arg.Set arg_verify, "restores into a temporary directory, compares each file with its checksum from the meta data, and removes it; without file names: all files of the identifier");
   ]
 
 let anon_args_fun fn = arg_files := fn :: !arg_files
@@ -56,10 +58,24 @@ let restore_file proc relf _relk basep fname =
         let%lwt () = Lwt_io.printlf "  cannot restore file '%s': '%s' already exists" fname target in
         Lwt.return (0,false,proc)
       else
-        let (n, proc') = Processor.file_restore proc basep relp rfbs.rfbs in
+        match Processor.file_restore proc basep relp rfbs.rfbs with
+        | exception Elykseer_base.Assembly.Content_error msg ->
+          if Sys.file_exists target then Sys.remove target;
+          let%lwt () = Lwt_io.printlf "  failed to restore file '%s': %s" fname msg in
+          Lwt.return (0,false,proc)
+        | (n, proc') ->
         let n = Conversion.n2i n
         and fsize = Conversion.n2i rfbs.rfi.fsize in
-        if n = fsize then
+        if n = fsize && !arg_verify then begin
+          (* the blocks were verified already, this checks the file as a whole *)
+          let ok = Elykseer_crypto.Sha3_256.file target = rfbs.rfi.fchecksum in
+          Sys.remove target;
+          let%lwt () = if not ok then Lwt_io.printlf "  failed to verify file '%s': checksum differs" fname
+                       else if !arg_verbose then Lwt_io.printlf "  verified file '%s'" fname
+                       else Lwt.return () in
+          Lwt.return ((if ok then n else 0), ok, proc')
+        end
+        else if n = fsize then
           Lwt.return (n,true,proc')
         else begin
           (* missing blocks: e.g. lost chunks, wrong key, or corrupted data *)
@@ -103,7 +119,7 @@ let restore_files (proc0 : Processor.processor) relf relk basep fns =
                                      ) (0,0,proc1) fns in
               let nfailed = nf - nok in
               let%lwt () = if !arg_verbose || nfailed > 0 then
-                Lwt_io.printlf "  restored %d of %d files with %d bytes in total" nok nf cnt
+                Lwt_io.printlf "  %s %d of %d files with %d bytes in total" (if !arg_verify then "verified" else "restored") nok nf cnt
                 else Lwt.return () in
               Lwt.return nfailed
 
@@ -116,10 +132,14 @@ let exists_output_dir d =
       false
     end
 
-let main () = Arg.parse argspec anon_args_fun "lxr_restore: vxodnji";
+let main () = Arg.parse argspec anon_args_fun usage_msg;
+    let () = if !arg_files <> [] || !arg_verify then begin
+        Cli.require argspec usage_msg [("-x", !arg_chunkpath); ("-d", !arg_dbpath)];
+        Cli.require_db !arg_dbpath;
+        Cli.warn_default_myid !arg_myid end in
     let nchunks = Nchunks.from_int !arg_nchunks in
-    if List.length !arg_files > 0
-       && exists_output_dir !arg_outpath
+    if (!arg_verify || List.length !arg_files > 0)
+       && (!arg_verify || exists_output_dir !arg_outpath)
     then
       let myid = !arg_myid in
       let tracer = if !arg_verbose then Tracer.stdoutTracerDebug else Tracer.stdoutTracerWarning in
@@ -132,6 +152,20 @@ let main () = Arg.parse argspec anon_args_fun "lxr_restore: vxodnji";
       let proc = Processor.prepare_processor conf in
       let%lwt relf = Relfiles.new_map conf in
       let%lwt relk = Relkeys.new_map conf in
+      if !arg_verify then
+        let tmpdir = Filename.temp_dir "lxr_verify" "" in
+        let%lwt fns = match !arg_files with
+          | [] -> (* all files of this identifier *)
+            let%lwt hs = Relfiles.hashes relf in
+            Lwt_list.filter_map_s (fun h ->
+                match%lwt Relfiles.find h relf with
+                | Some r -> Lwt.return (Some r.rfi.fname)
+                | None -> Lwt.return None) hs
+          | fns -> Lwt.return fns in
+        let%lwt nfailed = restore_files proc relf relk (Filesystem.Path.from_string tmpdir) fns in
+        ignore (Sys.command (Filename.quote_command "rm" ["-rf"; tmpdir]));
+        Lwt.return nfailed
+      else
       let basep = Filesystem.Path.from_string !arg_outpath in
       restore_files proc relf relk basep !arg_files
     else

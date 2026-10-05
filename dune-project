@@ -16,7 +16,7 @@
 
 (license GPL-3.0-or-later)
 
-(documentation https://url/to/documentation)
+(documentation https://github.com/eLyKseeR/elykseer-ml/tree/main/doc)
 
 (package
  (name elykseer)

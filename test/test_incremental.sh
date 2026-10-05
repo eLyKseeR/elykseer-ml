@@ -54,9 +54,8 @@ echo
 AIDs=$(irmin get $MYID/relfiles/${FHASH:4:2}/${FHASH} | jq -r '.blocks[] | .blockaid' | sort | uniq)
 for AID in $AIDs; do
    echo -n "checking aid = $AID  "
-   if [ $(irmin get $MYID/relkeys/${AID:4:2}/$AID | jq -r '.keys.localid') == $MYID ]
-   then echo "√"
-   else echo "x"; fi
+   # every assembly referenced by the file must have a key
+   irmin get $MYID/relkeys/${AID:4:2}/$AID | jq -e '.keys.pkey' > /dev/null && echo "√"
 done
 echo
 rm -f $OUTPATH/$TESTFILE
@@ -67,16 +66,15 @@ MD5test=$(md5sum $OUTPATH/$TESTFILE | cut -f1 -d ' ')
 
 # incrementally backup larger file
 cp $TFILELARGE $TESTFILE
-dune exec bin/lxr_incremental.exe --  -v -x $ELYKSEER_LXR -n $NCHUNKS -d $ELYKSEER_DB -i $MYID $TESTFILE
+dune exec bin/lxr_backup.exe --  -v -x $ELYKSEER_LXR -n $NCHUNKS -d $ELYKSEER_DB -i $MYID $TESTFILE
 MAXBLOCK2=$(irmin get $MYID/relfiles/${FHASH:4:2}/${FHASH} | jq -r '.blocks[] | .blockid' | sort -r | head -1)
 [[ $MAXBLOCK2 -gt $MAXBLOCK1 ]]
 echo
 AIDs=$(irmin get $MYID/relfiles/${FHASH:4:2}/${FHASH} | jq -r '.blocks[] | .blockaid' | sort | uniq)
 for AID in $AIDs; do
    echo -n "checking aid = $AID  "
-   if [ $(irmin get $MYID/relkeys/${AID:4:2}/$AID | jq -r '.keys.localid') == $MYID ]
-   then echo "√"
-   else echo "x"; fi
+   # every assembly referenced by the file must have a key
+   irmin get $MYID/relkeys/${AID:4:2}/$AID | jq -e '.keys.pkey' > /dev/null && echo "√"
 done
 echo
 rm -f $OUTPATH/$TESTFILE
@@ -87,20 +85,19 @@ MD5test=$(md5sum $OUTPATH/$TESTFILE | cut -f1 -d ' ')
 
 # incrementally backup smaller file again
 cp $TFILESMALL $TESTFILE
-dune exec bin/lxr_incremental.exe --  -v -x $ELYKSEER_LXR -n $NCHUNKS -d $ELYKSEER_DB -i $MYID $TESTFILE
+dune exec bin/lxr_backup.exe --  -v -x $ELYKSEER_LXR -n $NCHUNKS -d $ELYKSEER_DB -i $MYID $TESTFILE
 MAXBLOCK3=$(irmin get $MYID/relfiles/${FHASH:4:2}/${FHASH} | jq -r '.blocks[] | .blockid' | sort -r | head -1)
 [[ $MAXBLOCK3 -eq $MAXBLOCK1 ]]
 echo
 AIDs=$(irmin get $MYID/relfiles/${FHASH:4:2}/${FHASH} | jq -r '.blocks[] | .blockaid' | sort | uniq)
 for AID in $AIDs; do
    echo -n "checking aid = $AID  "
-   if [ $(irmin get $MYID/relkeys/${AID:4:2}/$AID | jq -r '.keys.localid') == $MYID ]
-   then echo "√"
-   else echo "x"; fi
+   # every assembly referenced by the file must have a key
+   irmin get $MYID/relkeys/${AID:4:2}/$AID | jq -e '.keys.pkey' > /dev/null && echo "√"
 done
 echo
 rm -f $OUTPATH/$TESTFILE
-dune exec bin/lxr_restore.exe --  -v -x $ELYKSEER_LXR -n $NCHUNKS -d $ELYKSEER_DB 1 -i $MYID -o $OUTPATH $TESTFILE
+dune exec bin/lxr_restore.exe --  -v -x $ELYKSEER_LXR -n $NCHUNKS -d $ELYKSEER_DB -i $MYID -o $OUTPATH $TESTFILE
 MD5orig=$(md5sum $TFILESMALL | cut -f1 -d ' ')
 MD5test=$(md5sum $OUTPATH/$TESTFILE | cut -f1 -d ' ')
 [ $MD5orig = $MD5test ]

@@ -52,3 +52,5 @@ irmin.yml
 .RData
 .Rhistory
 *.local
+_coverage/
+theories/MakeML.v.orig

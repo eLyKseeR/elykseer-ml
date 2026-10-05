@@ -43,17 +43,17 @@ value cpp_add_content(value vsrc, value vsz, value vpos, value vtgt)
 {
     CAMLparam4(vsrc, vsz, vpos, vtgt);
     const long sz = Long_val(vsz);
-    if (sz < 1) { return Val_long(-3); }
+    if (sz < 1) { CAMLreturn(Val_long(-3)); }
     const struct _cpp_cstdio_buffer *src = CPP_CSTDIO_BUFFER(vsrc);
     const long l1 = src->_len;
-    if (l1 < sz) { return Val_long(-1); }   // test if enough bytes can be copied from source
+    if (l1 < sz) { CAMLreturn(Val_long(-1)); }   // test if enough bytes can be copied from source
     struct _cpp_cstdio_buffer *tgt = CPP_CSTDIO_BUFFER(vtgt);
     const long l2 = tgt->_len;
     const long nchunks = l2 / cheight / cwidth;
-    if (nchunks * cheight * cwidth != l2) { return Val_long(-5); }
+    if (nchunks * cheight * cwidth != l2) { CAMLreturn(Val_long(-5)); }
     const long pos = Long_val(vpos);
-    if (pos < 0) { return Val_long(-4); }
-    if (l2 < pos + sz) { return Val_long(-2); }  // test if the target can accept enough bytes
+    if (pos < 0) { CAMLreturn(Val_long(-4)); }
+    if (l2 < pos + sz) { CAMLreturn(Val_long(-2)); }  // test if the target can accept enough bytes
     // parallel loop
     long apos = idx2apos(pos, nchunks);
     // #pragma omp parallel for private(apos,idx) schedule(dynamic, cheight)
@@ -74,17 +74,17 @@ value cpp_get_content(value vsrc, value vsz, value vpos, value vtgt)
 {
     CAMLparam4(vsrc, vsz, vpos, vtgt);
     const long sz = Long_val(vsz);
-    if (sz < 1) { return Val_long(-3); }
+    if (sz < 1) { CAMLreturn(Val_long(-3)); }
     const struct _cpp_cstdio_buffer *src = CPP_CSTDIO_BUFFER(vsrc);
     const long l1 = src->_len;
     const long nchunks = l1 / cheight / cwidth;
-    if (nchunks * cheight * cwidth != l1) { return Val_long(-5); }
+    if (nchunks * cheight * cwidth != l1) { CAMLreturn(Val_long(-5)); }
     const long pos = Long_val(vpos);
-    if (pos < 0) { return Val_long(-4); }
-    if (l1 < sz + pos) { return Val_long(-1); }   // test if enough bytes can be copied from source
+    if (pos < 0) { CAMLreturn(Val_long(-4)); }
+    if (l1 < sz + pos) { CAMLreturn(Val_long(-1)); }   // test if enough bytes can be copied from source
     struct _cpp_cstdio_buffer *tgt = CPP_CSTDIO_BUFFER(vtgt);
     const long l2 = tgt->_len;
-    if (l2 < sz) { return Val_long(-2); }  // test if the target can accept enough bytes
+    if (l2 < sz) { CAMLreturn(Val_long(-2)); }  // test if the target can accept enough bytes
     long apos = idx2apos(pos, nchunks);
     // #pragma omp parallel for private(apos,idx) schedule(dynamic, cheight)
     for (long idx = 0; idx < sz; idx++) {

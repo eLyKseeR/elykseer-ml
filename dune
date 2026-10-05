@@ -1,5 +1,6 @@
 (library
  (name elykseer)
+ (instrumentation (backend bisect_ppx))
  (public_name elykseer)
  (foreign_stubs (language cxx) (names helper) (flags -std=c++20 -fno-exceptions))
  (c_library_flags :standard -lstdc++)

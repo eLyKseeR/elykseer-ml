@@ -5,12 +5,14 @@ let plain_tests () =
   run ~and_exit:false "LXR Assembly" [
     TestAssembly.test;
     TestSecurity.test;
+    TestUtils.test;
   ]
 
 let lwt_tests () =
   let open Alcotest_lwt in
   run "LXR Relkeys" [
     TestRelkeys.test;
+    TestUtils.test_lwt;
   ]
 
 let () =

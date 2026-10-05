@@ -9,28 +9,29 @@ open Elykseer__Lxr.Configuration
 (* open Mlcpp_cstdio
 open Mlcpp_filesystem *)
 
-let def_myid = "1234567890"
-
 let arg_verbose = ref false
 let arg_files = ref []
-let arg_aid = ref "<tbd>"
+let arg_aid = ref ""
 let arg_chunkpath = ref "lxr"
 let arg_nchunks = ref 16
-let arg_myid = ref def_myid
+let arg_myid = ref Elykseer_utils.Cli.default_myid
+
+let usage_msg = "lxr_chunks -a aid [-x chunkpath] [-n nchunks] [-i myid] [-v]"
 
 let argspec =
   [
     ("-v", Arg.Set arg_verbose, "verbose output");
     ("-a", Arg.Set_string arg_aid, "sets assembly id");
     ("-x", Arg.Set_string arg_chunkpath, "sets path for encrypted chunks");
-    ("-n", Arg.Set_int arg_nchunks, "sets number of chunks (16-256) per assembly");
+    ("-n", Elykseer_utils.Cli.nchunks_spec arg_nchunks, "sets number of chunks (16-256) per assembly");
     ("-i", Arg.Set_string arg_myid, "sets own identifier");
   ]
 
 let anon_args_fun fn = arg_files := fn :: !arg_files
 
 (* main *)
-let () = Arg.parse argspec anon_args_fun "lxr_chunks: vxni";
+let () = Arg.parse argspec anon_args_fun usage_msg;
+         Elykseer_utils.Cli.require argspec usage_msg [("-a", !arg_aid)];
          let nchunks = Nchunks.from_int !arg_nchunks in
          let myid = !arg_myid in
          let tracer = if !arg_verbose then Tracer.stdoutTracerDebug else Tracer.stdoutTracerWarning in

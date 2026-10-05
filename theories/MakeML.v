@@ -38,6 +38,7 @@ Extract Constant i2p =>
    "
     let rec i2p = function
        1 -> XH
+     | n when n < 1 -> invalid_arg (""i2p: not positive: "" ^ string_of_int n)
      | n -> let n' = i2p (n/2) in if (n mod 2)=0 then XO n' else XI n'
      in i2p
    ".
@@ -70,6 +71,7 @@ Extract Constant i2n =>
    "
     function
       0 -> N0
+    | n when n < 0 -> invalid_arg (""i2n: negative: "" ^ string_of_int n)
     | n -> Npos (i2p n)
    ".
 
@@ -94,12 +96,13 @@ Extract Constant rnd =>
      _ -> Elykseer_crypto.Random.random32 () |> Conversion.i2n
    ".
 
+(* 256 random bits (not only 32 as before): an aid collision would let the
+   key of the second assembly overwrite the key of the first in the key store *)
 Extract Constant rnd256 =>
    "
    function
-   x -> Elykseer_crypto.Random.random32 () |> string_of_int |>
+   x -> Elykseer_crypto.Key256.mk () |> Elykseer_crypto.Key256.to_hex |>
      String.cat x |>
-     String.cat (Unix.gethostname ()) |> String.cat (Unix.gettimeofday () |> string_of_float) |>
      Elykseer_crypto.Sha3_256.string
    ".
 

@@ -1,56 +1,49 @@
 name: CI
 
-# Validates the Rocq specification (proofs must check) and confirms that the
-# OCaml code extracted from it (lxr.ml / lxr.mli) matches what is committed.
-# Uses the prepared build image that already has the full Rocq/opam toolchain
-# and all vendored dependencies installed (see docker/Dockerfile).
+# Checks the Rocq specification (proofs must check) and that the OCaml code
+# extracted from it (lxr.ml / lxr.mli) matches what is committed.
+# Mirrors .forgejo/workflows/CI.yaml; runs in the prepared build image that
+# has the Rocq/opam toolchain and all vendored dependencies (docker/Dockerfile).
 
 on:
   push:
     branches: [ main ]
-    paths:
-      - 'theories/**'
-      - '_CoqProject'
-      - 'Makefile.conf'
-      - 'dune-project'
-      - 'lxr.ml'
-      - 'lxr.mli'
-      - '.forgejo/workflows/CI.yaml'
   pull_request:
-    paths:
-      - 'theories/**'
-      - '_CoqProject'
-      - 'Makefile.conf'
-      - 'dune-project'
-      - 'lxr.ml'
-      - 'lxr.mli'
+    branches: [ main ]
   workflow_dispatch: {}
+
+permissions:
+  contents: read
 
 jobs:
   spec-and-extraction:
-    # adjust the label to whatever your Forgejo runner advertises
-    runs-on: docker
+    runs-on: ubuntu-latest
     container:
       # pinned by digest (v0.9.16-1); replace with the digest of the next released image
       image: codieplusplus/elykseer-ml@sha256:db64f1a596d08b150cf36466c0039be43893498c4f1d539c1fd46ef90c8472e2
+      # the workspace belongs to the runner, not to the image user "coq"
+      options: --user root
+    env:
+      HOME: /home/coq
+      OPAMROOT: /home/coq/.opam
+      OPAMSWITCH: lxr
+      OPAMROOTISOK: "1"
     timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set aside the committed extraction
         run: |
           cp lxr.ml lxr.ml.committed
           cp lxr.mli lxr.mli.committed
 
-      - name: Regenerate Makefile from _CoqProject
-        run: |
-          eval "$(opam env)"
-          coq_makefile -f _CoqProject -o Makefile
-
       - name: Check Rocq spec and extract code (make)
         run: |
           eval "$(opam env)"
+          coq_makefile -f _CoqProject -o Makefile
           make
 
       - name: Verify extraction matches committed lxr.ml / lxr.mli

@@ -75,9 +75,7 @@ Section axioms.
 Axiom rnd : N -> N.
 
 (* returns hash of random string:
-   takes into account argument, and 
-   random number, current time, hostname, and
-   maybe other local information
+   takes into account the argument and 256 random bits
 *)
 Axiom rnd256 : string -> string.
 

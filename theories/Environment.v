@@ -82,7 +82,11 @@ Module EnvironmentWritable <: ENV.
         end.
     
     Program Definition backup (e0 : environment AB) (fp : string) (fpos : N) (content : BufferPlain.buffer_t) : (environment AB * (blockinformation * option (aid_t * keyinformation))) :=
-        let afree := (Assembly.assemblysize e0.(econfig AB).(Configuration.config_nchunks)) - e0.(cur_assembly AB).(apos) - Cstdio.tag_len in
+        (* data is striped over the chunks: logical position i is stored in chunk (i mod n) at
+           offset (i / n); the GCM tag occupies the last tag_len bytes of the last chunk, hence
+           the last tag_len rows (tag_len * n logical bytes) are not available for data *)
+        let nch := Nchunks.to_N e0.(econfig AB).(Configuration.config_nchunks) in
+        let afree := (Assembly.assemblysize e0.(econfig AB).(Configuration.config_nchunks)) - e0.(cur_assembly AB).(apos) - Cstdio.tag_len * nch in
         let blen := BufferPlain.buffer_len content in
         let (ki, e1) := if afree <? blen then
                             match finalise_and_recreate_assembly e0 with

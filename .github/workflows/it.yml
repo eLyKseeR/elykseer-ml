@@ -1,0 +1,99 @@
+name: IT
+
+# Builds the binaries from the committed lxr.ml / lxr.mli, runs the unit and
+# command line tests with coverage, the examples of EXAMPLES.md, and a
+# backup+restore roundtrip over random data verified by checksum.
+# Mirrors .forgejo/workflows/IT.yaml.
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+env:
+  NCHUNKS: 16
+  # sizes (MB) of the random files used for the roundtrip test
+  IT_SIZES_MB: "1 16 64 256"
+
+jobs:
+  tests-and-roundtrip:
+    runs-on: ubuntu-latest
+    container:
+      # pinned by digest (v0.9.16-1); replace with the digest of the next released image
+      image: codieplusplus/elykseer-ml@sha256:db64f1a596d08b150cf36466c0039be43893498c4f1d539c1fd46ef90c8472e2
+      # the workspace belongs to the runner, not to the image user "coq"
+      options: --user root
+    env:
+      HOME: /home/coq
+      OPAMROOT: /home/coq/.opam
+      OPAMSWITCH: lxr
+      OPAMROOTISOK: "1"
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Make ~/.local/bin (irmin) available on PATH
+        run: echo "/home/coq/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Build binaries from committed lxr.ml / lxr.mli
+        run: |
+          eval "$(opam env)"
+          dune build
+
+      - name: Unit and command line tests (dune test)
+        run: |
+          eval "$(opam env)"
+          dune test
+
+      - name: Test coverage (bisect_ppx)
+        run: |
+          eval "$(opam env)"
+          opam list --installed bisect_ppx > /dev/null 2>&1 || opam install -y bisect_ppx
+          bash test/coverage.sh
+          tail -n 1 _coverage/summary.txt >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: coverage
+          path: _coverage/
+
+      - name: Run EXAMPLES.md
+        run: |
+          eval "$(opam env)"
+          bash test/test_examples.sh
+
+      - name: Generate random test data
+        run: |
+          set -ex
+          mkdir -p it/temp && cd it
+          FILES=""
+          for sz in ${IT_SIZES_MB}; do
+            f="test${sz}M"
+            dd if=/dev/urandom of="$f" bs=1M count="$sz"
+            FILES="$FILES $f"
+          done
+          # unquoted: one space between names, none in front
+          echo $FILES > files.list
+          md5sum $FILES > md5sums
+
+      - name: Backup, verify, restore
+        working-directory: it
+        run: |
+          set -ex
+          eval "$(opam env)"
+          MYID=$((RANDOM * RANDOM))
+          FILES=$(cat files.list)
+          B=../_build/default/bin
+          $B/lxr_backup.exe -x ./elykseer.chunks -d ./elykseer.db -n "$NCHUNKS" -i "$MYID" $FILES
+          $B/lxr_restore.exe --verify -v -x ./elykseer.chunks -d ./elykseer.db -n "$NCHUNKS" -i "$MYID"
+          $B/lxr_restore.exe -x ./elykseer.chunks -d ./elykseer.db -n "$NCHUNKS" -o ./temp/ -i "$MYID" $FILES
+          cd temp && md5sum -c ../md5sums

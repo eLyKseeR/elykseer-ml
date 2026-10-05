@@ -44,12 +44,11 @@ let msg_info msg = Git_info.v ~author:!my_log "%s" msg
 let add aid keys0 db =
   let msg = Fmt.str "update for %s" aid in
   let keys = keys2json_v1 keys0 in
-  let%lwt () =
-    try%lwt
-      let fp = repo_path aid in
-      Git_store.set_exn ~info:(msg_info msg) db fp keys
-    with Failure e -> Lwt_io.eprintlf "error : %s" e in
-  Lwt.return db
+  try%lwt
+    let fp = repo_path aid in
+    let%lwt () = Git_store.set_exn ~info:(msg_info msg) db fp keys in
+    Lwt.return (Ok db)
+  with e -> Lwt.return (Error (Printf.sprintf "cannot store key of assembly %s: %s" aid (Printexc.to_string e)))
 
 let json2keys_v1 version obs : (string * Assembly.keyinformation) option =
   match obs with

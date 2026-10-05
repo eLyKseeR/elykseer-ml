@@ -81,8 +81,9 @@ Module AssemblyPlainWritable : ASS.
         let chunks := config_nchunks c in
         let b := BufferPlain.buffer_create (chunksize_N * Nchunks.to_N chunks) in
         let rb := Cstdio.ranbuf128 tt in
-        (* header bytes: n_chunks - tag_len; the tail of tag_len bytes holds the GCM tag *)
-        let nb := BufferPlain.copy_sz_pos rb 0 (Nchunks.to_N chunks - Cstdio.tag_len) b 0 in
+        (* header bytes: n_chunks - tag_len, at most the 128 random bytes available;
+           the tail of tag_len bytes holds the GCM tag *)
+        let nb := BufferPlain.copy_sz_pos rb 0 (N.min (Nchunks.to_N chunks - Cstdio.tag_len) 128) b 0 in
         (mkassembly chunks (mkaid c) nb, b).
 End AssemblyPlainWritable.
 (* Print AssemblyPlainWritable. *)

@@ -41,6 +41,19 @@ USER coq
 # the prebuilt Boost in ~/.local is static only
 RUN eval $(opam env) && cd /tmp/elykseer-crypto.git && sed -i 's/set(Boost_USE_STATIC_LIBS OFF)/set(Boost_USE_STATIC_LIBS ON)/' test/cpp/CMakeLists.txt && cmake -S . -B build -G Ninja --fresh -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang++ && cmake --build build --target static_lib -j$(nproc) && cd src/ml && dune build -p elykseer_crypto && dune install -p elykseer_crypto
 
+# the repository's .git is passed in as a named build context:
+#   docker buildx build --build-context elykseer-ml-git=../.git ...
+# only a shallow clone of its HEAD commit goes into the final image: no other
+# branches, reflogs, or remotes of the build machine
+COPY --chown=1000 --from=elykseer-ml-git . /tmp/elykseer-ml.git
+RUN HEAD=$(git --git-dir=/tmp/elykseer-ml.git rev-parse HEAD) \
+ && git --git-dir=/tmp/elykseer-ml.git branch -f lxr-image "$HEAD" \
+ && git clone -q --depth 1 --single-branch --branch lxr-image file:///tmp/elykseer-ml.git /tmp/src/elykseer-ml.git \
+ && cd /tmp/src/elykseer-ml.git \
+ && git checkout -q --detach && git branch -D -q lxr-image && git update-ref -d refs/remotes/origin/lxr-image \
+ && git remote set-url origin https://github.com/eLyKseeR/elykseer-ml.git \
+ && rm -rf /tmp/elykseer-ml.git
+
 RUN tar cvzf /tmp/coq.home.tgz -C /home/coq --exclude ./prebuilt/\* --exclude ./.local/\* --exclude ./.opam/download-cache/\* .
 
 ###############################################################################
@@ -76,13 +89,7 @@ RUN echo 'eval $(opam env)' >> ~/.bashrc
 
 RUN echo 'export PATH=$PATH:${HOME}/.local/bin' >> ~/.bashrc
 
-# the repository's .git is passed in as a named build context:
-#   docker buildx build --build-context elykseer-ml-git=../.git ...
-COPY --chown=1000 --from=elykseer-ml-git . /tmp/elykseer-ml.git
-
-RUN git clone /tmp/elykseer-ml.git elykseer-ml.git \
- && git -C elykseer-ml.git checkout --detach $(git --git-dir=/tmp/elykseer-ml.git rev-parse HEAD) \
- && rm -rf /tmp/elykseer-ml.git
+COPY --chown=1000 --from=build-env /tmp/src/elykseer-ml.git /home/coq/elykseer-ml.git
 
 WORKDIR /home/coq/elykseer-ml.git
 
@@ -96,4 +103,4 @@ RUN eval $(opam env) && dune build && dune install --prefix ${HOME}/.local
 
 RUN strip -s ${HOME}/.local/bin/lxr_*
 
-CMD bash
+CMD ["bash"]

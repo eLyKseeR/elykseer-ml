@@ -62,12 +62,11 @@ let msg_info msg = Git_info.v ~author:!my_log "%s" msg
 let add fhash relation db =
   let msg = Fmt.str "update of %s" fhash in
   let reljson = rel2json_v1 relation in
-  let%lwt () =
-    try%lwt
-      let fp = repo_path fhash in
-      Git_store.set_exn ~info:(msg_info msg) db fp reljson
-    with Failure e -> Lwt_io.eprintlf "error : %s" e in
-  Lwt.return db
+  try%lwt
+    let fp = repo_path fhash in
+    let%lwt () = Git_store.set_exn ~info:(msg_info msg) db fp reljson in
+    Lwt.return (Ok db)
+  with e -> Lwt.return (Error (Printf.sprintf "cannot store meta data of %s: %s" fhash (Printexc.to_string e)))
 
 let json2fi_v1 fi : Filesupport.fileinformation =
     { fname = Relutils.get_str "fname" fi
@@ -139,5 +138,13 @@ let find_v fhash db =
   | Some (`O el) -> json2blocks_opt el
   | _ -> None
 
+
+(** hashes: all file hashes of the current identifier in the store *)
+let hashes db =
+  let%lwt d1s = Git_store.list db [!my_id; "relfiles"] in
+  let%lwt hs = Lwt_list.map_s (fun (d1, _) ->
+                 let%lwt fs = Git_store.list db [!my_id; "relfiles"; d1] in
+                 Lwt.return (List.map fst fs)) d1s in
+  Lwt.return (List.concat hs |> List.sort compare)
 
 let close_map db = Git_store.Repo.close (Git_store.repo db)

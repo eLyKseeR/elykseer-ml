@@ -1,5 +1,6 @@
 (library
  (name elykseer_utils)
+ (instrumentation (backend bisect_ppx))
  (public_name elykseer_utils)
  (preprocess (pps lwt_ppx))
  (libraries elykseer yojson unix mlcpp_cstdio mlcpp_filesystem elykseer_crypto)

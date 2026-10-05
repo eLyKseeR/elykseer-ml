@@ -2,15 +2,17 @@
  (public_name lxr_backup)
  (package elykseer)
  (name lxr_backup)
+ (instrumentation (backend bisect_ppx))
  (modules lxr_backup)
  (preprocess (pps lwt_ppx))
  (ocamlopt_flags -O3 -cclib -s)
- (libraries elykseer elykseer_base elykseer_utils)
+ (libraries elykseer elykseer_base elykseer_utils unix)
 )
 
 (executable
  (public_name lxr_relfiles)
  (name lxr_relfiles)
+ (instrumentation (backend bisect_ppx))
  (package elykseer)
  (modules lxr_relfiles)
  (preprocess (pps lwt_ppx))
@@ -21,6 +23,7 @@
 (executable
  (public_name lxr_relkeys)
  (name lxr_relkeys)
+ (instrumentation (backend bisect_ppx))
  (package elykseer)
  (modules lxr_relkeys)
  (preprocess (pps lwt_ppx))
@@ -31,6 +34,7 @@
 (executable
  (public_name lxr_restore)
  (name lxr_restore)
+ (instrumentation (backend bisect_ppx))
  (package elykseer)
  (modules lxr_restore)
  (preprocess (pps lwt_ppx))
@@ -41,6 +45,7 @@
 (executable
  (public_name lxr_chunks)
  (name lxr_chunks)
+ (instrumentation (backend bisect_ppx))
  (package elykseer)
  (modules lxr_chunks)
  (ocamlopt_flags -O3 -cclib -s)
@@ -50,14 +55,16 @@
 (executable
  (public_name lxr_filehash)
  (name lxr_filehash)
+ (instrumentation (backend bisect_ppx))
  (package elykseer)
  (modules lxr_filehash)
  (ocamlopt_flags -O3 -cclib -s)
- (libraries elykseer elykseer_crypto)
+ (libraries elykseer elykseer_crypto elykseer_utils)
 )
 (executable
  (public_name lxr_distribute)
  (name lxr_distribute)
+ (instrumentation (backend bisect_ppx))
  (package elykseer)
  (modules lxr_distribute)
  (preprocess (pps lwt_ppx))

@@ -18,6 +18,8 @@ on:
       - 'lxr.mli'
       - 'dune'
       - 'dune-project'
+      - 'test/**'
+      - 'EXAMPLES.md'
       - '.forgejo/workflows/IT.yaml'
   pull_request:
     paths:
@@ -28,6 +30,8 @@ on:
       - 'lxr.mli'
       - 'dune'
       - 'dune-project'
+      - 'test/**'
+      - 'EXAMPLES.md'
   workflow_dispatch: {}
 
 env:
@@ -40,7 +44,8 @@ jobs:
     # adjust the label to whatever your Forgejo runner advertises
     runs-on: docker
     container:
-      image: codieplusplus/elykseer-ml:latest
+      # pinned by digest (v0.9.16-1); replace with the digest of the next released image
+      image: codieplusplus/elykseer-ml@sha256:db64f1a596d08b150cf36466c0039be43893498c4f1d539c1fd46ef90c8472e2
     timeout-minutes: 45
     steps:
       - name: Checkout
@@ -53,6 +58,30 @@ jobs:
         run: |
           eval "$(opam env)"
           dune build
+
+      - name: Unit and command line tests (dune test)
+        run: |
+          eval "$(opam env)"
+          dune test
+
+      - name: Test coverage (bisect_ppx)
+        run: |
+          eval "$(opam env)"
+          opam list --installed bisect_ppx > /dev/null 2>&1 || opam install -y bisect_ppx
+          bash test/coverage.sh
+          tail -n 1 _coverage/summary.txt
+
+      - name: Run EXAMPLES.md
+        run: |
+          eval "$(opam env)"
+          export PATH="$HOME/.local/bin:$PATH"
+          bash test/test_examples.sh
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage
+          path: _coverage/
 
       - name: Prepare test workspace
         run: mkdir -p it/temp
@@ -67,7 +96,8 @@ jobs:
             dd if=/dev/urandom of="$f" bs=1M count="$sz"
             FILES="$FILES $f"
           done
-          echo "$FILES" > files.list
+          # unquoted: one space between names, none in front
+          echo $FILES > files.list
           md5sum $FILES > md5sums
           md5sum -c md5sums
 
@@ -84,11 +114,14 @@ jobs:
       - name: Check first file was recorded (irmin metadata)
         working-directory: it
         run: |
-          set -ex
+          set -ex -o pipefail
           eval "$(opam env)"
-          FIRST=$(head -n1 -c200 files.list | cut -d ' ' -f1)
+          set -- $(cat files.list)
+          FIRST=$1
           FHASH=$(../_build/default/bin/lxr_filehash.exe -f "$FIRST" -i "$MYID" | cut -d ' ' -f 2)
-          irmin list "${MYID}/relfiles/${FHASH:4:2}"
+          test -n "$FHASH"
+          # without these options irmin uses an empty default store and finds nothing
+          irmin list --store git --contents json-value --root ./elykseer.db "${MYID}/relfiles/${FHASH:4:2}" | grep -q "$FHASH"
 
       - name: Restore
         working-directory: it
@@ -98,6 +131,12 @@ jobs:
           rm -fv ./temp/test*
           FILES=$(cat files.list)
           ../_build/default/bin/lxr_restore.exe -v -d ./elykseer.db -x ./elykseer.chunks -n "$NCHUNKS" -o ./temp/ -i "$MYID" $FILES
+
+      - name: Verify all files against their checksums (lxr_restore --verify)
+        working-directory: it
+        run: |
+          eval "$(opam env)"
+          ../_build/default/bin/lxr_restore.exe --verify -v -d ./elykseer.db -x ./elykseer.chunks -n "$NCHUNKS" -i "$MYID"
 
       - name: Verify roundtrip checksums
         working-directory: it/temp

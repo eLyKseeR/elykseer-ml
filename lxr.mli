@@ -131,6 +131,8 @@ module N :
 
   val ltb : n -> n -> bool
 
+  val min : n -> n -> n
+
   val div_eucl : n -> n -> n * n
 
   val div : n -> n -> n

@@ -14,3 +14,7 @@
 ## 06 File backup [Processor](06_Processor.md)
 
 ## 07 Encryption [keys and nonces](07_Keys_and_Nonces.md)
+
+## 08 Archive [format](08_Format.md)
+
+## 09 [Operations](09_Operations.md): backup of keys, restore drills, failure modes, upgrading

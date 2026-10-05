@@ -80,7 +80,8 @@ Module Export BufferPlain : BUF.
 End BufferPlain.
 (* Print BufferPlain. *)
 
-(* AES-256-GCM authentication tag, stored in the last tag_len bytes of an assembly *)
+(* AES-256-GCM authentication tag, stored in the last tag_len bytes of an assembly (physical
+   position, i.e. the end of the last chunk) *)
 Definition tag_len : N := 16.
 
 (* AES-256-GCM: the nonce is derived from the ivec, the aad is authenticated but not encrypted *)

@@ -7,16 +7,15 @@ open Elykseer_utils
 
 open Mlcpp_chrono
 
-let def_myid = "1234567890"
 
 let arg_verbose = ref false
 let arg_xml = ref false
 let arg_bm = ref false
 let arg_files = ref []
-let arg_dbpath = ref (Filename.concat (Filename.get_temp_dir_name ()) "db")
-let arg_myid = ref def_myid
+let arg_dbpath = ref ""
+let arg_myid = ref Cli.default_myid
 
-let usage_msg = "lxr_relfiles [-v] [-x] [-i myid] [-d dbpath] <file1> [<file2>] ..."
+let usage_msg = "lxr_relfiles [-v] [-x] [-i myid] -d dbpath <file1> [<file2>] ..."
 
 let argspec =
   [
@@ -49,8 +48,9 @@ let mk_rel n aid rel =
            ;fsize = Conversion.i2n @@ List.fold_left (fun acc (e : Assembly.blockinformation) -> (Conversion.n2i e.blocksize) + acc) 0 blocks
            ;fowner = ""; fpermissions = Conversion.i2n 644; fmodified = ""; fchecksum = ""} in
   (* let%lwt () = Lwt_io.printlf "   %s <- %s" fhash fname in *)
-  let%lwt _ = Relfiles.add fhash {rfi=fi; rfbs=blocks} rel in
-  Lwt.return rel
+  match%lwt Relfiles.add fhash {rfi=fi; rfbs=blocks} rel with
+  | Ok _ -> Lwt.return rel
+  | Error msg -> failwith msg
 
 let rec prepare_bm cnt rel =
   match cnt with
@@ -156,8 +156,10 @@ let main () = Arg.parse argspec anon_args_fun usage_msg;
       let%lwt () = benchmark_run 1_000 in
       (* let%lwt () = benchmark_run 100_000 in *)
       Lwt.return ()
-    else if !arg_files != []
-      then 
+    else if !arg_files <> []
+      then
+        let () = Cli.require argspec usage_msg [("-d", !arg_dbpath)] in
+        let () = Cli.require_db !arg_dbpath in
         let nchunks = Nchunks.from_int 16 in  (* not needed *)
         let myid = !arg_myid in
         let conf : configuration = {

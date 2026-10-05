@@ -4,6 +4,35 @@ This project is about developing the cryptographic data archive _eLyKseeR_ using
 
 Copyright (c) 2026 Alexander Diemand
 
+## Quickstart (Docker)
+
+Back up a file from the current directory and restore it again:
+
+```sh
+docker run --rm -it -v "$PWD:/data" -w /data codieplusplus/elykseer-ml:latest bash
+# inside the container:
+MYID=$(head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')
+lxr_backup  -x ~/lxr.chunks -d ~/lxr.db -i $MYID myfile
+lxr_restore -x ~/lxr.chunks -d ~/lxr.db -i $MYID -o /tmp myfile && cmp myfile /tmp/myfile
+```
+
+This demo keeps chunks and database inside the container, they are gone when it exits; for real use mount volumes for both (see [docker/README.md](docker/README.md)).
+The chunks (`-x`) can be stored anywhere; the database (`-d`) contains the keys and must be kept safe, see [Operations](doc/09_Operations.md).
+
+## What it protects against
+
+_eLyKseeR_ keeps backups confidential and tamper-evident on storage you do not trust (USB sticks, S3/MinIO, other people's disks):
+
+- file data is split into blocks, collected in assemblies of 16–256 chunks of 256 KiB, and each assembly is encrypted with AES-256-GCM under its own random key; the assembly id is authenticated, so chunks cannot be swapped or modified unnoticed ([format](doc/08_Format.md), [keys and nonces](doc/07_Keys_and_Nonces.md))
+- chunk file names are hashes; they reveal neither file names nor sizes, only the total amount of data
+- blocks are deduplicated, so unchanged data is not stored twice
+
+It does **not** protect:
+
+- the meta data database (`-d`): it holds the encryption keys in plain text and must stay on trusted storage; whoever has it and the chunks can read the backup, whoever loses it cannot
+- availability: deleted or lost chunks make the affected files unrecoverable; distribute chunks to several sinks with `lxr_distribute`
+- the machine running the backup, and data before it is encrypted
+
 [License](LICENSE): [GNU General Public License v3 or later](https://www.gnu.org/licenses)
 
 ## Contributing
@@ -18,7 +47,9 @@ We very much appreciate user experience testimonials, bug reports, feature reque
 
 1.) create a compiler switch: `opam switch create 5.2.1`
 
-### Coq version used
+### Rocq version used
+
+(the opam package is still called `coq`)
 
 `opam pin add coq 9.0.0`
 
@@ -48,13 +79,13 @@ see [docker/Dockerfile.base](docker/Dockerfile.base) and [docker/Dockerfile](doc
   provides cryptographic primitives
 
 - [mlcpp_filesystem](https://github.com/CodiePP/ml-cpp-filesystem)
-  OCaml integration with C++ standard library &gt;filesystem&lt; module
+  OCaml integration with C++ standard library `<filesystem>`
 
 - [mlcpp_cstdio](https://github.com/CodiePP/ml-cpp-cstdio)
-  OCaml integration with C++ standard library &gt;cstdio&lt; module
+  OCaml integration with C++ standard library `<cstdio>`
 
 - [mlcpp_chrono](https://github.com/CodiePP/ml-cpp-chrono)
-  OCaml integration with C++ standard library &gt;chrono&lt; module
+  OCaml integration with C++ standard library `<chrono>`
 
 ## Docker image
 
@@ -87,6 +118,15 @@ The build is split into two images, all tags live in `codieplusplus/elykseer-ml`
 Building the base image takes a long time; it only needs to be done once, and again on upgrades.
 All commands are run from within `docker/` and need `docker buildx`.
 
+Both images in one step, without pushing the base image first ([docker/docker-bake.hcl](docker/docker-bake.hcl)); add `--push` to publish:
+
+```sh
+cd docker/
+BASE_VERSION=2 VERSION=v0.10.1 docker buildx bake --allow=fs.read=../.git
+```
+
+The main image contains a shallow clone of the committed `HEAD` only (no other branches, reflogs, or remotes of the build machine).
+
 #### 1. base image
 
 OCaml and Rocq versions are build arguments (defaults: `OCAML_VERSION=5.2.1`, `COQ_VERSION=9.0.0`).
@@ -95,7 +135,7 @@ in one step, both architectures:
 
 ```sh
 cd docker/
-BASE_VERSION=1  # increment on every upgrade
+BASE_VERSION=2  # increment on every upgrade
 
 docker buildx build -f Dockerfile.base --platform linux/amd64,linux/arm64 \
   --build-arg OCAML_VERSION=5.2.1 --build-arg COQ_VERSION=9.0.0 \
@@ -107,7 +147,7 @@ or, in two separate steps (each on a native builder, which avoids slow emulation
 
 ```sh
 cd docker/
-BASE_VERSION=1
+BASE_VERSION=2
 
 # amd64 leg
 docker buildx build -f Dockerfile.base --platform linux/amd64 \
@@ -135,8 +175,8 @@ in one step, both architectures:
 
 ```sh
 cd docker/
-VERSION="v0.9.16"  # adapt
-BASE_VERSION=1
+VERSION="v0.10.1"  # adapt
+BASE_VERSION=2
 
 docker buildx build --build-context elykseer-ml-git=../.git \
   --build-arg BASE_VERSION=${BASE_VERSION} \
@@ -146,12 +186,12 @@ docker buildx build --build-context elykseer-ml-git=../.git \
   --push -f Dockerfile .
 ```
 
-or, in two separate steps, then combined:
+or, in two separate steps, then combined (the legs pull `base_${BASE_VERSION}` from the registry, so push the base image first):
 
 ```sh
 cd docker/
-VERSION="v0.9.16"  # adapt
-BASE_VERSION=1
+VERSION="v0.10.1"  # adapt
+BASE_VERSION=2
 
 # amd64 leg
 docker buildx build --build-context elykseer-ml-git=../.git \
@@ -178,6 +218,10 @@ check that both architectures are present:
 docker buildx imagetools inspect codieplusplus/elykseer-ml:${VERSION}
 ```
 
+Each two-platform build needs about 20 GB in the Docker VM. If space is short, run the legs one after the other and clear the build cache in between (`docker buildx prune -af`); every leg is pushed, so nothing is lost.
+
+The CI workflows (`.github/workflows/{ci,it}.yml`, `.forgejo/workflows/{CI,IT}.yaml`) pin the main image by digest; after a release, update them with the digest printed by `imagetools inspect` (line `Digest:`).
+
 ## Executables
 
 <details>
@@ -186,17 +230,21 @@ docker buildx imagetools inspect codieplusplus/elykseer-ml:${VERSION}
 ### lxr_backup - backup files indicated on the command line to LXR
 
 ```
-lxr_backup: vyxdnji
+lxr_backup -x chunkpath -d dbpath [-v] [-y] [-n nchunks] [-i myid] [-D directory [-R]] [<file1> ...]
   -v verbose output
   -y dry run
   -x sets output path for encrypted chunks
   -d sets database path
   -n sets number of chunks (16-256) per assembly
-  -j sets number of parallel processes
   -i sets own identifier
+  -R recursively backup the directory
+  -D directory to backup
   -help  Display this list of options
   --help  Display this list of options
 ```
+
+`-x` and `-d` are required: the database holds the encryption keys and must be kept (see [Operations](doc/09_Operations.md)).
+The exit code is 1 if any file could not be backed up or if the meta data is inconsistent, 2 on a usage error.
 
 ##### example
 
@@ -253,17 +301,22 @@ lists:
 ### lxr_restore - restore file(s) from LXR
 
 ```
-lxr_restore: vxodnji
+lxr_restore -x chunkpath -d dbpath [-o outpath] [-v] [-n nchunks] [-i myid] <file1> [<file2>] ...
+       lxr_restore --verify -x chunkpath -d dbpath [-v] [-n nchunks] [-i myid] [<file1> ...]
   -v verbose output
   -x sets path for encrypted chunks
-  -o sets output path for restored files
+  -o sets output path for restored files (default: temp directory)
   -d sets database path
   -n sets number of chunks (16-256) per assembly
-  -j sets number of parallel processes
   -i sets own identifier
+  --verify restores into a temporary directory, compares each file with its checksum from the meta data, and removes it; without file names: all files of the identifier
   -help  Display this list of options
   --help  Display this list of options
 ```
+
+The exit code is 1 if any file could not be restored completely (an incomplete file is removed), 2 on a usage error or if there is no database at `-d`.
+
+`--verify` checks files without keeping them: each file is restored into a temporary directory and compared with its checksum from the meta data; without file names, all files of the identifier are checked.
 
 #### example
 
@@ -295,73 +348,12 @@ e4379d58904294ab7ab6431191cd9801  test8M
 </details>
 
 <details>
-<summary>Verify</summary>
-
-### lxr_compare - compare file(s) against backuped blocks in LXR
-
-```
-lxr_compare: vdi
-  -v verbose output
-  -d sets database path
-  -i sets own identifier
-  -help  Display this list of options
-  --help  Display this list of options
-```
-
-#### example
-
-```
-./_build/default/bin/lxr_compare.exe -v -d /data/elykseer.db -i $MYID ./test4M
-```
-
-outputs:
-
-```
-comparing file ./test4M against meta data
- +✅ block 1@0=131072
- +✅ block 2@131072=131072
- +✅ block 3@262144=131072
- +✅ block 4@393216=131072
- +✅ block 5@524288=131072
- +✅ block 6@655360=131072
- +✅ block 7@786432=131072
- +✅ block 8@917504=131072
- +✅ block 9@1048576=131072
- +✅ block 10@1179648=131072
- +✅ block 11@1310720=131072
- +✅ block 12@1441792=131072
- +✅ block 13@1572864=131072
- +✅ block 14@1703936=131072
- +✅ block 15@1835008=131072
- +✅ block 16@1966080=131072
- +✅ block 17@2097152=131072
- +✅ block 18@2228224=131072
- +✅ block 19@2359296=131072
- +✅ block 20@2490368=131072
- +✅ block 21@2621440=131072
- +✅ block 22@2752512=131072
- +✅ block 23@2883584=131072
- +✅ block 24@3014656=131072
- +✅ block 25@3145728=131072
- +✅ block 26@3276800=131072
- +✅ block 27@3407872=131072
- +✅ block 28@3538944=131072
- +✅ block 29@3670016=131072
- +✅ block 30@3801088=131072
- +✅ block 31@3932160=131072
- +✅ block 32@4063232=131072
-comparison of 1 file with 1 equal
-```
-
-</details>
-
-<details>
 <summary>Encryption keys</summary>
 
 ### lxr_relkeys - export keys from meta data
 
 ```
-lxr_relkeys [-v] [-i myid] [-d dbpath] <file1> [<file2>] ...
+lxr_relkeys -d dbpath [-v] [-x] [-i myid] <file1> [<file2>] ...
   -v verbose output
   -x XML output
   -d sets database path
@@ -391,7 +383,7 @@ verify data against XML schema:
 ### lxr_relfiles - export file meta data
 
 ```
-lxr_relfiles [-v] [-i myid] [-n nchunks] [-d dbpath] <file1> [<file2>] ...
+lxr_relfiles -d dbpath [-v] [-x] [-i myid] <file1> [<file2>] ...
   -v verbose output
   -x XML output
   -d sets database path

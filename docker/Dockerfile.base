@@ -32,7 +32,7 @@ RUN opam switch -y create lxr ocaml-base-compiler.${OCAML_VERSION}
 RUN eval $(opam env) && opam repo add coq-released https://coq.inria.fr/opam/released
 
 RUN eval $(opam env) && opam -y pin add coq ${COQ_VERSION}
-RUN eval $(opam env) && opam -y install yojson lwt_ppx irmin-git irmin-cli irmin alcotest alcotest-lwt ppx_optcomp
+RUN eval $(opam env) && opam -y install yojson lwt_ppx irmin-git irmin-cli irmin alcotest alcotest-lwt ppx_optcomp bisect_ppx
 RUN eval $(opam env) && cd /tmp/ && git clone https://github.com/ygrek/ocurl.git ocurl.git && cd ocurl.git && git checkout --detach ${OCURL_COMMIT} && dune build && dune install
 RUN eval $(opam env) && cd /tmp/ && git clone https://github.com/c-cube/ezcurl.git ezcurl.git && cd ezcurl.git && git checkout --detach ${EZCURL_COMMIT} && dune build -p ezcurl,ezcurl-lwt && dune install -p ezcurl && dune install -p ezcurl-lwt
 

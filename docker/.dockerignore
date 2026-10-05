@@ -1,0 +1,6 @@
+# local build output and test data, not part of the image
+output/
+test1M
+test4M
+test8M
+Dockerfile.patch
