@@ -54,3 +54,4 @@ irmin.yml
 *.local
 _coverage/
 theories/MakeML.v.orig
+.nia.cache

@@ -29,7 +29,7 @@ Definition chunkwidth  : positive := 256%positive.
 Definition chunklength : positive := 1024%positive.
 Definition chunksize   : positive := chunkwidth * chunklength.
 Definition chunksize_N : N := Conversion.pos2N chunksize.
-Definition assemblysize (n : Nchunks.Private.t) : N := chunksize_N * (to_N n).
+Definition assemblysize (n : Nchunks.t) : N := chunksize_N * (to_N n).
 
 Definition aid_t := string.
 Definition mkaid (c : configuration) : aid_t :=
@@ -40,7 +40,7 @@ Definition snapshot_t := positive.
 Definition RecordAssemblyInformation := Set.
 Record assemblyinformation : RecordAssemblyInformation :=
     mkassembly
-        { nchunks : Nchunks.Private.t
+        { nchunks : Nchunks.t
         ; aid : aid_t
         ; apos : N }.
 

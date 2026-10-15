@@ -37,6 +37,11 @@ type comparison =
 | Lt
 | Gt
 
+type 'a sig0 = 'a
+  (* singleton inductive, whose constructor was exist *)
+
+
+
 module Coq__1 = struct
  (** val add : nat -> nat -> nat **)
 
@@ -641,52 +646,27 @@ module Nchunks =
   let min_n =
     XO (XO (XO (XO XH)))
 
-  module Private =
-   struct
-    type t = positive
+  type t = positive
 
-    (** val from_positive : positive -> t **)
+  (** val from_positive : positive -> t **)
 
-    let from_positive n0 =
-      Coq_Pos.min max_n (Coq_Pos.max n0 min_n)
+  let from_positive n0 =
+    Coq_Pos.min max_n (Coq_Pos.max n0 min_n)
 
-    (** val from_int : int -> t **)
+  (** val from_int : int -> t **)
 
-    let from_int i =
-      from_positive (Conversion.i2p i)
+  let from_int i =
+    from_positive (Conversion.i2p i)
 
-    (** val to_positive : t -> positive **)
+  (** val to_positive : t -> positive **)
 
-    let to_positive x =
-      x
+  let to_positive x =
+    x
 
-    (** val to_N : t -> n **)
-
-    let to_N =
-      Conversion.pos2N
-   end
-
-  type t = Private.t
-
-  (** val from_positive : positive -> Private.t **)
-
-  let from_positive =
-    Private.from_positive
-
-  (** val from_int : int -> Private.t **)
-
-  let from_int =
-    Private.from_int
-
-  (** val to_positive : Private.t -> positive **)
-
-  let to_positive =
-    Private.to_positive
-
-  (** val to_N : Private.t -> n **)
+  (** val to_N : t -> n **)
 
   let to_N =
-    Private.to_N
+    Conversion.pos2N
  end
 
 module Cstdio =
@@ -1449,7 +1429,7 @@ module Assembly =
   let chunksize_N =
     Conversion.pos2N chunksize
 
-  (** val assemblysize : Nchunks.Private.t -> n **)
+  (** val assemblysize : Nchunks.t -> n **)
 
   let assemblysize n0 =
     N.mul chunksize_N (Nchunks.to_N n0)
@@ -1463,10 +1443,9 @@ module Assembly =
 
   type snapshot_t = positive
 
-  type assemblyinformation = { nchunks : Nchunks.Private.t; aid : aid_t;
-                               apos : n }
+  type assemblyinformation = { nchunks : Nchunks.t; aid : aid_t; apos : n }
 
-  (** val nchunks : assemblyinformation -> Nchunks.Private.t **)
+  (** val nchunks : assemblyinformation -> Nchunks.t **)
 
   let nchunks a =
     a.nchunks
@@ -2156,7 +2135,7 @@ module Environment =
         let (a, b) = Assembly.finish a0 e0.cur_buffer in
         let ki = { Assembly.ivec = (cpp_mk_key128 ()); Assembly.pkey =
           (cpp_mk_key256 ()); Assembly.localnchunks =
-          e0.econfig.Configuration.config_nchunks }
+          (Nchunks.to_positive e0.econfig.Configuration.config_nchunks) }
         in
         Tracer.optionalTrace e0.econfig.Configuration.trace
           (Assembly.encrypt a b ki) Tracer.Coq_warning (Some

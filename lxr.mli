@@ -18,6 +18,11 @@ type comparison =
 | Lt
 | Gt
 
+type 'a sig0 = 'a
+  (* singleton inductive, whose constructor was exist *)
+
+
+
 val add : nat -> nat -> nat
 
 val eqb : nat -> nat -> bool
@@ -189,28 +194,15 @@ module Nchunks :
 
   val min_n : positive
 
-  module Private :
-   sig
-    type t = positive
+  type t = positive
 
-    val from_positive : positive -> t
+  val from_positive : positive -> t
 
-    val from_int : int -> t
+  val from_int : int -> t
 
-    val to_positive : t -> positive
+  val to_positive : t -> positive
 
-    val to_N : t -> n
-   end
-
-  type t = Private.t
-
-  val from_positive : positive -> Private.t
-
-  val from_int : int -> Private.t
-
-  val to_positive : Private.t -> positive
-
-  val to_N : Private.t -> n
+  val to_N : t -> n
  end
 
 module Cstdio :
@@ -537,7 +529,7 @@ module Assembly :
 
   val chunksize_N : n
 
-  val assemblysize : Nchunks.Private.t -> n
+  val assemblysize : Nchunks.t -> n
 
   type aid_t = string
 
@@ -545,10 +537,9 @@ module Assembly :
 
   type snapshot_t = positive
 
-  type assemblyinformation = { nchunks : Nchunks.Private.t; aid : aid_t;
-                               apos : n }
+  type assemblyinformation = { nchunks : Nchunks.t; aid : aid_t; apos : n }
 
-  val nchunks : assemblyinformation -> Nchunks.Private.t
+  val nchunks : assemblyinformation -> Nchunks.t
 
   val aid : assemblyinformation -> aid_t
 
