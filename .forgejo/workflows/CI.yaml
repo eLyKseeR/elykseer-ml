@@ -53,6 +53,11 @@ jobs:
           eval "$(opam env)"
           make
 
+      - name: Verify trust base matches theories/Assumptions.expected
+        run: |
+          eval "$(opam env)"
+          theories/assumptions.sh check
+
       - name: Verify extraction matches committed lxr.ml / lxr.mli
         run: |
           diff -u lxr.ml.committed lxr.ml
