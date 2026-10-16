@@ -94,7 +94,7 @@ COPY --chown=1000 --from=build-env /tmp/src/elykseer-ml.git /home/coq/elykseer-m
 WORKDIR /home/coq/elykseer-ml.git
 
 # install test dependencies (alcotest, qcheck, etc.) before building
-RUN eval $(opam env) && opam install -y --deps-only --with-test .
+RUN eval $(opam env) && opam install -y alcotest alcotest-lwt qcheck qcheck-alcotest
 
 RUN eval $(opam env) && coq_makefile -f _CoqProject -o Makefile
 
