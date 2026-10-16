@@ -118,11 +118,43 @@ The build is split into two images, all tags live in `codieplusplus/elykseer-ml`
 Building the base image takes a long time; it only needs to be done once, and again on upgrades.
 All commands are run from within `docker/` and need `docker buildx`.
 
-Both images in one step, without pushing the base image first ([docker/docker-bake.hcl](docker/docker-bake.hcl)); add `--push` to publish:
+Both images in one step, without pushing the base image first ([docker/docker-bake.hcl](docker/docker-bake.hcl)):
 
 ```sh
 cd docker/
-BASE_VERSION=2 VERSION=v0.10.1 docker buildx bake --allow=fs.read=../.git
+export BASE_VERSION=2
+export VERSION=v0.10.2
+
+# Build for both platforms (linux/amd64, linux/arm64) locally
+docker buildx bake --allow=fs.read=../.git
+
+# Or build and push multi-platform manifest to registry
+docker buildx bake --allow=fs.read=../.git --push
+```
+
+The bake target builds for both `linux/amd64` and `linux/arm64` and creates a multi-platform manifest automatically.
+To build for a single platform: `PLATFORMS=linux/amd64 docker buildx bake ...`
+
+Alternatively, build platforms separately (avoids slow emulation) and combine with `imagetools create`.
+Use different VERSION values or tags for each leg, then combine:
+
+```sh
+cd docker/
+export BASE_VERSION=2
+export IMG_VERSION=v0.10.2
+
+# Build amd64 leg
+PLATFORMS=linux/amd64 VERSION=${IMG_VERSION}-amd64 docker buildx bake --allow=fs.read=../.git --push
+
+# Build arm64 leg (e.g. native Apple Silicon)
+PLATFORMS=linux/arm64 VERSION=${IMG_VERSION}-arm64 docker buildx bake --allow=fs.read=../.git --push
+
+# Combine into multi-platform manifest
+docker buildx imagetools create \
+  -t codieplusplus/elykseer-ml:latest \
+  -t codieplusplus/elykseer-ml:${IMG_VERSION} \
+  codieplusplus/elykseer-ml:${IMG_VERSION}-amd64 \
+  codieplusplus/elykseer-ml:${IMG_VERSION}-arm64
 ```
 
 The main image contains a shallow clone of the committed `HEAD` only (no other branches, reflogs, or remotes of the build machine).

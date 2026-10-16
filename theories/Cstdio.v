@@ -86,12 +86,51 @@ Definition tag_len : N := 16.
 
 (* AES-256-GCM: the nonce is derived from the ivec, the aad is authenticated but not encrypted *)
 Axiom cpp_encrypt_buffer : BufferPlain.buffer_t -> N -> string -> string -> string -> option (N * BufferEncrypted.buffer_t).
+
+(** Specification: AES-256-GCM encryption.
+    When successful, returns the ciphertext size and encrypted buffer. *)
+Axiom encrypt_spec : forall b sz aad iv pw n c,
+  0 < sz -> sz <= BufferPlain.buffer_len b ->
+  cpp_encrypt_buffer b sz aad iv pw = Some (n, c) ->
+  n = sz /\ BufferEncrypted.buffer_len c = BufferPlain.buffer_len b.
+
 Definition encrypt (bin : BufferPlain.buffer_t) (aad : string) (iv : string) (pw : string) : option (N * BufferEncrypted.buffer_t) :=
   let blen := BufferPlain.buffer_len bin in
   (* the data length is the buffer length minus the tag *)
   cpp_encrypt_buffer bin (blen - tag_len) aad iv pw.
 (* returns None if the authentication tag does not verify *)
 Axiom cpp_decrypt_buffer : BufferEncrypted.buffer_t -> string -> string -> string -> option (N * BufferPlain.buffer_t).
+
+(** Specification: AES-256-GCM decryption.
+    Succeeds only with correct aad, iv, and pw. Returns None on authentication failure. *)
+Axiom decrypt_spec : forall c aad iv pw n b,
+  cpp_decrypt_buffer c aad iv pw = Some (n, b) ->
+  n <= BufferEncrypted.buffer_len c /\ BufferPlain.buffer_len b = BufferEncrypted.buffer_len c.
+
+(** AEAD correctness: encrypt then decrypt with same parameters recovers the plaintext size. *)
+Axiom aead_correct : forall b sz aad iv pw n c n' b',
+  cpp_encrypt_buffer b sz aad iv pw = Some (n, c) ->
+  cpp_decrypt_buffer c aad iv pw = Some (n', b') ->
+  n' = n.
+
+(** AEAD authentication: decrypt fails with wrong aad. *)
+Axiom aead_wrong_aad : forall c aad aad' iv pw,
+  aad <> aad' ->
+  (exists b sz n ec, cpp_encrypt_buffer b sz aad iv pw = Some (n, ec) /\ c = ec) ->
+  cpp_decrypt_buffer c aad' iv pw = None.
+
+(** AEAD authentication: decrypt fails with wrong key. *)
+Axiom aead_wrong_key : forall c aad iv pw pw',
+  pw <> pw' ->
+  (exists b sz n ec, cpp_encrypt_buffer b sz aad iv pw = Some (n, ec) /\ c = ec) ->
+  cpp_decrypt_buffer c aad iv pw' = None.
+
+(** AEAD authentication: decrypt fails with wrong iv. *)
+Axiom aead_wrong_iv : forall c aad iv iv' pw,
+  iv <> iv' ->
+  (exists b sz n ec, cpp_encrypt_buffer b sz aad iv pw = Some (n, ec) /\ c = ec) ->
+  cpp_decrypt_buffer c aad iv' pw = None.
+
 Definition decrypt (bin : BufferEncrypted.buffer_t) (aad : string) (iv : string) (pw : string) : option (N * BufferPlain.buffer_t) :=
   cpp_decrypt_buffer bin aad iv pw.
 

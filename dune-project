@@ -28,6 +28,10 @@
    yojson
    (elykseer_crypto (and (>= 2.2.0) (< 3.0.0)))
    (mlcpp_chrono (and (>= 0.9.0) (< 0.10.0)))
+   (alcotest :with-test)
+   (alcotest-lwt :with-test)
+   (qcheck :with-test)
+   (qcheck-alcotest :with-test)
  )
  (tags
   ("elixir for your data"
