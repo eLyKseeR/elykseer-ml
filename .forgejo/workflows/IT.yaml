@@ -60,12 +60,12 @@ jobs:
           eval "$(opam env)"
           opam install -y alcotest alcotest-lwt qcheck qcheck-alcotest
 
-      - name: Build binaries from committed lxr.ml / lxr.mli
+      - name: (dune build) - Build binaries from committed lxr.ml / lxr.mli
         run: |
           eval "$(opam env)"
           dune build
 
-      - name: Unit and command line tests (dune test)
+      - name: (dune test) - Property based tests, unit tests, and command line tests
         run: |
           eval "$(opam env)"
           dune exec test/test.exe -- test PBT 2 -v  # Show benchmark timing
