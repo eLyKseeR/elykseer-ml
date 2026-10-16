@@ -18,3 +18,7 @@
 ## 08 Archive [format](08_Format.md)
 
 ## 09 [Operations](09_Operations.md): backup of keys, restore drills, failure modes, upgrading
+
+## 10 [AssemblyCache in GPU memory](10_GPU_AssemblyCache.md): design study
+
+## 11 [Sinks and sources](11_Sinks_and_Sources.md): pluggable chunk storage and speed-aware sourcing (plan)
