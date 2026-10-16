@@ -43,10 +43,11 @@ jobs:
       - name: Make ~/.local/bin (irmin) available on PATH
         run: echo "/home/coq/.local/bin" >> "$GITHUB_PATH"
 
+      # TODO: remove this step once image is rebuilt with test deps (docker/Dockerfile)
       - name: Install test dependencies
         run: |
           eval "$(opam env)"
-          opam install -y --deps-only --with-test .
+          opam install -y alcotest alcotest-lwt qcheck qcheck-alcotest
 
       - name: Build binaries from committed lxr.ml / lxr.mli
         run: |
