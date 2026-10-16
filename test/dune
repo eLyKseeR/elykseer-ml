@@ -1,9 +1,9 @@
 (test
  (name test)
- (modules test testAssembly testRelkeys testSecurity testUtils)
+ (modules testPBT test testAssembly testRelkeys testSecurity testUtils)
  (preprocess (pps lwt_ppx))
  (deps ../sinks.json)
- (libraries alcotest alcotest-lwt elykseer elykseer_base elykseer_utils elykseer_crypto mlcpp_cstdio mlcpp_chrono unix yojson)
+ (libraries alcotest alcotest-lwt qcheck qcheck-alcotest elykseer elykseer_base elykseer_utils elykseer_crypto mlcpp_cstdio mlcpp_chrono unix yojson)
 )
 ; command line tests of the lxr_* tools (exit codes, no partial restores)
 (rule

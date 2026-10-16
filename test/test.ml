@@ -3,6 +3,7 @@
 let plain_tests () =
   let open Alcotest in
   run ~and_exit:false "LXR Assembly" [
+    TestPBT.test;
     TestAssembly.test;
     TestSecurity.test;
     TestUtils.test;

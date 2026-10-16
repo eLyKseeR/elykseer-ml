@@ -51,7 +51,8 @@ jobs:
       - name: Unit and command line tests (dune test)
         run: |
           eval "$(opam env)"
-          dune test
+          dune exec test/test.exe -- test PBT 2 -v  # Show benchmark timing
+          dune test  # Run all tests
 
       - name: Test coverage (bisect_ppx)
         run: |
