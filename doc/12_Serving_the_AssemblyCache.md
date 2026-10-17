@@ -211,10 +211,10 @@ eLyKseeR is **GPL-3.0-or-later**. Three cases have to be kept apart:
 | candidate | licence (verify before use) | how it would be used | assessment |
 |---|---|---|---|
 | libfuse 3 | LGPL-2.1 (library) | link, own thin C stubs | OK; write our own stubs instead of a GPL binding |
-| ocamlfuse | GPL (check version) | OCaml binding | works with GPL-3, but blocks relicensing → prefer own stubs |
+| ocamlfuse | GPL (check version) | OCaml binding | ❌ excluded by the licence-independence decision → own stubs |
 | macFUSE | closed-source kernel extension, redistribution terms | macOS FUSE | avoid; mount our NFS/WebDAV server instead (built into macOS) |
 | FUSE-T | proprietary freeware (NFS-loopback based) | macOS FUSE | avoid for the same reason |
-| WinFsp | GPL-3 with FLOSS exception | Windows FUSE | usable; NFS/WebDAV mounts avoid it |
+| WinFsp | GPL-3 with FLOSS exception | Windows FUSE | not for a proprietary product (exception covers FLOSS only); use the built-in NFS/WebDAV clients |
 | ocaml-9p (Mirage) | ISC | 9P server | good fit, permissive, OCaml-native |
 | cohttp / Dream / h2 | ISC / MIT / BSD | HTTP for WebDAV, S3 gateway, health, gRPC | good fit |
 | ocaml-grpc | BSD-3 | service ↔ node agent | good fit |
@@ -317,8 +317,10 @@ POSIX writes onto that:
 
 ## 9. Open questions
 
-* Is the goal **licence independence** (keep the option to relicense) or only **GPL
-  compatibility**? The answer decides whether ocamlfuse-style GPL bindings are acceptable.
+* ~~Licence independence or only GPL compatibility?~~ **Decided: licence independence** (share
+  code and binaries, build a business on it). No third-party GPL library is linked; LGPL only
+  dynamically; GPL programs only as separate processes. See the
+  [licence audit](13_License_Audit.md).
 * One service per `my_id`, or one per namespace serving several identities with ACLs?
 * Do we need symlinks, empty directories and xattrs? They need a format extension on the backup
   side.

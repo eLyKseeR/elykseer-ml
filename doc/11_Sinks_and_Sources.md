@@ -203,8 +203,8 @@ FTP(S). Most new sinks can therefore reuse one transport.
 | **WebDAV** | curl: `PUT`, `GET`, `HEAD`, `MKCOL`, `PROPFIND` | `<url>/<key>` | Nextcloud/ownCloud, Apache mod_dav; create collections on demand | 2 |
 | **SFTP** | curl `sftp://` (libssh2) | `<path>/<key>` | key-based auth; `known_hosts` required unless `--insecure`; rename for atomicity | 2 |
 | **IMAP** | curl `imaps://`: `APPEND`, `UID SEARCH SUBJECT`, `UID FETCH` | one message per chunk in a mailbox, subject = key, chunk as base64 attachment (≈ 350 KiB) | slow, but free and replicated by mail providers; mailbox size quotas | 3 |
-| **SMB** | curl `smb://` or libsmb2 | `\\share\path\key` | curl's SMB is SMBv1 only → prefer libsmb2 bindings or a mount + FS | 3 |
-| **NFS** | libnfs bindings, or mount + FS | `<export>/<key>` | the mount route needs no code | 3 |
+| **SMB** | mount + FS; libsmb2 only dynamically linked | `\\share\path\key` | curl's SMB is SMBv1 only; libsmb2 is LGPL-2.1, so dynamic linking only ([13](13_License_Audit.md#5-consequences-for-the-plans-in-docs-1012)) | 3 |
+| **NFS** | mount + FS; libnfs only dynamically linked | `<export>/<key>` | the mount route needs no code; libnfs is LGPL-2.1 | 3 |
 | **rclone / exec** | subprocess `rclone rcat` / `rclone cat` / `rclone lsf` | `<remote>:<path>/<key>` | instant coverage of ~70 providers (Azure, Drive, Dropbox, …); one process per transfer, or `rclone rcd` HTTP API | 2 |
 | **mock** | in memory | – | configurable latency, bandwidth, failure rate; for tests | 1 |
 
