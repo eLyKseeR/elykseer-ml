@@ -2,8 +2,6 @@
 
 This project is about developing the cryptographic data archive _eLyKseeR_ using formal methods and implementing it in the functional language _Rocq_ (former _Coq_).
 
-Copyright (c) 2026 Alexander Diemand
-
 ## Quickstart (Docker)
 
 Back up a file from the current directory and restore it again:
@@ -37,9 +35,10 @@ It does **not** protect:
 
 ## Contributing
 
-This is an open source project and open for your contributions! Before submitting your first pull request, please review our [Contributor License Agreement](CLA.md) (CLA). The CLA allows us to maintain _eLyKseeR_ under a dual-licensing model (GPLv3 for open source use, with commercial licenses available for proprietary applications).
-
-We very much appreciate user experience testimonials, bug reports, feature requests, documentation improvements, and code contributions. See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
+Contributions are welcome! Before submitting your first pull request, please review our
+[Contributor License Agreement](CLA.md) (CLA). The CLA allows us to maintain _eLyKseeR_ under a
+dual-licensing model (GPLv3 for open source use, with commercial licenses available for proprietary
+applications). It is the same for all eLyKseeR repositories. See [CONTRIBUTING.md](CONTRIBUTING.md) for how to sign.
 
 ## Project setup and preparations
 
@@ -438,3 +437,12 @@ verify data against XML schema:
 `xmllint --schema schema/fileinformation.xsd b.xml --noout && echo OK || echo failed`
 
 </details>
+
+# copyright
+
+Copyright 2022-2026 by Alexander Diemand
+
+# license
+
+This work is licensed under the
+[GNU General Public License v3](https://www.gnu.org/licenses/gpl.html)
