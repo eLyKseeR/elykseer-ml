@@ -22,3 +22,5 @@
 ## 10 [AssemblyCache in GPU memory](10_GPU_AssemblyCache.md): design study
 
 ## 11 [Sinks and sources](11_Sinks_and_Sources.md): pluggable chunk storage and speed-aware sourcing (plan)
+
+## 12 [Serving the AssemblyCache](12_Serving_the_AssemblyCache.md): NFS, WebDAV, FUSE, Kubernetes (evaluation)
