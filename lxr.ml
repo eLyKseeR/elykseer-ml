@@ -3656,7 +3656,7 @@ module Version =
   (** val build : string **)
 
   let build =
-    "1"
+    "2"
 
   (** val version : string **)
 
