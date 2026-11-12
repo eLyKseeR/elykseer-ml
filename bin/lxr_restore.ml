@@ -11,11 +11,10 @@ let arg_files = ref []
 let arg_dbpath = ref ""
 let arg_chunkpath = ref ""
 let arg_outpath = ref (Filename.get_temp_dir_name ())
-let arg_nchunks = ref 16
 let arg_myid = ref Cli.default_myid
 let arg_verify = ref false
 
-let usage_msg = "lxr_restore -x chunkpath -d dbpath [-o outpath] [-v] [-n nchunks] [-i myid] <file1> [<file2>] ...\n       lxr_restore --verify -x chunkpath -d dbpath [-v] [-n nchunks] [-i myid] [<file1> ...]"
+let usage_msg = "lxr_restore -x chunkpath -d dbpath [-o outpath] [-v] [-i myid] <file1> [<file2>] ...\n       lxr_restore --verify -x chunkpath -d dbpath [-v] [-i myid] [<file1> ...]"
 
 let argspec =
   [
@@ -23,7 +22,7 @@ let argspec =
     ("-x", Arg.Set_string arg_chunkpath, "sets path for encrypted chunks");
     ("-o", Arg.Set_string arg_outpath, "sets output path for restored files (default: temp directory)");
     ("-d", Arg.Set_string arg_dbpath, "sets database path");
-    ("-n", Cli.nchunks_spec arg_nchunks, "sets number of chunks (16-256) per assembly");
+    ("-n", Arg.Int (fun _ -> prerr_endline "lxr_restore: parameter -n is obsolete and ignored, the number of chunks is read from the key information"), "obsolete, ignored");
     ("-i", Arg.Set_string arg_myid, "sets own identifier");
     ("--verify", Arg.Set arg_verify, "restores into a temporary directory, compares each file with its checksum from the meta data, and removes it; without file names: all files of the identifier");
   ]
@@ -45,11 +44,10 @@ let contained_target basep fname =
 
 (* restores a file and returns (bytes restored, success, processor);
    a file that could not be completely restored is removed again *)
-let restore_file proc relf _relk basep fname =
-  let%lwt ofbs = Relfiles.find (Elykseer_crypto.Sha3_256.string (fname ^ !arg_myid)) relf in
+let restore_file proc basep (fname, ofbs) =
   match ofbs with
   | None -> let%lwt () = Lwt_io.printlf "  cannot restore file '%s': no meta data found" fname in Lwt.return (0,false,proc)
-  | Some rfbs ->
+  | Some (rfbs : Relfiles.relation) ->
     match contained_target basep fname with
     | Error msg -> let%lwt () = Lwt_io.printlf "  cannot restore file '%s': %s" fname msg in Lwt.return (0,false,proc)
     | Ok (relp, targetp) ->
@@ -87,16 +85,13 @@ let restore_file proc relf _relk basep fname =
 (* find all assembly ids in the file blocks to be restored
    and put their encryption keys into the key store of the
    assembly cache *)
-let ensure_keys_available (ac0 : AssemblyCache.assemblycache) relf relk fns =
-  let%lwt laids = Lwt_list.fold_left_s (fun acc fname ->
-                    let fhash = Elykseer_crypto.Sha3_256.string (fname ^ !arg_myid) in
-                    match%lwt Relfiles.find fhash relf with
-                    | None -> Lwt.return acc
-                    | Some fbs ->
-                        let laids = List.map (fun (bi : Assembly.blockinformation) -> bi.blockaid) fbs.rfbs in
-                        Lwt.return (List.append laids acc)
-                  ) [] fns
-                  in
+let ensure_keys_available (ac0 : AssemblyCache.assemblycache) relk rels =
+  let laids = List.fold_left (fun acc (_, ofbs) ->
+                match ofbs with
+                | None -> acc
+                | Some (fbs : Relfiles.relation) ->
+                    List.append (List.map (fun (bi : Assembly.blockinformation) -> bi.blockaid) fbs.rfbs) acc
+              ) [] rels in
   let lsorted = List.sort_uniq (compare) laids in
   let%lwt kstore' = Lwt_list.fold_left_s (fun kstore aid ->
                       match%lwt Relkeys.find aid relk with
@@ -110,13 +105,17 @@ let ensure_keys_available (ac0 : AssemblyCache.assemblycache) relf relk fns =
 let restore_files (proc0 : Processor.processor) relf relk basep fns =
     match fns with
     | [] -> Lwt.return 0
-    | _  -> let%lwt ac' = ensure_keys_available proc0.cache relf relk fns in
+    | _  -> (* the meta data of each file is read only once *)
+            let%lwt rels = Lwt_list.map_s (fun fn ->
+                             let%lwt ofbs = Relfiles.find (Elykseer_crypto.Sha3_256.string (fn ^ !arg_myid)) relf in
+                             Lwt.return (fn, ofbs)) fns in
+            let%lwt ac' = ensure_keys_available proc0.cache relk rels in
             let proc1 = { proc0 with cache = ac'} in
               let nf = List.length fns in
               let%lwt (cnt,nok,_proc') = Lwt_list.fold_left_s (fun (c,k,proc) fn ->
-                                       let%lwt (c',ok,proc') = restore_file proc relf relk basep fn in
+                                       let%lwt (c',ok,proc') = restore_file proc basep fn in
                                        Lwt.return(c + c', (if ok then k + 1 else k), proc')
-                                     ) (0,0,proc1) fns in
+                                     ) (0,0,proc1) rels in
               let nfailed = nf - nok in
               let%lwt () = if !arg_verbose || nfailed > 0 then
                 Lwt_io.printlf "  %s %d of %d files with %d bytes in total" (if !arg_verify then "verified" else "restored") nok nf cnt
@@ -137,14 +136,14 @@ let main () = Arg.parse argspec anon_args_fun usage_msg;
         Cli.require argspec usage_msg [("-x", !arg_chunkpath); ("-d", !arg_dbpath)];
         Cli.require_db !arg_dbpath;
         Cli.warn_default_myid !arg_myid end in
-    let nchunks = Nchunks.from_int !arg_nchunks in
     if (!arg_verify || List.length !arg_files > 0)
        && (!arg_verify || exists_output_dir !arg_outpath)
     then
       let myid = !arg_myid in
       let tracer = if !arg_verbose then Tracer.stdoutTracerDebug else Tracer.stdoutTracerWarning in
       let conf : configuration = {
-                    config_nchunks = nchunks;
+                    (* restore reads the number of chunks from the key information *)
+                    config_nchunks = Nchunks.from_int Cli.min_nchunks;
                     path_chunks = !arg_chunkpath;
                     path_db     = !arg_dbpath;
                     my_id       = myid;

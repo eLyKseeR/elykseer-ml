@@ -816,11 +816,11 @@ module Cstdio =
 
     (** val from_buffer : cstdio_buffer -> buffer_t **)
 
-    let from_buffer = fun b -> Helper.cpp_buffer_id b
+    let from_buffer = fun b -> Elykseer_base.Helper.cpp_buffer_id b
 
     (** val to_buffer : buffer_t -> cstdio_buffer **)
 
-    let to_buffer = fun b -> Helper.cpp_buffer_id b
+    let to_buffer = fun b -> Elykseer_base.Helper.cpp_buffer_id b
 
     (** val state : coq_EncryptionState **)
 
@@ -853,11 +853,11 @@ module Cstdio =
 
     (** val from_buffer : cstdio_buffer -> buffer_t **)
 
-    let from_buffer = fun b -> Helper.cpp_buffer_id b
+    let from_buffer = fun b -> Elykseer_base.Helper.cpp_buffer_id b
 
     (** val to_buffer : buffer_t -> cstdio_buffer **)
 
-    let to_buffer = fun b -> Helper.cpp_buffer_id b
+    let to_buffer = fun b -> Elykseer_base.Helper.cpp_buffer_id b
 
     (** val state : coq_EncryptionState **)
 
@@ -899,7 +899,7 @@ module Cstdio =
 
   (** val cpp_ranbuf128 : unit -> cstdio_buffer **)
 
-  let cpp_ranbuf128 = fun () -> Helper.ranbuf128 ()
+  let cpp_ranbuf128 = fun () -> Elykseer_base.Helper.ranbuf128 ()
 
   (** val ranbuf128 : unit -> BufferPlain.buffer_t **)
 
@@ -1614,12 +1614,12 @@ module Assembly =
   (** val id_assembly_full_ainfo_from_writable :
       assemblyinformation -> assemblyinformation **)
 
-  let id_assembly_full_ainfo_from_writable = fun b -> Helper.cpp_buffer_id b
+  let id_assembly_full_ainfo_from_writable = fun b -> Elykseer_base.Helper.cpp_buffer_id b
 
   (** val id_assembly_full_buffer_from_writable :
       AssemblyPlainWritable.coq_B -> AssemblyPlainFull.coq_B **)
 
-  let id_assembly_full_buffer_from_writable = fun b -> Helper.cpp_buffer_id b
+  let id_assembly_full_buffer_from_writable = fun b -> Elykseer_base.Helper.cpp_buffer_id b
 
   (** val finish :
       assemblyinformation -> AssemblyPlainWritable.coq_B ->
@@ -1657,12 +1657,12 @@ module Assembly =
   (** val id_buffer_t_from_full :
       AssemblyPlainFull.coq_B -> Cstdio.BufferPlain.buffer_t **)
 
-  let id_buffer_t_from_full = fun b -> Helper.cpp_buffer_id b
+  let id_buffer_t_from_full = fun b -> Elykseer_base.Helper.cpp_buffer_id b
 
   (** val id_assembly_enc_buffer_t_from_buf :
       Cstdio.BufferEncrypted.buffer_t -> AssemblyEncrypted.coq_B **)
 
-  let id_assembly_enc_buffer_t_from_buf = fun b -> Helper.cpp_buffer_id b
+  let id_assembly_enc_buffer_t_from_buf = fun b -> Elykseer_base.Helper.cpp_buffer_id b
 
   (** val encrypt :
       assemblyinformation -> AssemblyPlainFull.coq_B -> keyinformation ->
@@ -1705,12 +1705,12 @@ module Assembly =
   (** val id_buffer_t_from_enc :
       AssemblyEncrypted.coq_B -> Cstdio.BufferEncrypted.buffer_t **)
 
-  let id_buffer_t_from_enc = fun b -> Helper.cpp_buffer_id b
+  let id_buffer_t_from_enc = fun b -> Elykseer_base.Helper.cpp_buffer_id b
 
   (** val id_assembly_plain_buffer_t_from_buf :
       Cstdio.BufferPlain.buffer_t -> AssemblyPlainFull.coq_B **)
 
-  let id_assembly_plain_buffer_t_from_buf = fun b -> Helper.cpp_buffer_id b
+  let id_assembly_plain_buffer_t_from_buf = fun b -> Elykseer_base.Helper.cpp_buffer_id b
 
   (** val decrypt :
       assemblyinformation -> AssemblyEncrypted.coq_B -> keyinformation ->
@@ -1741,7 +1741,7 @@ module Assembly =
       Configuration.configuration -> aid_t -> positive -> string **)
 
   let chunk_identifier_path = fun config aid cid -> let cident = chunk_identifier config aid cid in
-      let subd = Helper.mk_cid_subdir cident in
+      let subd = Elykseer_base.Helper.mk_cid_subdir cident in
       (Configuration.path_chunks config ^ "/" ^ subd ^ "/" ^ cident ^ ".lxr")
    
 
@@ -1764,14 +1764,18 @@ module Assembly =
                   then Some (Cstdio.BufferEncrypted.from_buffer b)
                   else None
                 | None -> None)
-             | None -> None)
+             | None ->
+               let filtered_var1 = Cstdio.fclose fptr0 in
+               (match filtered_var1 with
+                | Some _ -> None
+                | None -> None))
           | None -> None)
     else None
 
   (** val id_enc_from_buffer_t :
       Cstdio.BufferEncrypted.buffer_t -> AssemblyEncrypted.coq_B **)
 
-  let id_enc_from_buffer_t = fun b -> Helper.cpp_buffer_id b
+  let id_enc_from_buffer_t = fun b -> Elykseer_base.Helper.cpp_buffer_id b
 
   (** val recall :
       Configuration.configuration -> assemblyinformation ->
@@ -1831,14 +1835,16 @@ module Assembly =
                          | Some cnt -> cnt
                          | None -> N0)
                       in
-                      let filtered_var0 = Cstdio.fflush fptr0 in
+                      let res' =
+                        let filtered_var0 = Cstdio.fflush fptr0 in
+                        (match filtered_var0 with
+                         | Some _ -> res
+                         | None -> N0)
+                      in
+                      let filtered_var0 = Cstdio.fclose fptr0 in
                       (match filtered_var0 with
-                       | Some fptr2 ->
-                         let filtered_var1 = Cstdio.fclose fptr2 in
-                         (match filtered_var1 with
-                          | Some _ -> res
-                          | None -> N0)
-                       | None -> res)
+                       | Some _ -> res'
+                       | None -> N0)
                  else let filtered_var0 = Cstdio.fclose fptr0 in
                       (match filtered_var0 with
                        | Some _ ->
@@ -2144,7 +2150,15 @@ module Environment =
           ((^) "encrypted assembly: " a.Assembly.aid)) (fun pat ->
           let (a', b') = pat in
           let n0 = Assembly.extract e0.econfig a' b' in
-          if N.ltb N0 n0 then Some (a.Assembly.aid, ki) else None))
+          Tracer.conditionalTrace e0.econfig.Configuration.trace
+            (N.eqb n0 (Assembly.assemblysize a'.Assembly.nchunks))
+            Tracer.Coq_info None (fun _ -> Some (a.Assembly.aid, ki))
+            Tracer.Coq_warning (Some
+            ((^) "failed to write all chunks of assembly "
+              ((^) a.Assembly.aid
+                ((^) ": "
+                  ((^) (Conversion.i2s (Conversion.n2i n0)) " bytes written")))))
+            (fun _ -> None)))
         Tracer.Coq_info (Some
         ((^) "not finalising empty assembly "
           ((^) a0.Assembly.aid
@@ -2204,19 +2218,19 @@ module Environment =
       { cur_assembly = a; cur_buffer = b; econfig = c }
 
     (** val restore_assembly :
-        coq_AB environment -> Assembly.aid_t -> Assembly.keyinformation ->
-        coq_AB environment option **)
+        Configuration.configuration -> Assembly.aid_t ->
+        Assembly.keyinformation -> coq_AB environment option **)
 
-    let restore_assembly e0 aid0 ki =
-      match Assembly.recall e0.econfig { Assembly.nchunks =
-              e0.econfig.Configuration.config_nchunks; Assembly.aid = aid0;
-              Assembly.apos = N0 } with
+    let restore_assembly c aid0 ki =
+      match Assembly.recall c { Assembly.nchunks =
+              (Nchunks.from_positive ki.Assembly.localnchunks);
+              Assembly.aid = aid0; Assembly.apos = N0 } with
       | Some p ->
         let (a1, b1) = p in
         (match Assembly.decrypt a1 b1 ki with
          | Some p0 ->
            let (a2, b2) = p0 in
-           Some { cur_assembly = a2; cur_buffer = b2; econfig = e0.econfig }
+           Some { cur_assembly = a2; cur_buffer = b2; econfig = c }
          | None -> None)
       | None -> None
    end
@@ -2225,7 +2239,7 @@ module Environment =
 module AssemblyCache =
  struct
   type readqueueentity = { rqaid : Assembly.aid_t; rqapos : n; rqrlen : 
-                           n; rqfpos : n }
+                           n; rqfpos : n; rqchecksum : string }
 
   (** val rqaid : readqueueentity -> Assembly.aid_t **)
 
@@ -2246,6 +2260,11 @@ module AssemblyCache =
 
   let rqfpos r =
     r.rqfpos
+
+  (** val rqchecksum : readqueueentity -> string **)
+
+  let rqchecksum r =
+    r.rqchecksum
 
   type readqueueresult = { readrequest : readqueueentity;
                            rresult : Cstdio.BufferPlain.buffer_t }
@@ -2283,29 +2302,23 @@ module AssemblyCache =
   let qsize =
     XO (XO (XI XH))
 
-  type readqueue = { rqueue : readqueueentity list; rqueuesz : positive }
+  type readqueue =
+    readqueueentity list
+    (* singleton inductive, whose constructor was mkreadqueue *)
 
   (** val rqueue : readqueue -> readqueueentity list **)
 
   let rqueue r =
-    r.rqueue
+    r
 
-  (** val rqueuesz : readqueue -> positive **)
-
-  let rqueuesz r =
-    r.rqueuesz
-
-  type writequeue = { wqueue : writequeueentity list; wqueuesz : positive }
+  type writequeue =
+    writequeueentity list
+    (* singleton inductive, whose constructor was mkwritequeue *)
 
   (** val wqueue : writequeue -> writequeueentity list **)
 
   let wqueue w =
-    w.wqueue
-
-  (** val wqueuesz : writequeue -> positive **)
-
-  let wqueuesz w =
-    w.wqueuesz
+    w
 
   type assemblycache = { acenvs : Environment.EnvironmentReadable.coq_E list;
                          acsize : nat;
@@ -2369,37 +2382,34 @@ module AssemblyCache =
   let prepare_assemblycache c size =
     { acenvs = []; acsize = (Coq_Pos.to_nat size); acwriteenv =
       (Environment.EnvironmentWritable.initial_environment c); acconfig = c;
-      acwriteq = { wqueue = []; wqueuesz = qsize }; acreadq = { rqueue = [];
-      rqueuesz = qsize }; acfbstore = (Store.FBlockListStore.init c);
-      ackstore = (Store.KeyListStore.init c); acfistore =
-      (Store.FileinformationStore.init c) }
+      acwriteq = []; acreadq = []; acfbstore =
+      (Store.FBlockListStore.init c); ackstore = (Store.KeyListStore.init c);
+      acfistore = (Store.FileinformationStore.init c) }
 
   (** val enqueue_write_request :
       assemblycache -> writequeueentity -> bool * assemblycache **)
 
   let enqueue_write_request ac req =
-    let wq = ac.acwriteq.wqueue in
+    let wq = ac.acwriteq in
     let ln = length wq in
     if N.leb (Conversion.pos2N qsize) (Conversion.nat2N ln)
     then (false, ac)
     else (true, { acenvs = ac.acenvs; acsize = ac.acsize; acwriteenv =
-           ac.acwriteenv; acconfig = ac.acconfig; acwriteq = { wqueue =
-           (req :: wq); wqueuesz = ac.acwriteq.wqueuesz }; acreadq =
-           ac.acreadq; acfbstore = ac.acfbstore; ackstore = ac.ackstore;
-           acfistore = ac.acfistore })
+           ac.acwriteenv; acconfig = ac.acconfig; acwriteq = (req :: wq);
+           acreadq = ac.acreadq; acfbstore = ac.acfbstore; ackstore =
+           ac.ackstore; acfistore = ac.acfistore })
 
   (** val enqueue_read_request :
       assemblycache -> readqueueentity -> bool * assemblycache **)
 
   let enqueue_read_request ac req =
-    let rq = ac.acreadq.rqueue in
+    let rq = ac.acreadq in
     let ln = length rq in
     if N.leb (Conversion.pos2N qsize) (Conversion.nat2N ln)
     then (false, ac)
     else (true, { acenvs = ac.acenvs; acsize = ac.acsize; acwriteenv =
            ac.acwriteenv; acconfig = ac.acconfig; acwriteq = ac.acwriteq;
-           acreadq = { rqueue = (req :: rq); rqueuesz =
-           ac.acreadq.rqueuesz }; acfbstore = ac.acfbstore; ackstore =
+           acreadq = (req :: rq); acfbstore = ac.acfbstore; ackstore =
            ac.ackstore; acfistore = ac.acfistore })
 
   (** val try_restore_assembly :
@@ -2410,9 +2420,7 @@ module AssemblyCache =
     let filtered_var = Store.KeyListStore.find sel_aid ac.ackstore in
     (match filtered_var with
      | Some ki ->
-       Environment.EnvironmentReadable.restore_assembly
-         (Environment.EnvironmentReadable.initial_environment ac.acconfig)
-         sel_aid ki
+       Environment.EnvironmentReadable.restore_assembly ac.acconfig sel_aid ki
      | None -> None)
 
   (** val set_envs :
@@ -2516,10 +2524,13 @@ module AssemblyCache =
            Assembly.assembly_get_content env.Environment.cur_buffer h.rqrlen
              h.rqapos buf
          in
+         let ok =
+           (&&) (N.ltb N0 n0)
+             ((||) ((=) h.rqchecksum "")
+               ((=) (Cstdio.BufferPlain.calc_checksum buf) h.rqchecksum))
+         in
          let res' =
-           if N.ltb N0 n0
-           then { readrequest = h; rresult = buf } :: res
-           else res
+           if ok then { readrequest = h; rresult = buf } :: res else res
          in
          run_read_requests ac1 r res'
        | None -> (res, ac0))
@@ -2545,10 +2556,9 @@ module AssemblyCache =
       | None -> ac0.ackstore
     in
     let ac1 = { acenvs = ac0.acenvs; acsize = ac0.acsize; acwriteenv = env;
-      acconfig = ac0.acconfig; acwriteq = { wqueue = []; wqueuesz =
-      ac0.acwriteq.wqueuesz }; acreadq = ac0.acreadq; acfbstore =
-      (Store.FBlockListStore.add fhash0 bi ac0.acfbstore); ackstore =
-      ackstore'; acfistore = ac0.acfistore }
+      acconfig = ac0.acconfig; acwriteq = []; acreadq = ac0.acreadq;
+      acfbstore = (Store.FBlockListStore.add fhash0 bi ac0.acfbstore);
+      ackstore = ackstore'; acfistore = ac0.acfistore }
     in
     run_write_requests ac1 r
 
@@ -2556,23 +2566,22 @@ module AssemblyCache =
       assemblycache -> readqueueresult list * assemblycache **)
 
   let iterate_read_queue ac0 =
-    let filtered_var = ac0.acreadq.rqueue in
+    let filtered_var = ac0.acreadq in
     (match filtered_var with
      | [] -> ([], ac0)
      | r :: l ->
        let rq = r :: l in
        let ac1 = { acenvs = ac0.acenvs; acsize = ac0.acsize; acwriteenv =
          ac0.acwriteenv; acconfig = ac0.acconfig; acwriteq = ac0.acwriteq;
-         acreadq = { rqueue = []; rqueuesz = ac0.acreadq.rqueuesz };
-         acfbstore = ac0.acfbstore; ackstore = ac0.ackstore; acfistore =
-         ac0.acfistore }
+         acreadq = []; acfbstore = ac0.acfbstore; ackstore = ac0.ackstore;
+         acfistore = ac0.acfistore }
        in
        run_read_requests ac1 rq [])
 
   (** val iterate_write_queue : assemblycache -> assemblycache **)
 
   let iterate_write_queue ac0 =
-    let filtered_var = ac0.acwriteq.wqueue in
+    let filtered_var = ac0.acwriteq in
     (match filtered_var with
      | [] -> ac0
      | w :: l -> let wq = w :: l in run_write_requests ac0 wq)
@@ -2611,16 +2620,6 @@ module AssemblyCache =
        ac0.acreadq; acfbstore = ac0.acfbstore; ackstore = ackstore';
        acfistore = ac0.acfistore }
      | None -> ac0)
-
-  (** val add_key :
-      assemblycache -> Assembly.aid_t -> Assembly.keyinformation ->
-      assemblycache **)
-
-  let add_key ac aid0 ki =
-    { acenvs = ac.acenvs; acsize = ac.acsize; acwriteenv = ac.acwriteenv;
-      acconfig = ac.acconfig; acwriteq = ac.acwriteq; acreadq = ac.acreadq;
-      acfbstore = ac.acfbstore; ackstore =
-      (Store.KeyListStore.add aid0 ki ac.ackstore); acfistore = ac.acfistore }
  end
 
 type 'x compare2 =
@@ -3318,32 +3317,11 @@ module Processor =
          let (b0, cache'') = filtered_var0 in
          if b0 then update_cache this0 cache'' else this0
 
-  (** val request_read :
-      processor -> AssemblyCache.readqueueentity ->
-      AssemblyCache.readqueueresult list * processor **)
-
-  let request_read this0 rqe =
-    let filtered_var = AssemblyCache.enqueue_read_request this0.cache rqe in
-    let (b, cache') = filtered_var in
-    if b
-    then ([], (update_cache this0 cache'))
-    else let (rres, cache'0) = AssemblyCache.iterate_read_queue this0.cache in
-         let filtered_var0 = AssemblyCache.enqueue_read_request cache'0 rqe in
-         let (b0, cache'') = filtered_var0 in
-         if b0 then (rres, (update_cache this0 cache'')) else ([], this0)
-
   (** val run_write_requests : processor -> processor **)
 
   let run_write_requests this0 =
     let cache' = AssemblyCache.iterate_write_queue this0.cache in
     update_cache this0 cache'
-
-  (** val run_read_requests :
-      processor -> AssemblyCache.readqueueresult list * processor **)
-
-  let run_read_requests this0 =
-    let (rres, cache') = AssemblyCache.iterate_read_queue this0.cache in
-    (rres, (update_cache this0 cache'))
 
   (** val close : processor -> processor **)
 
@@ -3355,6 +3333,19 @@ module Processor =
   let block_sz =
     Npos (XO (XO (XO (XO (XO (XO (XO (XO (XO (XO (XO (XO (XO (XO (XO
       XH)))))))))))))))
+
+  (** val read_block :
+      Cstdio.fptr -> Assembly.blockinformation -> Cstdio.BufferPlain.buffer_t
+      option **)
+
+  let read_block fptr0 fb =
+    match Cstdio.fread fptr0 fb.Assembly.blocksize with
+    | Some p ->
+      let (nread, b) = p in
+      if N.eqb nread fb.Assembly.blocksize
+      then Some (Cstdio.BufferPlain.from_buffer b)
+      else None
+    | None -> None
 
   (** val rec_file_backup_inner :
       Assembly.blockinformation list -> processor -> string -> Cstdio.fptr ->
@@ -3369,11 +3360,10 @@ module Processor =
         ((^) "failed to fseek in file: " fhash0)) (fun _ -> None)
         Tracer.Coq_info None (fun fptr' ->
         Tracer.optionalTrace this0.config.Configuration.trace
-          (Cstdio.fread fptr0 fb.Assembly.blocksize) Tracer.Coq_warning (Some
-          ((^) "failed to fread from file: " fhash0)) (fun _ -> None)
-          Tracer.Coq_info None (fun pat ->
-          let (_, b) = pat in
-          let b' = Cstdio.BufferPlain.from_buffer b in
+          (read_block fptr0 fb) Tracer.Coq_warning (Some
+          ((^) "failed to read block (file changed during backup?) of file: "
+            fhash0))
+          (fun _ -> None) Tracer.Coq_info None (fun b' ->
           let found =
             if (=) fb.Assembly.bchecksum ""
             then false
@@ -3412,7 +3402,12 @@ module Processor =
          (rec_file_backup_inner tgtfbs this0 fi.Filesupport.fhash fptr0)
          Tracer.Coq_warning (Some
          ((^) "block backup failed of file: " fi.Filesupport.fname))
-         (fun _ -> None) Tracer.Coq_info (Some
+         (fun _ ->
+         let filtered_var0 = Cstdio.fclose fptr0 in
+         (match filtered_var0 with
+          | Some _ -> None
+          | None -> None))
+         Tracer.Coq_info (Some
          ((^) "block backup succeeded of file: " fi.Filesupport.fname))
          (fun proc' ->
          let filtered_var0 = Cstdio.fclose fptr0 in
@@ -3468,7 +3463,8 @@ module Processor =
     let rreq = { AssemblyCache.rqaid = block.Assembly.blockaid;
       AssemblyCache.rqapos = block.Assembly.blockapos; AssemblyCache.rqrlen =
       block.Assembly.blocksize; AssemblyCache.rqfpos =
-      block.Assembly.filepos }
+      block.Assembly.filepos; AssemblyCache.rqchecksum =
+      block.Assembly.bchecksum }
     in
     let filtered_var = AssemblyCache.enqueue_read_request ac rreq in
     let (b, ac') = filtered_var in
@@ -3632,13 +3628,15 @@ module Processor =
   let list_directory_entries fp =
     Filesystem.list_directory fp ([], []) (fun de pat ->
       let (lfiles, ldirs) = pat in
-      if Filesystem.Direntry.is_directory de
-      then let defp = Filesystem.Direntry.as_path de in
-           (lfiles, (defp :: ldirs))
-      else if Filesystem.Direntry.is_regular_file de
+      if Filesystem.Direntry.is_symlink de
+      then (lfiles, ldirs)
+      else if Filesystem.Direntry.is_directory de
            then let defp = Filesystem.Direntry.as_path de in
-                ((defp :: lfiles), ldirs)
-           else (lfiles, ldirs))
+                (lfiles, (defp :: ldirs))
+           else if Filesystem.Direntry.is_regular_file de
+                then let defp = Filesystem.Direntry.as_path de in
+                     ((defp :: lfiles), ldirs)
+                else (lfiles, ldirs))
  end
 
 module Version =
@@ -3656,7 +3654,7 @@ module Version =
   (** val build : string **)
 
   let build =
-    "2"
+    "3"
 
   (** val version : string **)
 

@@ -56,30 +56,9 @@ Program Definition backup_block (wqe : AssemblyCache.writequeueentity) : process
     | (true, cache') => update_cache cache'
     end.
 
-Program Definition request_read (rqe : AssemblyCache.readqueueentity) : (list readqueueresult * processor) :=
-    match AssemblyCache.enqueue_read_request this.(cache) rqe with
-    | (false, _) => (* the queue is full *)
-        let (rres, cache') := AssemblyCache.iterate_read_queue this.(cache) in
-        match AssemblyCache.enqueue_read_request cache' rqe with
-        | (false, _) => (* bad bad *) (nil, this)
-        | (true, cache'') => (rres, update_cache cache'')
-        end
-    | (true, cache') => (nil, update_cache cache')
-    end.
-
 Program Definition run_write_requests : processor :=
     let cache' := AssemblyCache.iterate_write_queue this.(cache) in
     update_cache cache'.
-
-Program Definition run_read_requests : (list readqueueresult * processor) :=
-    let (rres, cache') := AssemblyCache.iterate_read_queue this.(cache) in
-    (rres, update_cache cache').
-
-(* Program Definition get_keys : KeyListStore.R :=
-    this.(cache).(ackstore). *)
-
-(* Program Definition get_fblocks : FBlockListStore.R :=
-    this.(cache).(acfbstore). *)
 
 Program Definition close : processor :=
     let ac := AssemblyCache.close this.(cache) in
@@ -93,26 +72,27 @@ Variable this : processor.
 
 Definition block_sz := 32768.
 
+Definition read_block (fptr : Cstdio.fptr) (fb : blockinformation) : option BufferPlain.buffer_t :=
+    match Cstdio.fread fptr fb.(blocksize) with
+    | None => None
+    (* a short read means the file shrank since its blocks were planned *)
+    | Some (nread, b) => if (nread =? fb.(blocksize))%N then Some (BufferPlain.from_buffer b) else None
+    end.
+
 Local Program Fixpoint rec_file_backup_inner (tgtfbs : list blockinformation) (this : processor) (fhash : string) (fptr : Cstdio.fptr) : option processor :=
     match tgtfbs with
     | nil => Some this
     | fb :: tgtfbs' =>
-    (*
-      begin
-        Printf.printf "  block %d %d @ %d" (Conversion.p2i fb.Assembly.blockid) (Conversion.n2i fb.Assembly.blocksize) (Conversion.n2i fb.Assembly.filepos);
-      end;
-    *)
         Tracer.optionalTrace this.(config).(trace) (Cstdio.fseek fptr fb.(filepos))
         (Tracer.warning) (Some ("failed to fseek in file: " ++ fhash)%string)
         (fun _ => None)
         (Tracer.info) (None) (* no message for: Some _ *)
         (fun fptr' =>
-            Tracer.optionalTrace this.(config).(trace) (Cstdio.fread fptr fb.(blocksize))
-            (Tracer.warning) (Some ("failed to fread from file: " ++ fhash)%string)
+            Tracer.optionalTrace this.(config).(trace) (read_block fptr fb)
+            (Tracer.warning) (Some ("failed to read block (file changed during backup?) of file: " ++ fhash)%string)
             (fun _ => None)
             (Tracer.info) (None) (* no message for: Some _ *)
-            (fun '(nread, b) =>
-                    let b' := BufferPlain.from_buffer b in
+            (fun b' =>
                     (* compare for deduplication 2 *)
                     let found := if (fb.(bchecksum) =? "")
                         then false
@@ -149,7 +129,7 @@ Local Program Definition open_file_backup (fi : fileinformation) (tgtfbs : list 
     | Some fptr =>
         Tracer.optionalTrace this.(config).(trace) (rec_file_backup_inner tgtfbs this fi.(fhash) fptr)
           (Tracer.warning) (Some ("block backup failed of file: " ++ fi.(fname))%string)
-          (fun _ => None)
+          (fun _ => match Cstdio.fclose fptr with | Some _ => None | None => None end)
           (Tracer.info) (Some ("block backup succeeded of file: " ++ fi.(fname))%string)
           (fun proc' => match Cstdio.fclose fptr with
             | None => Some proc'
@@ -182,7 +162,7 @@ Local Program Definition internal_restore_to (fptr: Cstdio.fptr) (lrres : list r
     ) lrres 0.
 
 Local Program Definition restore_block_to (fptr: Cstdio.fptr) (ac : assemblycache) (block : blockinformation) : N * assemblycache :=
-    let rreq := mkreadqueueentity block.(blockaid) block.(blockapos) block.(blocksize) block.(filepos) in
+    let rreq := mkreadqueueentity block.(blockaid) block.(blockapos) block.(blocksize) block.(filepos) block.(bchecksum) in
     match enqueue_read_request ac rreq with
     | (false, ac') =>
         let (lrres, ac'') := iterate_read_queue ac' in
@@ -304,7 +284,10 @@ Section DirectoryProcessor.
 
 Program Definition list_directory_entries (fp : Filesystem.path) : (list Filesystem.path * list Filesystem.path) :=
     Filesystem.list_directory fp ([],[]) (fun de '(lfiles,ldirs) =>
-            if Filesystem.Direntry.is_directory de then
+            (* symlinks are skipped: following them can loop forever *)
+            if Filesystem.Direntry.is_symlink de then
+                (lfiles, ldirs)
+            else if Filesystem.Direntry.is_directory de then
                 let defp := Filesystem.Direntry.as_path de in
                 (lfiles, defp :: ldirs)
             else if Filesystem.Direntry.is_regular_file de then
@@ -313,31 +296,6 @@ Program Definition list_directory_entries (fp : Filesystem.path) : (list Filesys
             else
                 (lfiles, ldirs)
         ).
-
-(* Program Definition directory_backup (this : processor) (fp : Filesystem.path) : processor :=
-    let '(lfiles, _) := list_directory_entries fp in
-    List.fold_left (fun proc fn => file_backup proc (const None) (const []) fn) lfiles this.
-
-Local Program Fixpoint internal_recursive_backup (maxdepth : nat) (this : processor) (fp : Filesystem.path) : processor :=
-    match maxdepth with
-    | O => this
-    | S depth =>
-        Filesystem.list_directory fp this (fun de proc =>
-            if Filesystem.Direntry.is_directory de then
-                let defp := Filesystem.Direntry.as_path de in
-                internal_recursive_backup depth proc defp
-            else if Filesystem.Direntry.is_regular_file de then
-                let defp := Filesystem.Direntry.as_path de in
-                file_backup proc (const None) (const []) defp
-            else
-                proc
-        )
-    end.
-Program Definition recursive_backup (this : processor) (maxdepth : N) (fp : Filesystem.path) : processor :=
-    if Filesystem.Path.is_directory fp then
-        internal_recursive_backup (nat_of_N maxdepth) this fp
-    else
-        this. *)
 
 End DirectoryProcessor.
 

@@ -7,6 +7,8 @@ type aid = string
 val new_map : Configuration.configuration -> t Lwt.t
 (* fails if the store rejects the update *)
 val add : aid -> Assembly.keyinformation -> t -> (t, string) result Lwt.t
+(** all entries in one commit *)
+val add_all : (aid * Assembly.keyinformation) list -> t -> (t, string) result Lwt.t
 val find : aid -> t -> Assembly.keyinformation option Lwt.t
 val find_v : aid -> t -> (string * Assembly.keyinformation) option Lwt.t
 val close_map : t -> unit Lwt.t

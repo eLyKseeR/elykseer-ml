@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.10.3] - 2026-11-12
+
+### Fix
+
+- restore_assembly takes a config now; saves an assembly buffer
+- Utilities.rnd256 not used anymore in Processor.file_restore
+- light speedup by not compute division and remainder on each byte
+- look up metadata once in "lxr_restore"
+- check minimal length in `mk_cid_subdir`
+- simplified file permission derivation
+- clean helper.cxx and move it to elykseer_base
+- remove unused rqueuesz and wqueuesz
+- remove commented out proofs and dead code
+- weights in "lxr_distribute"
+- "lxr_backup": commit all at once at the end not every file and key
+- AssemblyCache: check block checksum when reading
+
+### Change
+
+- the argument '-n' is now unused in `lxr_restore` and marked obsolete 
+
+## [0.10.2] - 2026-10-19
+
+### Changes
+
+- dep type "Nchunks"
+- introduce property-based tests in OCaml
+
 ## [0.10.1] - 2026-10-05
 
 ### Security

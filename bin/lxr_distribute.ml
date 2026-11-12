@@ -142,6 +142,7 @@ let get_chunk_s3 client (dest : Distribution.S3Sink.coq_Sink) fp =
         let%lwt _ = if !arg_verbose then Lwt_io.printlf "ok %d" code else Lwt.return_unit in
         let outp = Printf.sprintf "%s/%s" !arg_chunkpath resource0 in
         let%lwt _ = Lwt_io.printlf "outp %s" outp in
+        let _ = Filesystem.create_directories (Filesystem.Path.parent (Filesystem.Path.from_string outp)) in
         match Cstdio.File.fopen outp "wx" with
         | Ok fptr -> begin
           match Cstdio.File.fwrite_s resp.body fptr with
@@ -286,6 +287,13 @@ let main () = Arg.parse argspec anon_args_fun usage_msg;
   let sinks = Sinkconfig.from_json_sinks ~insecure:!arg_insecure conf jconf in
   let () = if List.exists Option.is_none sinks then begin
       Printf.eprintf "invalid sink configuration in '%s'\n" !arg_configpath; exit 2 end in
+  (* a sum above nchunks stores chunks on more than one sink *)
+  let nsinks = List.length sinks and nweights = List.length !arg_weights in
+  if nweights <> nsinks then
+    Cli.usage_error argspec usage_msg (Printf.sprintf "%d weights given for %d sinks" nweights nsinks);
+  let wsum = List.fold_left (+) 0 !arg_weights in
+  if wsum < !arg_nchunks then
+    Cli.usage_error argspec usage_msg (Printf.sprintf "weights sum up to %d, less than the %d chunks" wsum !arg_nchunks);
   let fps = Distribution.enumerate_chunk_paths conf !arg_aid nchunks in
   let ws = List.map (fun w -> Conversion.i2n w) (List.rev !arg_weights) in
   let fps' = Distribution.distribute_by_weight fps ws in

@@ -245,7 +245,7 @@ Local Program Definition load_chunk_from_path (sfp : string) : option BufferEncr
         | None => None
         | Some fptr =>
             match Cstdio.fread fptr (chunksize_N) with
-            | None => let _ := Cstdio.fclose fptr in None
+            | None => match Cstdio.fclose fptr with | Some _ => None | None => None end
             | Some (cnt, b) => match Cstdio.fclose fptr with
                 | None => None
                 | Some unit =>
@@ -311,12 +311,15 @@ Local Program Definition store_chunk_to_path (sfp : string) (sz : N) (pos : N) (
                                | Some cnt => cnt
                                end
                     in
-                    match Cstdio.fflush fptr with
-                    | None => res
-                    | Some fptr2 => match Cstdio.fclose fptr2 with
-                                 | None => 0
-                                 | Some unit => res
-                                 end
+                    (* a failed flush means the chunk is not on disk; fclose must decide the
+                       result, extraction drops a call whose result is not used *)
+                    let res' := match Cstdio.fflush fptr with
+                                | None => 0
+                                | Some _ => res
+                                end in
+                    match Cstdio.fclose fptr with
+                    | None => 0
+                    | Some _ => res'
                     end
                 else
                     match Cstdio.fclose fptr with

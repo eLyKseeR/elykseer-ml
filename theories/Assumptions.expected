@@ -18,6 +18,7 @@
   Axioms: Cstdio.Cstdio.BufferEncrypted.from_buffer
   Axioms: Cstdio.Cstdio.BufferPlain.buffer_create
   Axioms: Cstdio.Cstdio.BufferPlain.buffer_t
+  Axioms: Cstdio.Cstdio.BufferPlain.calc_checksum
   Axioms: Cstdio.Cstdio.BufferPlain.copy_sz_pos
   Axioms: Cstdio.Cstdio.BufferPlain.from_buffer
   Axioms: Cstdio.Cstdio.cpp_decrypt_buffer
@@ -250,6 +251,7 @@
   Axioms: Cstdio.Cstdio.BufferEncrypted.from_buffer
   Axioms: Cstdio.Cstdio.BufferPlain.buffer_create
   Axioms: Cstdio.Cstdio.BufferPlain.buffer_t
+  Axioms: Cstdio.Cstdio.BufferPlain.calc_checksum
   Axioms: Cstdio.Cstdio.BufferPlain.to_buffer
   Axioms: Cstdio.Cstdio.cpp_decrypt_buffer
   Axioms: Cstdio.Cstdio.cstdio_buffer
@@ -267,7 +269,6 @@
   Axioms: Filesystem.Filesystem.Path.to_string
   Axioms: Filesystem.Filesystem.create_directories
   Axioms: Filesystem.Filesystem.path
-  Axioms: Utilities.Utilities.rnd256
   Axioms: assembly_get_content
   Axioms: chunk_identifier_path
   Axioms: id_assembly_plain_buffer_t_from_buf
@@ -277,6 +278,7 @@
   Axioms: Filesystem.Filesystem.Direntry.as_path
   Axioms: Filesystem.Filesystem.Direntry.is_directory
   Axioms: Filesystem.Filesystem.Direntry.is_regular_file
+  Axioms: Filesystem.Filesystem.Direntry.is_symlink
   Axioms: Filesystem.Filesystem.direntry
   Axioms: Filesystem.Filesystem.list_directory
   Axioms: Filesystem.Filesystem.path
@@ -347,6 +349,7 @@
   Axioms: Filesystem.Filesystem.Direntry.as_path
   Axioms: Filesystem.Filesystem.Direntry.is_directory
   Axioms: Filesystem.Filesystem.Direntry.is_regular_file
+  Axioms: Filesystem.Filesystem.Direntry.is_symlink
   Axioms: Filesystem.Filesystem.Path.append
   Axioms: Filesystem.Filesystem.Path.file_exists
   Axioms: Filesystem.Filesystem.Path.from_string

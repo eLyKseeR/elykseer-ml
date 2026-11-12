@@ -174,8 +174,7 @@ let test_full_assembly_restores () =
     | Some (aid, ki) -> (aid, ki, List.rev bis)   (* bi went into the next assembly *)
     | None -> fill e' (i + 1) ((i, bi) :: bis) in
   let aid, ki, bis = fill (L.Environment.EnvironmentWritable.initial_environment conf) 0 [] in
-  let e0 = L.Environment.EnvironmentReadable.initial_environment conf in
-  let nfailed = match L.Environment.EnvironmentReadable.restore_assembly e0 aid ki with
+  let nfailed = match L.Environment.EnvironmentReadable.restore_assembly conf aid ki with
     | None -> Alcotest.fail "cannot restore assembly"
     | Some e ->
       List.filter (fun (i, bi) ->

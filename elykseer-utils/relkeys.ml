@@ -40,15 +40,20 @@ let keys2json_v1 (keys : Assembly.keyinformation) : Git_store.contents =
 
 let msg_info msg = Git_info.v ~author:!my_log "%s" msg
 
-(** add: sets aid -> keyinfornation *)
-let add aid keys0 db =
-  let msg = Fmt.str "update for %s" aid in
-  let keys = keys2json_v1 keys0 in
+(** add_all: sets aid -> keyinformation for all entries in one commit *)
+let add_all kis db =
+  let msg = Fmt.str "update of %d keys" (List.length kis) in
   try%lwt
-    let fp = repo_path aid in
-    let%lwt () = Git_store.set_exn ~info:(msg_info msg) db fp keys in
+    let%lwt () = Git_store.with_tree_exn ~info:(msg_info msg) db [] (fun t ->
+      let t0 = Option.value t ~default:(Git_store.Tree.empty ()) in
+      let%lwt t' = Lwt_list.fold_left_s (fun t (aid, ki) ->
+                     Git_store.Tree.add t (repo_path aid) (keys2json_v1 ki)) t0 kis in
+      Lwt.return (Some t')) in
     Lwt.return (Ok db)
-  with e -> Lwt.return (Error (Printf.sprintf "cannot store key of assembly %s: %s" aid (Printexc.to_string e)))
+  with e -> Lwt.return (Error (Printf.sprintf "cannot store %d keys: %s" (List.length kis) (Printexc.to_string e)))
+
+(** add: sets aid -> keyinformation *)
+let add aid keys0 db = add_all [(aid, keys0)] db
 
 let json2keys_v1 version obs : (string * Assembly.keyinformation) option =
   match obs with
@@ -70,30 +75,26 @@ let json2keys_opt el =
   match el with
   | [] -> None
   | rs ->
-    let vobj = Relutils.get_obj "version" rs in
-    let vmajor = Relutils.get_int "major" vobj in
-    let vminor = Relutils.get_int "minor" vobj in
-    let vbuild = Relutils.get_int "build" vobj in
-    let vkeys = Relutils.get_obj "keys" rs in
-    json2keys_versioned vmajor vminor vbuild vkeys
+    (* a damaged entry reads as not found *)
+    try
+      let vobj = Relutils.get_obj "version" rs in
+      let vmajor = Relutils.get_int "major" vobj in
+      let vminor = Relutils.get_int "minor" vobj in
+      let vbuild = Relutils.get_int "build" vobj in
+      let vkeys = Relutils.get_obj "keys" rs in
+      json2keys_versioned vmajor vminor vbuild vkeys
+    with Failure _ | Not_found -> None
+
+(** find_v: gets aid -> (version * keyinformation) option *)
+let find_v aid db =
+  let fp = repo_path aid in
+  let%lwt res = Git_store.find db fp in
+  Lwt.return @@ match res with
+  | Some (`O el) -> json2keys_opt el
+  | _ -> None
 
 (** find: gets aid -> keyinformation option *)
 let find aid db =
-  let fp = repo_path aid in
-  let%lwt res = Git_store.get db fp in
-  Lwt.return @@ match res with
-  | `O el -> begin match json2keys_opt el with
-               | Some (_,ki) -> Some ki
-               | None -> None
-             end
-  | _ -> None
-
-  (** find_v: gets aid -> (version * keyinformation) option *)
-let find_v aid db =
-  let fp = repo_path aid in
-  let%lwt res = Git_store.get db fp in
-  Lwt.return @@ match res with
-  | `O el -> json2keys_opt el
-  | _ -> None
+  Lwt.map (Option.map snd) (find_v aid db)
 
 let close_map db = Git_store.Repo.close (Git_store.repo db)

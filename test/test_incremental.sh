@@ -59,7 +59,7 @@ for AID in $AIDs; do
 done
 echo
 rm -f $OUTPATH/$TESTFILE
-dune exec bin/lxr_restore.exe --  -v -x $ELYKSEER_LXR -n $NCHUNKS -d $ELYKSEER_DB -i $MYID -o $OUTPATH $TESTFILE
+dune exec bin/lxr_restore.exe --  -v -x $ELYKSEER_LXR -d $ELYKSEER_DB -i $MYID -o $OUTPATH $TESTFILE
 MD5orig=$(md5sum $TFILESMALL | cut -f1 -d ' ')
 MD5test=$(md5sum $OUTPATH/$TESTFILE | cut -f1 -d ' ')
 [[ $MD5orig == $MD5test ]]
@@ -78,7 +78,7 @@ for AID in $AIDs; do
 done
 echo
 rm -f $OUTPATH/$TESTFILE
-dune exec bin/lxr_restore.exe --  -v -x $ELYKSEER_LXR -n $NCHUNKS -d $ELYKSEER_DB -i $MYID -o $OUTPATH $TESTFILE
+dune exec bin/lxr_restore.exe --  -v -x $ELYKSEER_LXR -d $ELYKSEER_DB -i $MYID -o $OUTPATH $TESTFILE
 MD5orig=$(md5sum $TFILELARGE | cut -f1 -d ' ')
 MD5test=$(md5sum $OUTPATH/$TESTFILE | cut -f1 -d ' ')
 [[ $MD5orig == $MD5test ]]
@@ -97,7 +97,7 @@ for AID in $AIDs; do
 done
 echo
 rm -f $OUTPATH/$TESTFILE
-dune exec bin/lxr_restore.exe --  -v -x $ELYKSEER_LXR -n $NCHUNKS -d $ELYKSEER_DB -i $MYID -o $OUTPATH $TESTFILE
+dune exec bin/lxr_restore.exe --  -v -x $ELYKSEER_LXR -d $ELYKSEER_DB -i $MYID -o $OUTPATH $TESTFILE
 MD5orig=$(md5sum $TFILESMALL | cut -f1 -d ' ')
 MD5test=$(md5sum $OUTPATH/$TESTFILE | cut -f1 -d ' ')
 [ $MD5orig = $MD5test ]

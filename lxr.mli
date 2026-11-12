@@ -832,15 +832,15 @@ module Environment :
     val initial_environment : Configuration.configuration -> coq_E
 
     val restore_assembly :
-      coq_AB environment -> Assembly.aid_t -> Assembly.keyinformation ->
-      coq_AB environment option
+      Configuration.configuration -> Assembly.aid_t ->
+      Assembly.keyinformation -> coq_AB environment option
    end
  end
 
 module AssemblyCache :
  sig
   type readqueueentity = { rqaid : Assembly.aid_t; rqapos : n; rqrlen : 
-                           n; rqfpos : n }
+                           n; rqfpos : n; rqchecksum : string }
 
   val rqaid : readqueueentity -> Assembly.aid_t
 
@@ -849,6 +849,8 @@ module AssemblyCache :
   val rqrlen : readqueueentity -> n
 
   val rqfpos : readqueueentity -> n
+
+  val rqchecksum : readqueueentity -> string
 
   type readqueueresult = { readrequest : readqueueentity;
                            rresult : Cstdio.BufferPlain.buffer_t }
@@ -868,17 +870,17 @@ module AssemblyCache :
 
   val qsize : positive
 
-  type readqueue = { rqueue : readqueueentity list; rqueuesz : positive }
+  type readqueue =
+    readqueueentity list
+    (* singleton inductive, whose constructor was mkreadqueue *)
 
   val rqueue : readqueue -> readqueueentity list
 
-  val rqueuesz : readqueue -> positive
-
-  type writequeue = { wqueue : writequeueentity list; wqueuesz : positive }
+  type writequeue =
+    writequeueentity list
+    (* singleton inductive, whose constructor was mkwritequeue *)
 
   val wqueue : writequeue -> writequeueentity list
-
-  val wqueuesz : writequeue -> positive
 
   type assemblycache = { acenvs : Environment.EnvironmentReadable.coq_E list;
                          acsize : nat;
@@ -949,10 +951,6 @@ module AssemblyCache :
   val flush : assemblycache -> assemblycache
 
   val close : assemblycache -> assemblycache
-
-  val add_key :
-    assemblycache -> Assembly.aid_t -> Assembly.keyinformation ->
-    assemblycache
  end
 
 type 'x compare2 =
@@ -1586,18 +1584,15 @@ module Processor :
 
   val backup_block : processor -> AssemblyCache.writequeueentity -> processor
 
-  val request_read :
-    processor -> AssemblyCache.readqueueentity ->
-    AssemblyCache.readqueueresult list * processor
-
   val run_write_requests : processor -> processor
-
-  val run_read_requests :
-    processor -> AssemblyCache.readqueueresult list * processor
 
   val close : processor -> processor
 
   val block_sz : n
+
+  val read_block :
+    Cstdio.fptr -> Assembly.blockinformation -> Cstdio.BufferPlain.buffer_t
+    option
 
   val rec_file_backup_inner :
     Assembly.blockinformation list -> processor -> string -> Cstdio.fptr ->

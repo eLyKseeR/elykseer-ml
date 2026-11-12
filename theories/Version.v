@@ -10,7 +10,7 @@ Open Scope string_scope.
 
 Definition major : string := "0".
 Definition minor : string :=     "10".
-Definition build : string :=         "2".
+Definition build : string :=         "3".
 Definition version : string := major ++ "." ++ minor ++ "." ++ build.
 
 End Version.

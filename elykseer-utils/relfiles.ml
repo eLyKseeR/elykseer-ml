@@ -58,15 +58,20 @@ let rel2json_v1 (rel : relation) : Git_store.contents =
 
 let msg_info msg = Git_info.v ~author:!my_log "%s" msg
 
-(** add: sets fhash -> relation *)
-let add fhash relation db =
-  let msg = Fmt.str "update of %s" fhash in
-  let reljson = rel2json_v1 relation in
+(** add_all: sets fhash -> relation for all entries in one commit *)
+let add_all rels db =
+  let msg = Fmt.str "update of %d files" (List.length rels) in
   try%lwt
-    let fp = repo_path fhash in
-    let%lwt () = Git_store.set_exn ~info:(msg_info msg) db fp reljson in
+    let%lwt () = Git_store.with_tree_exn ~info:(msg_info msg) db [] (fun t ->
+      let t0 = Option.value t ~default:(Git_store.Tree.empty ()) in
+      let%lwt t' = Lwt_list.fold_left_s (fun t (fhash, rel) ->
+                     Git_store.Tree.add t (repo_path fhash) (rel2json_v1 rel)) t0 rels in
+      Lwt.return (Some t')) in
     Lwt.return (Ok db)
-  with e -> Lwt.return (Error (Printf.sprintf "cannot store meta data of %s: %s" fhash (Printexc.to_string e)))
+  with e -> Lwt.return (Error (Printf.sprintf "cannot store meta data of %d files: %s" (List.length rels) (Printexc.to_string e)))
+
+(** add: sets fhash -> relation *)
+let add fhash relation db = add_all [(fhash, relation)] db
 
 let json2fi_v1 fi : Filesupport.fileinformation =
     { fname = Relutils.get_str "fname" fi
@@ -107,26 +112,16 @@ let json2blocks_opt (el : (string * Git_store.contents) list) =
   match el with
   | [] -> None
   | rs ->
-    let vobj = Relutils.get_obj "version" rs in
-    let vmajor = Relutils.get_int "major" vobj in
-    let vminor = Relutils.get_int "minor" vobj in
-    let vbuild = Relutils.get_int "build" vobj in
-    let vfi = Relutils.get_obj "fileinformation" rs in
-    let varr = Relutils.get_arr "blocks" rs in
-    json2relation_versioned vmajor vminor vbuild vfi varr
-
-(** find: gets fhash -> relation option *)
-let find fhash db =
-  let fp = repo_path fhash in
-  let%lwt res = try%lwt 
-                  let%lwt res = Git_store.get db fp in Lwt.return (Some res)
-                with _ -> Lwt.return None in
-  Lwt.return @@ match res with
-  | Some (`O el) -> begin match json2blocks_opt el with
-                      | Some (_,ki) -> Some ki
-                      | None -> None
-                    end
-| _ -> None
+    (* a damaged entry reads as not found *)
+    try
+      let vobj = Relutils.get_obj "version" rs in
+      let vmajor = Relutils.get_int "major" vobj in
+      let vminor = Relutils.get_int "minor" vobj in
+      let vbuild = Relutils.get_int "build" vobj in
+      let vfi = Relutils.get_obj "fileinformation" rs in
+      let varr = Relutils.get_arr "blocks" rs in
+      json2relation_versioned vmajor vminor vbuild vfi varr
+    with Failure _ | Not_found -> None
 
 (** find_v: gets fhash -> (version * relation) option *)
 let find_v fhash db =
@@ -138,6 +133,10 @@ let find_v fhash db =
   | Some (`O el) -> json2blocks_opt el
   | _ -> None
 
+
+(** find: gets fhash -> relation option *)
+let find fhash db =
+  Lwt.map (Option.map snd) (find_v fhash db)
 
 (** hashes: all file hashes of the current identifier in the store *)
 let hashes db =

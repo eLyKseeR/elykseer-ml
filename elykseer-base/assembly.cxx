@@ -22,11 +22,8 @@ constexpr long cwidth = 256L;
 constexpr long cheight = 1024L;
 constexpr long clength = cwidth * cheight;
 
-inline long idx2apos (long idx, long nchunks) {
-    long cnum = idx % nchunks;
-    long cidx = idx / nchunks;
-    return cnum * clength + cidx;
-}
+// byte idx of the content lives in chunk (idx % nchunks) at offset (idx / nchunks);
+// the loops below split pos once and then step (cnum, cidx) instead of dividing per byte
 
 struct _cpp_cstdio_buffer {
     char *_buf {nullptr};
@@ -54,12 +51,11 @@ value cpp_add_content(value vsrc, value vsz, value vpos, value vtgt)
     const long pos = Long_val(vpos);
     if (pos < 0) { CAMLreturn(Val_long(-4)); }
     if (l2 < pos + sz) { CAMLreturn(Val_long(-2)); }  // test if the target can accept enough bytes
-    // parallel loop
-    long apos = idx2apos(pos, nchunks);
-    // #pragma omp parallel for private(apos,idx) schedule(dynamic, cheight)
+    long cnum = pos % nchunks;
+    long cidx = pos / nchunks;
     for (long idx = 0; idx < sz; idx++) {
-        apos = idx2apos(idx+pos, nchunks);
-        tgt->_buf[apos] = src->_buf[idx];
+        tgt->_buf[cnum * clength + cidx] = src->_buf[idx];
+        if (++cnum == nchunks) { cnum = 0; cidx++; }
     }
     CAMLreturn(Val_long(sz));
 }
@@ -85,11 +81,11 @@ value cpp_get_content(value vsrc, value vsz, value vpos, value vtgt)
     struct _cpp_cstdio_buffer *tgt = CPP_CSTDIO_BUFFER(vtgt);
     const long l2 = tgt->_len;
     if (l2 < sz) { CAMLreturn(Val_long(-2)); }  // test if the target can accept enough bytes
-    long apos = idx2apos(pos, nchunks);
-    // #pragma omp parallel for private(apos,idx) schedule(dynamic, cheight)
+    long cnum = pos % nchunks;
+    long cidx = pos / nchunks;
     for (long idx = 0; idx < sz; idx++) {
-        apos = idx2apos(idx+pos, nchunks);
-        tgt->_buf[idx] = src->_buf[apos];
+        tgt->_buf[idx] = src->_buf[cnum * clength + cidx];
+        if (++cnum == nchunks) { cnum = 0; cidx++; }
     }
     CAMLreturn(Val_long(sz));
 }

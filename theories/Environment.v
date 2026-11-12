@@ -66,9 +66,12 @@ Module EnvironmentWritable <: ENV.
             (Tracer.info) (Some ("encrypted assembly: " ++ a.(aid))%string)
             (fun '(a',b') =>
                 let n := Assembly.extract e0.(econfig AB) a' b' in
-                if N.ltb 0 n
-                then Some (a.(aid), ki)
-                else None
+                (* every chunk must be written, else the assembly cannot be recalled *)
+                conditionalTrace e0.(econfig AB).(trace) (N.eqb n (Assembly.assemblysize (nchunks a')))
+                (Tracer.info) None
+                (fun _ => Some (a.(aid), ki))
+                (Tracer.warning) (Some ("failed to write all chunks of assembly " ++ a.(aid) ++ ": " ++ i2s (n2i n) ++ " bytes written")%string)
+                (fun _ => None)
             )
         )
         (Tracer.info) (Some ("not finalising empty assembly " ++ a0.(aid) ++ " with apos = "  ++ i2s (n2i apos))%string)
@@ -112,14 +115,15 @@ Module EnvironmentReadable <: ENV.
          ; cur_buffer := b
          ; econfig := c
         |}.
-    Definition restore_assembly (e0 : environment AB) (aid : aid_t) (ki : keyinformation) : option (environment AB) :=
-        match Assembly.recall e0.(econfig AB) {| nchunks := e0.(econfig AB).(Configuration.config_nchunks); aid := aid; apos := 0 |} with
+    Definition restore_assembly (c : configuration) (aid : aid_t) (ki : keyinformation) : option (environment AB) :=
+        (* the assembly size is the one stored with its key, not the one configured now *)
+        match Assembly.recall c {| nchunks := Nchunks.from_positive ki.(localnchunks); aid := aid; apos := 0 |} with
         | None => None
         | Some (a1, b1) =>
             match Assembly.decrypt a1 b1 ki with
             | None => None
             | Some (a2, b2) =>
-                Some {| cur_assembly := a2; cur_buffer := b2; econfig := e0.(econfig AB) |}
+                Some {| cur_assembly := a2; cur_buffer := b2; econfig := c |}
             end
         end.
 

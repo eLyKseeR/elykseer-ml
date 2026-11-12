@@ -2,7 +2,7 @@
  (name elykseer_base)
  (instrumentation (backend bisect_ppx))
  (public_name elykseer_base)
- (foreign_stubs (language cxx) (names assembly) (flags -std=c++20 -fno-exceptions))
+ (foreign_stubs (language cxx) (names assembly helper) (flags -std=c++20 -fno-exceptions))
  (c_library_flags :standard -std=c++20 -lstdc++)
  (libraries unix mlcpp_filesystem mlcpp_cstdio elykseer_crypto)
 )

@@ -47,6 +47,11 @@ let test_fsutils () =
     Alcotest.(check string) "fmod in UTC" "1970-01-02 00:00:00" (Elykseer_base.Fsutils.fmod fp);
     Alcotest.(check string) "fchksum" (Elykseer_crypto.Sha3_256.string "hello, world") (Elykseer_base.Fsutils.fchksum fp))
 
+let test_mk_cid_subdir () =
+  Alcotest.(check string) "last four chars" "ab/89" (Elykseer_base.Helper.mk_cid_subdir "0123456789ab");
+  Alcotest.check_raises "too short" (Invalid_argument "mk_cid_subdir: id too short")
+    (fun () -> ignore (Elykseer_base.Helper.mk_cid_subdir "abc"))
+
 (* Sinkconfig *)
 
 let sinks_json ?(protocol = "https") ?(host = "s3.example.com") () =
@@ -95,10 +100,13 @@ let test_relutils () =
   let bs = [ ("i", `String "42"); ("s", `String "str"); ("o", `O [("k", `String "v")]); ("a", `A [`String "x"]); ("n", `Null) ] in
   Alcotest.(check int) "get_int" 42 (Relutils.get_int "i" bs);
   Alcotest.(check string) "get_str" "str" (Relutils.get_str "s" bs);
-  Alcotest.(check string) "get_str fallback" "unk" (Relutils.get_str "n" bs);
+  Alcotest.check_raises "get_str wrong type" (Failure "n: unexpected type") (fun () -> ignore (Relutils.get_str "n" bs));
+  Alcotest.check_raises "get_int wrong type" (Failure "o: unexpected type") (fun () -> ignore (Relutils.get_int "o" bs));
+  Alcotest.check_raises "get_int not a number" (Failure "int_of_string") (fun () -> ignore (Relutils.get_int "s" bs));
+  Alcotest.check_raises "get_int missing" Not_found (fun () -> ignore (Relutils.get_int "zz" bs));
   Alcotest.(check int) "get_obj" 1 (List.length (Relutils.get_obj "o" bs));
   Alcotest.(check int) "get_arr" 1 (List.length (Relutils.get_arr "a" bs));
-  Alcotest.(check int) "get_arr fallback" 0 (List.length (Relutils.get_arr "s" bs))
+  Alcotest.check_raises "get_arr wrong type" (Failure "s: unexpected type") (fun () -> ignore (Relutils.get_arr "s" bs))
 
 (* Tracing *)
 
@@ -159,12 +167,30 @@ let test_nchunks_spec () =
 
 (* Runners *)
 
+(* Processor.read_block: a file that shrank since its blocks were planned
+   must not be stored as a full block *)
+let test_read_block () =
+  let fn = Filename.temp_file "lxr_read_block" ".bin" in
+  Out_channel.with_open_bin fn (fun oc -> output_string oc "0123456789");
+  let read sz =
+    match Cstdio.fopen fn Cstdio.read_mode with
+    | None -> Alcotest.fail "fopen"
+    | Some fptr ->
+      let r = Processor.read_block fptr (block 0 sz) in
+      ignore (Cstdio.fclose fptr);
+      Option.map (fun b -> Conversion.n2i (Cstdio.BufferPlain.buffer_len b)) r in
+  Alcotest.(check (option int)) "complete block" (Some 10) (read 10);
+  Alcotest.(check (option int)) "short read" None (read 100);
+  Sys.remove fn
+
 let test =
   let open Alcotest in
   "LXR Utils",
   [
+    test_case "read_block short read" `Quick test_read_block;
     test_case "consolidate files" `Quick test_consolidate_files;
     test_case "fsutils" `Quick test_fsutils;
+    test_case "cid subdir" `Quick test_mk_cid_subdir;
     test_case "sink configuration" `Quick test_sinkconfig;
     test_case "sinks.json example" `Quick test_sinks_example;
     test_case "relutils" `Quick test_relutils;

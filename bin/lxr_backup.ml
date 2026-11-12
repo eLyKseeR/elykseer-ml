@@ -62,57 +62,38 @@ let output_rel_files config (fistore : Store.FileinformationStore.coq_R) (fbstor
                     ) fbis
   else
     let%lwt rel = Relfiles.new_map config in
-    let%lwt () = Lwt_list.iter_s (fun (fhash, bis) ->
-                                    match List.find_opt (fun fi -> Filesupport.fhash fi = fhash) fiset with
-                                    | None -> (* blocks of a file whose backup failed *)
-                                        fail "no file information for blocks of file hash %s; meta data not written" fhash;
-                                        Lwt.return ()
-                                    | Some fi ->
-                                        match%lwt Relfiles.add fhash {rfi=fi; rfbs=bis} rel with
-                                        | Ok _ -> Lwt.return ()
-                                        | Error msg -> fail "%s" msg; Lwt.return ()) fbis in
+    let rels = List.filter_map (fun (fhash, bis) ->
+                 match List.find_opt (fun fi -> Filesupport.fhash fi = fhash) fiset with
+                 | None -> (* blocks of a file whose backup failed *)
+                     fail "no file information for blocks of file hash %s; meta data not written" fhash;
+                     None
+                 | Some fi -> Some (fhash, {Relfiles.rfi=fi; rfbs=bis})) fbis in
+    let%lwt () = if rels = [] then Lwt.return () else
+                 match%lwt Relfiles.add_all rels rel with
+                 | Ok _ -> Lwt.return ()
+                 | Error msg -> fail "%s" msg; Lwt.return () in
     Relfiles.close_map rel
 
 let output_rel_keys config (kstore : Store.KeyListStore.coq_R) =
   let%lwt rel = Relkeys.new_map config in
-  let%lwt () = Lwt_list.iter_s (fun (aid, ki) ->
-                                match%lwt Relkeys.add aid ki rel with
-                                | Ok _ -> Lwt.return ()
-                                | Error msg -> fail "%s" msg; Lwt.return ()) kstore.entries in
+  let%lwt () = if kstore.entries = [] then Lwt.return () else
+               match%lwt Relkeys.add_all kstore.entries rel with
+               | Ok _ -> Lwt.return ()
+               | Error msg -> fail "%s" msg; Lwt.return () in
   Relkeys.close_map rel
 
 let output_relations (ac : AssemblyCache.assemblycache) =
   let%lwt () = if !arg_dryrun then Lwt.return () else output_rel_keys ac.acconfig ac.ackstore in
   output_rel_files ac.acconfig ac.acfistore ac.acfbstore
 
-let get_file_checksum config filename =
-  let map : string StringMap.t = StringMap.empty in
+let file_meta_maps config filename =
   let%lwt relf = Relfiles.new_map config in
   let fhash = Elykseer_crypto.Sha3_256.string (filename ^ !arg_myid) in
   match%lwt Relfiles.find fhash relf with
-  | None -> Lwt.return (map)
+  | None -> Lwt.return (StringMap.empty, StringMap.empty)
   | Some rfbs ->
-      (* let%lwt () = if !arg_verbose then
-        Lwt_io.printlf "  have info on file '%s' with %d bytes from %d blocks" filename (Conversion.n2i rfbs.rfi.fsize) (List.length rfbs.rfbs)
-        else Lwt.return () in *)
-      Lwt.return (StringMap.add fhash rfbs.rfi.fchecksum map)
-
-let get_file_blocks config filename =
-let map : (Assembly.blockinformation list) StringMap.t = StringMap.empty in
-let%lwt relf = Relfiles.new_map config in
-let fhash = Elykseer_crypto.Sha3_256.string (filename ^ !arg_myid) in
-match%lwt Relfiles.find fhash relf with
-| None -> Lwt.return (map)
-| Some rfbs ->
-    (* let%lwt () = if !arg_verbose then
-      Lwt_io.printlf "  have info on file '%s' with %d bytes from %d blocks" filename (Conversion.n2i rfbs.rfi.fsize) (List.length rfbs.rfbs)
-      else Lwt.return () in *)
-    Lwt.return (StringMap.add fhash rfbs.rfbs map)
-
-let file_meta_maps config filename =
-  let%lwt fchecksum_map = get_file_checksum config filename in
-  let%lwt fblocks_map = get_file_blocks config filename in
-  Lwt.return (fchecksum_map, fblocks_map)
+      Lwt.return (StringMap.add fhash rfbs.rfi.fchecksum StringMap.empty,
+                  StringMap.add fhash rfbs.rfbs StringMap.empty)
 
 let meta_search_funs fchecksum_map fblocks_map =
   let find_fchecksum = fun fh -> (* Printf.printf "     get fchecksum: %s\n" fh; *) StringMap.find_opt fh fchecksum_map in

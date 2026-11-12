@@ -84,12 +84,6 @@ Extract Constant n2i =>
 
 Extract Constant i2s => "string_of_int".
 
-(* Extract Constant rndsetup =>
-   "
-    function
-     _ -> Random.self_init (); Conversion.i2n 0
-   ". *)
-
 Extract Constant rnd =>
    "
     function
@@ -116,7 +110,7 @@ Extract Constant chunk_identifier =>
 
 Extract Constant chunk_identifier_path =>
    "fun config aid cid -> let cident = chunk_identifier config aid cid in
-      let subd = Helper.mk_cid_subdir cident in
+      let subd = Elykseer_base.Helper.mk_cid_subdir cident in
       (Configuration.path_chunks config ^ ""/"" ^ subd ^ ""/"" ^ cident ^ "".lxr"")
    ".
 
@@ -187,17 +181,6 @@ Extract Constant Filesystem.Direntry.is_symlink => "Mlcpp_filesystem.Filesystem.
 Extract Constant Filesystem.Direntry.file_size => "fun de -> Mlcpp_filesystem.Filesystem.Direntry.file_size de |> Conversion.i2n".
 Extract Constant Filesystem.Direntry.hard_link_count => "fun de -> Mlcpp_filesystem.Filesystem.Direntry.hard_link_count de |> Conversion.i2n".
 Extract Constant Filesystem.list_directory => "Mlcpp_filesystem.Filesystem.list_directory".
-(* Extract Constant Filesystem.list_directory =>
-   "fun fp ->
-      if Mlcpp_filesystem.Filesystem.Path.is_directory fp
-      then
-         let direntries = ref [] in
-         let _ = Mlcpp_filesystem.Filesystem.list_directory fp (fun de ->
-            direntries := de :: !direntries) in
-         !direntries
-      else
-         []
-   ". *)
 
 Extract Constant Cstdio.fptr => "Mlcpp_cstdio.Cstdio.File.file".
 Extract Constant Cstdio.fopen =>
@@ -250,23 +233,23 @@ Extract Constant BufferEncrypted.buffer_t => "Mlcpp_cstdio.Cstdio.File.Buffer.ta
 Extract Constant BufferEncrypted.buffer_create => "fun n -> Mlcpp_cstdio.Cstdio.File.Buffer.create (Conversion.n2i n)".
 Extract Constant BufferEncrypted.buffer_len => "fun b -> Conversion.i2n (Mlcpp_cstdio.Cstdio.File.Buffer.size b)".
 Extract Constant BufferEncrypted.calc_checksum => "fun b -> Elykseer_crypto.Sha3_256.buffer b".
-Extract Constant BufferEncrypted.from_buffer => "fun b -> Helper.cpp_buffer_id b".
-Extract Constant BufferEncrypted.to_buffer => "fun b -> Helper.cpp_buffer_id b".
+Extract Constant BufferEncrypted.from_buffer => "fun b -> Elykseer_base.Helper.cpp_buffer_id b".
+Extract Constant BufferEncrypted.to_buffer => "fun b -> Elykseer_base.Helper.cpp_buffer_id b".
 
 Extract Constant BufferPlain.buffer_t => "Mlcpp_cstdio.Cstdio.File.Buffer.ta".
 Extract Constant BufferPlain.buffer_create => "fun n -> Mlcpp_cstdio.Cstdio.File.Buffer.create (Conversion.n2i n)".
 Extract Constant BufferPlain.buffer_len => "fun b -> Conversion.i2n (Mlcpp_cstdio.Cstdio.File.Buffer.size b)".
 Extract Constant BufferPlain.calc_checksum => "fun b -> Elykseer_crypto.Sha3_256.buffer b".
-Extract Constant BufferPlain.from_buffer => "fun b -> Helper.cpp_buffer_id b".
-Extract Constant BufferPlain.to_buffer => "fun b -> Helper.cpp_buffer_id b".
+Extract Constant BufferPlain.from_buffer => "fun b -> Elykseer_base.Helper.cpp_buffer_id b".
+Extract Constant BufferPlain.to_buffer => "fun b -> Elykseer_base.Helper.cpp_buffer_id b".
 
-Extract Constant id_buffer_t_from_enc => "fun b -> Helper.cpp_buffer_id b".
-Extract Constant id_buffer_t_from_full => "fun b -> Helper.cpp_buffer_id b".
-Extract Constant id_assembly_plain_buffer_t_from_buf => "fun b -> Helper.cpp_buffer_id b".
-Extract Constant id_assembly_enc_buffer_t_from_buf => "fun b -> Helper.cpp_buffer_id b".
-Extract Constant id_enc_from_buffer_t => "fun b -> Helper.cpp_buffer_id b".
-Extract Constant id_assembly_full_buffer_from_writable => "fun b -> Helper.cpp_buffer_id b".
-Extract Constant id_assembly_full_ainfo_from_writable => "fun b -> Helper.cpp_buffer_id b".
+Extract Constant id_buffer_t_from_enc => "fun b -> Elykseer_base.Helper.cpp_buffer_id b".
+Extract Constant id_buffer_t_from_full => "fun b -> Elykseer_base.Helper.cpp_buffer_id b".
+Extract Constant id_assembly_plain_buffer_t_from_buf => "fun b -> Elykseer_base.Helper.cpp_buffer_id b".
+Extract Constant id_assembly_enc_buffer_t_from_buf => "fun b -> Elykseer_base.Helper.cpp_buffer_id b".
+Extract Constant id_enc_from_buffer_t => "fun b -> Elykseer_base.Helper.cpp_buffer_id b".
+Extract Constant id_assembly_full_buffer_from_writable => "fun b -> Elykseer_base.Helper.cpp_buffer_id b".
+Extract Constant id_assembly_full_ainfo_from_writable => "fun b -> Elykseer_base.Helper.cpp_buffer_id b".
 
 (* AES-256-GCM: nonce = first 12 bytes of the 16-byte ivec; a negative count signals failure *)
 Extract Constant cpp_encrypt_buffer => "fun b dlen saad siv spk -> if String.length siv < 24 then None else Elykseer_crypto.Aes256gcm.encrypt (Elykseer_crypto.Key96.from_hex (String.sub siv 0 24)) (Elykseer_crypto.Key256.from_hex spk) saad (Mlcpp_cstdio.Cstdio.File.Buffer.size b) b (Conversion.n2i dlen) |> fun (cnt, b') -> if cnt < 0 then None else Some (Conversion.i2n cnt, b')".
@@ -274,7 +257,7 @@ Extract Constant cpp_decrypt_buffer => "fun b saad siv spk -> if String.length s
 
 Extract Constant cpp_mk_key256 => "fun () -> Elykseer_crypto.Key256.mk () |> Elykseer_crypto.Key256.to_hex".
 Extract Constant cpp_mk_key128 => "fun () -> Elykseer_crypto.Key128.mk () |> Elykseer_crypto.Key128.to_hex".
-Extract Constant cpp_ranbuf128 => "fun () -> Helper.ranbuf128 ()".
+Extract Constant cpp_ranbuf128 => "fun () -> Elykseer_base.Helper.ranbuf128 ()".
 
 Extract Constant assembly_add_content => (* BufferPlain.buffer_t -> N -> N -> AssemblyPlainWritable.B -> N. *)
    "
@@ -317,15 +300,6 @@ Extract Constant get_file_information =>
    ".
 
 Extract Constant sha3_256 => "Elykseer_crypto.Sha3_256.string".
-
-(*
-Axiom messageN : string -> N -> unit.
-*)
-(* Extract Constant messageN =>
-   "
-    fun s n -> Printf.printf ""%s %d\n"" s (Conversion.n2i n)
-   ".
-*)
 
 Extract Constant output_stdout => "fun ll m ->
    let _ = match ll with

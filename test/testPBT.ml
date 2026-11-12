@@ -141,9 +141,8 @@ let prop_full_assembly_restores =
        let success = match result with
          | (Some (aid, ki), bis) when List.length bis > 0 ->
              (* Restore assembly and verify all blocks *)
-             let e0 = L.Environment.EnvironmentReadable.initial_environment conf in
              let t_restore_start = Unix.gettimeofday () in
-             let restore_ok = match L.Environment.EnvironmentReadable.restore_assembly e0 aid ki with
+             let restore_ok = match L.Environment.EnvironmentReadable.restore_assembly conf aid ki with
               | None -> false
               | Some e ->
                   List.for_all (fun (i, sz, bi) ->

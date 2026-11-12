@@ -53,7 +53,7 @@ lxr_restore
 
 ```sh
 mkdir -p restored
-lxr_restore -v -x ${ELYKSEER_chunks} -d ${ELYKSEER_db} -n 16 -o restored -i $MYID test1M test8M test4M
+lxr_restore -v -x ${ELYKSEER_chunks} -d ${ELYKSEER_db} -o restored -i $MYID test1M test8M test4M
 ```
 
 test the restored files:
@@ -65,7 +65,7 @@ test the restored files:
 verify all files of the identifier without keeping them (restores into a temporary directory and compares the checksums):
 
 ```sh
-lxr_restore --verify -x ${ELYKSEER_chunks} -d ${ELYKSEER_db} -n 16 -i $MYID
+lxr_restore --verify -x ${ELYKSEER_chunks} -d ${ELYKSEER_db} -i $MYID
 ```
 
 
@@ -145,7 +145,9 @@ Credentials:
 - only `https` is accepted as protocol, `http` only for `localhost`/loopback.
 - `--insecure` disables the last two checks.
 
-An invalid sink in the configuration (unknown type, missing field, rejected protocol) makes `lxr_distribute` exit with code 2; a chunk that could not be copied makes it exit with code 1.
+There is one weight per sink: the number of chunks this sink gets. The weights must add up to at least the number of chunks (`-n`); a larger sum stores chunks on more than one sink, e.g. `16 16` puts a full copy on each of two sinks.
+
+An invalid sink in the configuration (unknown type, missing field, rejected protocol) or weights that do not cover all chunks make `lxr_distribute` exit with code 2; a chunk that could not be copied makes it exit with code 1.
 
 Here, with two filesystem sinks: copy half of the chunks of the assembly to each:
 
@@ -165,6 +167,6 @@ and get them back into an empty chunk directory, then restore from there:
 ```sh
 lxr_distribute -d GET -n 16 -x ${PWD}/chunks.copy -i $MYID -a $AID -c sinks-fs.json 8 8
 mkdir -p restored.copy
-lxr_restore -x ${PWD}/chunks.copy -d ${ELYKSEER_db} -n 16 -o restored.copy -i $MYID test1M
+lxr_restore -x ${PWD}/chunks.copy -d ${ELYKSEER_db} -o restored.copy -i $MYID test1M
 cmp test1M restored.copy/test1M
 ```

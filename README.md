@@ -332,8 +332,8 @@ lists:
 ### lxr_restore - restore file(s) from LXR
 
 ```
-lxr_restore -x chunkpath -d dbpath [-o outpath] [-v] [-n nchunks] [-i myid] <file1> [<file2>] ...
-       lxr_restore --verify -x chunkpath -d dbpath [-v] [-n nchunks] [-i myid] [<file1> ...]
+lxr_restore -x chunkpath -d dbpath [-o outpath] [-v] [-i myid] <file1> [<file2>] ...
+       lxr_restore --verify -x chunkpath -d dbpath [-v] [-i myid] [<file1> ...]
   -v verbose output
   -x sets path for encrypted chunks
   -o sets output path for restored files (default: temp directory)

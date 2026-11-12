@@ -35,12 +35,13 @@ MYID=...; NCHUNKS=16
 mkdir -p drill/chunks drill/out
 # 1. database from the off-site copy (or unpack the tar archive)
 git clone --no-checkout /secure/lxr-db-YYYY-MM-DD.bundle drill/db
-# 2. chunks from the sinks, for each assembly id (see lxr_relfiles output, column "aid")
-lxr_distribute -d GET -a "$AID" -n $NCHUNKS -i $MYID -x drill/chunks -c sinks.json 1 1
+# 2. chunks from the sinks, for each assembly id (see lxr_relfiles output, column "aid"),
+#    with the same weights as for PUT (e.g. 8 8 for two sinks)
+lxr_distribute -d GET -a "$AID" -n $NCHUNKS -i $MYID -x drill/chunks -c sinks.json 8 8
 # 3. verify all files against their checksums
-lxr_restore --verify -x drill/chunks -d drill/db -n $NCHUNKS -i $MYID
+lxr_restore --verify -x drill/chunks -d drill/db -i $MYID
 # 4. restore a sample of files and compare with the originals
-lxr_restore -x drill/chunks -d drill/db -n $NCHUNKS -i $MYID -o drill/out file1 file2
+lxr_restore -x drill/chunks -d drill/db -i $MYID -o drill/out file1 file2
 cmp file1 drill/out/file1 && cmp file2 drill/out/file2
 ```
 
@@ -83,5 +84,5 @@ Version 0.10 encrypts with AES-256-GCM instead of AES-256-CBC; there is no conve
 
 0.10.0 could overwrite up to 15 bytes in the last rows of a full assembly with the GCM tag (see [Format](08_Format.md#data-layout-in-an-assembly)). Archives remain readable with 0.10.1, but files with a block at the end of an assembly fail to restore with a checksum error.
 
-1. check all files with 0.10.1 while the originals still exist: `lxr_restore --verify -x ... -d ... -n ... -i ...` lists every file that fails
+1. check all files with 0.10.1 while the originals still exist: `lxr_restore --verify -x ... -d ... -i ...` lists every file that fails
 2. back up files that failed again into a new database or with a new `-i`; with the same database, deduplication keeps the damaged blocks
