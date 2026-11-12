@@ -1,14 +1,15 @@
 # syntax=docker/dockerfile:1
 # OCaml + Rocq toolchain base image; rebuild only when upgrading.
 # run from within docker/:
-#   VERSION=1
+#   VERSION=3
 #   docker buildx build -f Dockerfile.base --platform linux/amd64,linux/arm64 \
+#     --build-context ext=../ext \
 #     -t codieplusplus/elykseer-ml:base_${VERSION} --push .
 # (see README.md for the two-step per-arch variant)
 
 # base image pinned by version and digest; update both together:
 #   docker buildx imagetools inspect debian:trixie-YYYYMMDD
-FROM debian:trixie-20260918@sha256:9cc080028c43b27d2074d63a5f9caf7166d731494965616c1a6d2827a004585c
+FROM debian:trixie-20261104@sha256:9c6e381421d0f48d1b8133e573f33c185ee16cbf505eda9c4a8a4791b25ea8a6
 
 ARG OCAML_VERSION=5.2.1
 ARG COQ_VERSION=9.0.0
@@ -16,7 +17,7 @@ ARG COQ_VERSION=9.0.0
 ARG OCURL_COMMIT=dc00dcb3ec5c1b55a28448a2f301fa1ce6af3019
 ARG EZCURL_COMMIT=3a7d246b7e29935dee96007f47c66ee2356e90cf
 
-RUN apt update && apt upgrade -y && apt install -y opam bash git binutils texinfo automake autoconf less vim cmake ninja-build clang clang-tools gcc g++ gettext sed curl pandoc pkg-config cppcheck libdigest-sha3-perl libgmp-dev libffi-dev libcurl4-gnutls-dev
+RUN apt update && apt upgrade -y && apt install -y opam bash git binutils texinfo automake autoconf less vim cmake ninja-build clang clang-tools gcc g++ gettext sed curl pandoc pkg-config cppcheck libdigest-sha3-perl libgmp-dev libffi-dev libcurl4-gnutls-dev time
 
 RUN addgroup --gid 1000 coq && adduser --disabled-password --uid 1000 --gid 1000 coq
 
@@ -32,8 +33,14 @@ RUN opam switch -y create lxr ocaml-base-compiler.${OCAML_VERSION}
 RUN eval $(opam env) && opam repo add coq-released https://coq.inria.fr/opam/released
 
 RUN eval $(opam env) && opam -y pin add coq ${COQ_VERSION}
-RUN eval $(opam env) && opam -y install yojson lwt_ppx irmin-git irmin-cli irmin alcotest alcotest-lwt ppx_optcomp bisect_ppx
+RUN eval $(opam env) && opam -y install yojson lwt_ppx irmin-git irmin-cli irmin alcotest alcotest-lwt qcheck qcheck-alcotest ppx_optcomp bisect_ppx
 RUN eval $(opam env) && cd /tmp/ && git clone https://github.com/ygrek/ocurl.git ocurl.git && cd ocurl.git && git checkout --detach ${OCURL_COMMIT} && dune build && dune install
 RUN eval $(opam env) && cd /tmp/ && git clone https://github.com/c-cube/ezcurl.git ezcurl.git && cd ezcurl.git && git checkout --detach ${EZCURL_COMMIT} && dune build -p ezcurl,ezcurl-lwt && dune install -p ezcurl && dune install -p ezcurl-lwt
+
+# property tests of the Rocq spec (theories/tests/quickchick.sh); coq-simple-io is vendored
+# in ext/ (no network to GitHub needed); QuickChick 2.1.1 does not build with mathcomp 2.6
+RUN --mount=type=bind,from=ext,target=/ext \
+ eval $(opam env) && opam pin add -y -n coq-simple-io.1.11.0 /ext/rocq-simple-io-1.11.0.tar.gz \
+ && opam install -y coq-quickchick.2.1.1 "rocq-mathcomp-ssreflect<2.6"
 
 RUN rm -rf /tmp/ocurl.git /tmp/ezcurl.git && opam clean -a -c -s --logs

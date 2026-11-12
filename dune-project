@@ -47,7 +47,7 @@
   (depends
     (ocaml (>= 5.1.1))
     (elykseer (= :version))
-    mlcpp_cstdio mlcpp_filesystem (elykseer_crypto (>= 2.2.0)))
+    mlcpp_cstdio mlcpp_filesystem mlcpp_chrono ezcurl (elykseer_crypto (>= 2.2.0)))
 )
 
 (package

@@ -18,12 +18,16 @@ type comparison =
 | Lt
 | Gt
 
+val compOpp : comparison -> comparison
+
 type 'a sig0 = 'a
   (* singleton inductive, whose constructor was exist *)
 
 
 
 val add : nat -> nat -> nat
+
+val sub : nat -> nat -> nat
 
 val eqb : nat -> nat -> bool
 
@@ -53,6 +57,19 @@ module MakeOrderTac :
  functor (P:sig
  end) ->
  sig
+ end
+
+module Nat :
+ sig
+  val eqb : nat -> nat -> bool
+
+  val leb : nat -> nat -> bool
+
+  val ltb : nat -> nat -> bool
+
+  val max : nat -> nat -> nat
+
+  val min : nat -> nat -> nat
  end
 
 module Pos :
@@ -99,6 +116,8 @@ module Coq_Pos :
 
   val mul : positive -> positive -> positive
 
+  val iter : ('a1 -> 'a1) -> 'a1 -> positive -> 'a1
+
   val compare_cont : comparison -> positive -> positive -> comparison
 
   val compare : positive -> positive -> comparison
@@ -106,6 +125,8 @@ module Coq_Pos :
   val iter_op : ('a1 -> 'a1 -> 'a1) -> positive -> 'a1 -> 'a1
 
   val to_nat : positive -> nat
+
+  val pow : positive -> positive -> positive
 
   val min : positive -> positive -> positive
 
@@ -138,34 +159,67 @@ module N :
 
   val min : n -> n -> n
 
+  val pow : n -> n -> n
+
   val div_eucl : n -> n -> n * n
 
   val div : n -> n -> n
+
+  val modulo : n -> n -> n
 
   val to_nat : n -> nat
 
   val of_nat : nat -> n
  end
 
+module Z :
+ sig
+  val compare : z -> z -> comparison
+
+  val leb : z -> z -> bool
+
+  val ltb : z -> z -> bool
+
+  val eqb : z -> z -> bool
+ end
+
 val map : ('a1 -> 'a2) -> 'a1 list -> 'a2 list
 
 val seq : nat -> nat -> nat list
+
+val repeat : 'a1 -> nat -> 'a1 list
+
+val nth : nat -> 'a1 list -> 'a1 -> 'a1
 
 val removelast : 'a1 list -> 'a1 list
 
 val rev : 'a1 list -> 'a1 list
 
+val concat : 'a1 list list -> 'a1 list
+
+val flat_map : ('a1 -> 'a2 list) -> 'a1 list -> 'a2 list
+
 val fold_left : ('a1 -> 'a2 -> 'a1) -> 'a2 list -> 'a1 -> 'a1
 
 val fold_right : ('a2 -> 'a1 -> 'a1) -> 'a1 -> 'a2 list -> 'a1
 
+val existsb : ('a1 -> bool) -> 'a1 list -> bool
+
+val forallb : ('a1 -> bool) -> 'a1 list -> bool
+
 val filter : ('a1 -> bool) -> 'a1 list -> 'a1 list
+
+val combine : 'a1 list -> 'a2 list -> ('a1 * 'a2) list
+
+val list_sum : nat list -> nat
 
 val compare0 : char -> char -> comparison
 
 val compare1 : string -> string -> comparison
 
+val length0 : string -> nat
 
+val substring : nat -> nat -> string -> string
 
 module Conversion :
  sig
@@ -517,6 +571,10 @@ module Utilities :
   val rnd256 : string -> string
 
   val sha3_256 : string -> string
+
+  val now_ms : unit -> n
+
+  val sleep_until : n -> n
  end
 
 module Assembly :
@@ -1283,8 +1341,6 @@ module Make :
 
 module Distribution :
  sig
-  val coq_ChunkId : char -> string -> string
-
   module SMap :
    sig
     module Raw :
@@ -1436,8 +1492,44 @@ module Distribution :
     val equal : ('a1 -> 'a1 -> bool) -> 'a1 t -> 'a1 t -> bool
    end
 
+  type copy_result =
+  | Copied
+  | Present
+  | Retry of z
+  | Failed of z
+
+  val copy_result_rect :
+    'a1 -> 'a1 -> (z -> 'a1) -> (z -> 'a1) -> copy_result -> 'a1
+
+  val copy_result_rec :
+    'a1 -> 'a1 -> (z -> 'a1) -> (z -> 'a1) -> copy_result -> 'a1
+
+  val is_ok : copy_result -> bool
+
+  type direction =
+  | PUT
+  | GET
+
+  val direction_rect : 'a1 -> 'a1 -> direction -> 'a1
+
+  val direction_rec : 'a1 -> 'a1 -> direction -> 'a1
+
+  type retrypolicy = { max_attempts : nat; base_delay_ms : n;
+                       max_delay_ms : n; deadline_ms : n }
+
+  val max_attempts : retrypolicy -> nat
+
+  val base_delay_ms : retrypolicy -> n
+
+  val max_delay_ms : retrypolicy -> n
+
+  val deadline_ms : retrypolicy -> n
+
+  val chunk_size : n
+
   type ('cONN, 'cREDS) sink = { name : string; creds : 'cREDS;
-                                connection : 'cONN }
+                                connection : 'cONN; localchunks : string;
+                                retry : retrypolicy }
 
   val name : ('a1, 'a2) sink -> string
 
@@ -1445,11 +1537,13 @@ module Distribution :
 
   val connection : ('a1, 'a2) sink -> 'a1
 
+  val localchunks : ('a1, 'a2) sink -> string
+
+  val retry : ('a1, 'a2) sink -> retrypolicy
+
   module type SINK =
    sig
-    type coq_K
-
-    type coq_B = Cstdio.BufferEncrypted.buffer_t
+    type coq_K = string
 
     type coq_CONN
 
@@ -1457,14 +1551,36 @@ module Distribution :
 
     type coq_Sink = (coq_CONN, coq_CREDS) sink
 
-    val init : Configuration.configuration -> coq_K SMap.t -> coq_Sink option
+    val init : Configuration.configuration -> string SMap.t -> coq_Sink option
 
-    val push : coq_K -> coq_B -> coq_Sink -> coq_Sink
+    val put : coq_K -> coq_Sink -> coq_Sink * copy_result
 
-    val pull : coq_K -> coq_Sink -> coq_Sink * coq_B option
+    val get : coq_K -> coq_Sink -> coq_Sink * copy_result
 
-    val list_n : coq_Sink -> coq_Sink * coq_K list
+    val list_n : n -> coq_Sink -> coq_Sink * coq_K list
    end
+
+  val no_sink_dir : z
+
+  val copy_failed : z
+
+  val wrong_size : z
+
+  val mkdir_failed : z
+
+  val no_source : z
+
+  val remove_failed : z
+
+  val local_path : ('a1, 'a2) sink -> string -> string
+
+  val is_chunk_file : Filesystem.path -> bool
+
+  val clear_partial : Filesystem.path -> bool
+
+  val ensure_parent : Filesystem.path -> bool
+
+  val sample : (n -> n) -> nat -> 'a1 list -> 'a1 list
 
   type fssink =
     string
@@ -1478,11 +1594,11 @@ module Distribution :
 
   val fsuser : fscredentials -> string
 
+  val fs_default_retry : retrypolicy
+
   module FSSink :
    sig
     type coq_K = string
-
-    type coq_B = Cstdio.BufferEncrypted.buffer_t
 
     type coq_CONN = fssink
 
@@ -1490,19 +1606,17 @@ module Distribution :
 
     type coq_Sink = (coq_CONN, coq_CREDS) sink
 
-    val fspush : coq_K -> coq_B -> coq_Sink -> coq_Sink
+    val init : Configuration.configuration -> string SMap.t -> coq_Sink option
 
-    val fspull : coq_K -> coq_Sink -> coq_Sink * coq_B option
+    val sink_path : coq_Sink -> coq_K -> string
 
-    val fslist_n : coq_Sink -> coq_Sink * coq_K list
+    val put : coq_K -> coq_Sink -> coq_Sink * copy_result
 
-    val init : Configuration.configuration -> coq_K SMap.t -> coq_Sink option
+    val get : coq_K -> coq_Sink -> coq_Sink * copy_result
 
-    val push : coq_K -> coq_B -> coq_Sink -> coq_Sink
+    val list_keys : coq_Sink -> coq_K list
 
-    val pull : coq_K -> coq_Sink -> coq_Sink * coq_B option
-
-    val list_n : coq_Sink -> coq_Sink * coq_K list
+    val list_n : n -> coq_Sink -> coq_Sink * coq_K list
    end
 
   type s3sink = { s3protocol : string; s3host : string; s3port : string;
@@ -1524,11 +1638,19 @@ module Distribution :
 
   val s3password : s3credentials -> string
 
+  val s3_put_object : s3sink -> s3credentials -> string -> string -> z
+
+  val s3_get_object : s3sink -> s3credentials -> string -> string -> z
+
+  val s3_list_objects : s3sink -> s3credentials -> string -> string list
+
+  val s3_result : z -> copy_result
+
+  val s3_default_retry : retrypolicy
+
   module S3Sink :
    sig
     type coq_K = string
-
-    type coq_B = Cstdio.BufferEncrypted.buffer_t
 
     type coq_CONN = s3sink
 
@@ -1536,19 +1658,15 @@ module Distribution :
 
     type coq_Sink = (coq_CONN, coq_CREDS) sink
 
-    val s3push : coq_K -> coq_B -> coq_Sink -> coq_Sink
+    val init : Configuration.configuration -> string SMap.t -> coq_Sink option
 
-    val s3pull : coq_K -> coq_Sink -> coq_Sink * coq_B option
+    val resource : coq_Sink -> coq_K -> string
 
-    val s3list_n : coq_Sink -> coq_Sink * coq_K list
+    val put : coq_K -> coq_Sink -> coq_Sink * copy_result
 
-    val init : Configuration.configuration -> coq_K SMap.t -> coq_Sink option
+    val get : coq_K -> coq_Sink -> coq_Sink * copy_result
 
-    val push : coq_K -> coq_B -> coq_Sink -> coq_Sink
-
-    val pull : coq_K -> coq_Sink -> coq_Sink * coq_B option
-
-    val list_n : coq_Sink -> coq_Sink * coq_K list
+    val list_n : n -> coq_Sink -> coq_Sink * coq_K list
    end
 
   type sink_type =
@@ -1561,10 +1679,115 @@ module Distribution :
   val sink_type_rec :
     (S3Sink.coq_Sink -> 'a1) -> (FSSink.coq_Sink -> 'a1) -> sink_type -> 'a1
 
-  val enumerate_chunk_paths :
+  val chunk_key_of_cid : string -> string
+
+  val enumerate_chunk_keys :
     Configuration.configuration -> Assembly.aid_t -> Nchunks.t -> string list
 
-  val distribute_by_weight : string list -> n list -> string list list
+  val distribute_aux : 'a1 list -> nat list -> 'a1 list list
+
+  val distribute_by_weight : 'a1 list -> n list -> 'a1 list list
+
+  val valid_weights : nat -> n -> n list -> bool
+
+  val plan : 'a1 list -> n list -> 'a2 list -> ('a1 * 'a2 list) list option
+
+  val delay : retrypolicy -> nat -> n
+
+  val max_att : retrypolicy -> nat
+
+  type ('snk, 'ky) entry = { e_sink : 'snk; e_key : 'ky; e_attempt : 
+                             nat; e_first : n; e_due : n; e_last : z }
+
+  val e_sink : ('a1, 'a2) entry -> 'a1
+
+  val e_key : ('a1, 'a2) entry -> 'a2
+
+  val e_attempt : ('a1, 'a2) entry -> nat
+
+  val e_first : ('a1, 'a2) entry -> n
+
+  val e_due : ('a1, 'a2) entry -> n
+
+  val e_last : ('a1, 'a2) entry -> z
+
+  type ('snk, 'ky) final = { f_sink : 'snk; f_key : 'ky; f_attempts : 
+                             nat; f_result : copy_result }
+
+  val f_sink : ('a1, 'a2) final -> 'a1
+
+  val f_key : ('a1, 'a2) final -> 'a2
+
+  val f_attempts : ('a1, 'a2) final -> nat
+
+  val f_result : ('a1, 'a2) final -> copy_result
+
+  type 'snk event = { v_sink : 'snk; v_attempt : nat; v_start : n; v_first : n }
+
+  val v_sink : 'a1 event -> 'a1
+
+  val v_attempt : 'a1 event -> nat
+
+  val v_start : 'a1 event -> n
+
+  val v_first : 'a1 event -> n
+
+  val initial_queue : ('a1 * 'a2 list) list -> ('a1, 'a2) entry list
+
+  val pick :
+    ('a1, 'a2) entry list -> (('a1, 'a2) entry * ('a1, 'a2) entry list) option
+
+  val give_up : ('a1, 'a2) entry -> ('a1, 'a2) final
+
+  type ('snk, 'ky) decision =
+  | Requeue of ('snk, 'ky) entry
+  | Final of ('snk, 'ky) final
+
+  val decision_rect :
+    (('a1, 'a2) entry -> 'a3) -> (('a1, 'a2) final -> 'a3) -> ('a1, 'a2)
+    decision -> 'a3
+
+  val decision_rec :
+    (('a1, 'a2) entry -> 'a3) -> (('a1, 'a2) final -> 'a3) -> ('a1, 'a2)
+    decision -> 'a3
+
+  val decide :
+    ('a1 -> retrypolicy) -> ('a1, 'a2) entry -> n -> n -> copy_result ->
+    ('a1, 'a2) decision
+
+  val schedule :
+    ('a1 -> retrypolicy) -> ('a3 -> 'a1 -> 'a2 -> 'a3 * copy_result) -> ('a3
+    -> 'a3 * n) -> ('a3 -> n -> 'a3 * n) -> nat -> 'a3 -> ('a1, 'a2) entry
+    list -> ('a1, 'a2) final list -> 'a1 event list -> ('a3 * ('a1, 'a2)
+    final list) * 'a1 event list
+
+  val fuel_for : ('a1 -> retrypolicy) -> ('a1, 'a2) entry list -> nat
+
+  val run_plan :
+    ('a1 -> retrypolicy) -> ('a3 -> 'a1 -> 'a2 -> 'a3 * copy_result) -> ('a3
+    -> 'a3 * n) -> ('a3 -> n -> 'a3 * n) -> 'a3 -> ('a1 * 'a2 list) list ->
+    ('a3 * ('a1, 'a2) final list) * 'a1 event list
+
+  val distribution_ok : ('a1, 'a2) final list -> bool
+
+  val sk_e : ('a1, 'a2) entry -> 'a1 * 'a2
+
+  val sk_f : ('a1, 'a2) final -> 'a1 * 'a2
+
+  val remaining : ('a1 -> retrypolicy) -> ('a1, 'a2) entry -> nat
+
+  val sink_policy : sink_type -> retrypolicy
+
+  val copy_chunk : direction -> sink_type -> string -> copy_result
+
+  val run :
+    direction -> (sink_type * string list) list -> (sink_type, string) final
+    list
+
+  val restore_ok : string list -> ('a1, string) final list -> bool
+
+  val run_ok :
+    direction -> string list -> (sink_type, string) final list -> bool
  end
 
 module Processor :

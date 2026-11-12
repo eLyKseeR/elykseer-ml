@@ -6,3 +6,7 @@ val from_json_sinks : insecure:bool -> Configuration.configuration -> Yojson.Bas
 
 (* true if any sink holds its access or secret key inline, not from env *)
 val has_inline_secrets : Yojson.Basic.t -> bool
+
+(* for the retry policy of a sink *)
+val nat_of_int : int -> nat
+val int_of_nat : nat -> int

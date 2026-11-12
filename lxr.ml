@@ -37,6 +37,13 @@ type comparison =
 | Lt
 | Gt
 
+(** val compOpp : comparison -> comparison **)
+
+let compOpp = function
+| Eq -> Eq
+| Lt -> Gt
+| Gt -> Lt
+
 type 'a sig0 = 'a
   (* singleton inductive, whose constructor was exist *)
 
@@ -51,6 +58,15 @@ module Coq__1 = struct
    | S p -> S (add p m)
 end
 include Coq__1
+
+(** val sub : nat -> nat -> nat **)
+
+let rec sub n0 m =
+  match n0 with
+  | O -> n0
+  | S k -> (match m with
+            | O -> n0
+            | S l -> sub k l)
 
 (** val eqb : nat -> nat -> bool **)
 
@@ -96,6 +112,52 @@ module MakeOrderTac =
  functor (P:sig
  end) ->
  struct
+ end
+
+module Nat =
+ struct
+  (** val eqb : nat -> nat -> bool **)
+
+  let rec eqb n0 m =
+    match n0 with
+    | O -> (match m with
+            | O -> true
+            | S _ -> false)
+    | S n' -> (match m with
+               | O -> false
+               | S m' -> eqb n' m')
+
+  (** val leb : nat -> nat -> bool **)
+
+  let rec leb n0 m =
+    match n0 with
+    | O -> true
+    | S n' -> (match m with
+               | O -> false
+               | S m' -> leb n' m')
+
+  (** val ltb : nat -> nat -> bool **)
+
+  let ltb n0 m =
+    leb (S n0) m
+
+  (** val max : nat -> nat -> nat **)
+
+  let rec max n0 m =
+    match n0 with
+    | O -> m
+    | S n' -> (match m with
+               | O -> n0
+               | S m' -> S (max n' m'))
+
+  (** val min : nat -> nat -> nat **)
+
+  let rec min n0 m =
+    match n0 with
+    | O -> O
+    | S n' -> (match m with
+               | O -> O
+               | S m' -> S (min n' m'))
  end
 
 module Pos =
@@ -286,6 +348,13 @@ module Coq_Pos =
     | XO p -> XO (mul p y)
     | XH -> y
 
+  (** val iter : ('a1 -> 'a1) -> 'a1 -> positive -> 'a1 **)
+
+  let rec iter f x = function
+  | XI n' -> f (iter f (iter f x n') n')
+  | XO n' -> iter f (iter f x n') n'
+  | XH -> f x
+
   (** val compare_cont : comparison -> positive -> positive -> comparison **)
 
   let rec compare_cont r x y =
@@ -321,6 +390,11 @@ module Coq_Pos =
 
   let to_nat x =
     iter_op Coq__1.add x (S O)
+
+  (** val pow : positive -> positive -> positive **)
+
+  let pow x =
+    iter (mul x) XH
 
   (** val min : positive -> positive -> positive **)
 
@@ -452,6 +526,14 @@ module N =
     | Gt -> n'
     | _ -> n0
 
+  (** val pow : n -> n -> n **)
+
+  let pow n0 = function
+  | N0 -> Npos XH
+  | Npos p0 -> (match n0 with
+                | N0 -> N0
+                | Npos q -> Npos (Coq_Pos.pow q p0))
+
   (** val div_eucl : n -> n -> n * n **)
 
   let div_eucl a b =
@@ -466,6 +548,11 @@ module N =
   let div a b =
     fst (div_eucl a b)
 
+  (** val modulo : n -> n -> n **)
+
+  let modulo a b =
+    snd (div_eucl a b)
+
   (** val to_nat : n -> nat **)
 
   let to_nat = function
@@ -479,6 +566,53 @@ module N =
   | S n' -> Npos (Pos.of_succ_nat n')
  end
 
+module Z =
+ struct
+  (** val compare : z -> z -> comparison **)
+
+  let compare x y =
+    match x with
+    | Z0 -> (match y with
+             | Z0 -> Eq
+             | Zpos _ -> Lt
+             | Zneg _ -> Gt)
+    | Zpos x' -> (match y with
+                  | Zpos y' -> Pos.compare x' y'
+                  | _ -> Gt)
+    | Zneg x' ->
+      (match y with
+       | Zneg y' -> compOpp (Pos.compare x' y')
+       | _ -> Lt)
+
+  (** val leb : z -> z -> bool **)
+
+  let leb x y =
+    match compare x y with
+    | Gt -> false
+    | _ -> true
+
+  (** val ltb : z -> z -> bool **)
+
+  let ltb x y =
+    match compare x y with
+    | Lt -> true
+    | _ -> false
+
+  (** val eqb : z -> z -> bool **)
+
+  let eqb x y =
+    match x with
+    | Z0 -> (match y with
+             | Z0 -> true
+             | _ -> false)
+    | Zpos p -> (match y with
+                 | Zpos q -> Pos.eqb p q
+                 | _ -> false)
+    | Zneg p -> (match y with
+                 | Zneg q -> Pos.eqb p q
+                 | _ -> false)
+ end
+
 (** val map : ('a1 -> 'a2) -> 'a1 list -> 'a2 list **)
 
 let rec map f = function
@@ -490,6 +624,23 @@ let rec map f = function
 let rec seq start = function
 | O -> []
 | S len0 -> start :: (seq (S start) len0)
+
+(** val repeat : 'a1 -> nat -> 'a1 list **)
+
+let rec repeat x = function
+| O -> []
+| S k -> x :: (repeat x k)
+
+(** val nth : nat -> 'a1 list -> 'a1 -> 'a1 **)
+
+let rec nth n0 l default =
+  match n0 with
+  | O -> (match l with
+          | [] -> default
+          | x :: _ -> x)
+  | S m -> (match l with
+            | [] -> default
+            | _ :: l' -> nth m l' default)
 
 (** val removelast : 'a1 list -> 'a1 list **)
 
@@ -505,6 +656,18 @@ let rec rev = function
 | [] -> []
 | x :: l' -> app (rev l') (x :: [])
 
+(** val concat : 'a1 list list -> 'a1 list **)
+
+let rec concat = function
+| [] -> []
+| x :: l0 -> app x (concat l0)
+
+(** val flat_map : ('a1 -> 'a2 list) -> 'a1 list -> 'a2 list **)
+
+let rec flat_map f = function
+| [] -> []
+| x :: l0 -> app (f x) (flat_map f l0)
+
 (** val fold_left : ('a1 -> 'a2 -> 'a1) -> 'a2 list -> 'a1 -> 'a1 **)
 
 let rec fold_left f l a0 =
@@ -518,11 +681,38 @@ let rec fold_right f a0 = function
 | [] -> a0
 | b :: l0 -> f b (fold_right f a0 l0)
 
+(** val existsb : ('a1 -> bool) -> 'a1 list -> bool **)
+
+let rec existsb f = function
+| [] -> false
+| a :: l0 -> (||) (f a) (existsb f l0)
+
+(** val forallb : ('a1 -> bool) -> 'a1 list -> bool **)
+
+let rec forallb f = function
+| [] -> true
+| a :: l0 -> (&&) (f a) (forallb f l0)
+
 (** val filter : ('a1 -> bool) -> 'a1 list -> 'a1 list **)
 
 let rec filter f = function
 | [] -> []
 | x :: l0 -> if f x then x :: (filter f l0) else filter f l0
+
+(** val combine : 'a1 list -> 'a2 list -> ('a1 * 'a2) list **)
+
+let rec combine l l' =
+  match l with
+  | [] -> []
+  | x :: tl ->
+    (match l' with
+     | [] -> []
+     | y :: tl' -> (x, y) :: (combine tl tl'))
+
+(** val list_sum : nat list -> nat **)
+
+let list_sum l =
+  fold_right add O l
 
 (** val compare0 : char -> char -> comparison **)
 
@@ -561,7 +751,47 @@ let rec compare1 s1 s2 =
       s2)
     s1
 
+(** val length0 : string -> nat **)
 
+let rec length0 s =
+  (* If this appears, you're using String internals. Please don't *)
+ (fun f0 f1 s ->
+    let l = String.length s in
+    if l = 0 then f0 () else f1 (String.get s 0) (String.sub s 1 (l-1)))
+
+    (fun _ -> O)
+    (fun _ s' -> S (length0 s'))
+    s
+
+(** val substring : nat -> nat -> string -> string **)
+
+let rec substring n0 m s =
+  match n0 with
+  | O ->
+    (match m with
+     | O -> ""
+     | S m' ->
+       ((* If this appears, you're using String internals. Please don't *)
+ (fun f0 f1 s ->
+    let l = String.length s in
+    if l = 0 then f0 () else f1 (String.get s 0) (String.sub s 1 (l-1)))
+
+          (fun _ -> s)
+          (fun c s' ->
+          (* If this appears, you're using String internals. Please don't *)
+  (fun (c, s) -> String.make 1 c ^ s)
+
+          (c, (substring O m' s')))
+          s))
+  | S n' ->
+    ((* If this appears, you're using String internals. Please don't *)
+ (fun f0 f1 s ->
+    let l = String.length s in
+    if l = 0 then f0 () else f1 (String.get s 0) (String.sub s 1 (l-1)))
+
+       (fun _ -> s)
+       (fun _ s' -> substring n' m s')
+       s)
 
 module Conversion =
  struct
@@ -1405,6 +1635,14 @@ module Utilities =
   (** val sha3_256 : string -> string **)
 
   let sha3_256 = Elykseer_crypto.Sha3_256.string
+
+  (** val now_ms : unit -> n **)
+
+  let now_ms = fun () -> Conversion.i2n (Elykseer_base.Clock.now_ms ())
+
+  (** val sleep_until : n -> n **)
+
+  let sleep_until = fun due -> Conversion.i2n (Elykseer_base.Clock.sleep_until (Conversion.n2i due))
  end
 
 module Assembly =
@@ -2986,18 +3224,86 @@ module Make =
 
 module Distribution =
  struct
-  (** val coq_ChunkId : char -> string -> string **)
-
-  let coq_ChunkId x x0 =
-    (* If this appears, you're using String internals. Please don't *)
-  (fun (c, s) -> String.make 1 c ^ s)
-
-      (x, x0)
-
   module SMap = Make(String_as_OT)
 
+  type copy_result =
+  | Copied
+  | Present
+  | Retry of z
+  | Failed of z
+
+  (** val copy_result_rect :
+      'a1 -> 'a1 -> (z -> 'a1) -> (z -> 'a1) -> copy_result -> 'a1 **)
+
+  let copy_result_rect f f0 f1 f2 = function
+  | Copied -> f
+  | Present -> f0
+  | Retry code -> f1 code
+  | Failed code -> f2 code
+
+  (** val copy_result_rec :
+      'a1 -> 'a1 -> (z -> 'a1) -> (z -> 'a1) -> copy_result -> 'a1 **)
+
+  let copy_result_rec f f0 f1 f2 = function
+  | Copied -> f
+  | Present -> f0
+  | Retry code -> f1 code
+  | Failed code -> f2 code
+
+  (** val is_ok : copy_result -> bool **)
+
+  let is_ok = function
+  | Copied -> true
+  | Present -> true
+  | _ -> false
+
+  type direction =
+  | PUT
+  | GET
+
+  (** val direction_rect : 'a1 -> 'a1 -> direction -> 'a1 **)
+
+  let direction_rect f f0 = function
+  | PUT -> f
+  | GET -> f0
+
+  (** val direction_rec : 'a1 -> 'a1 -> direction -> 'a1 **)
+
+  let direction_rec f f0 = function
+  | PUT -> f
+  | GET -> f0
+
+  type retrypolicy = { max_attempts : nat; base_delay_ms : n;
+                       max_delay_ms : n; deadline_ms : n }
+
+  (** val max_attempts : retrypolicy -> nat **)
+
+  let max_attempts r =
+    r.max_attempts
+
+  (** val base_delay_ms : retrypolicy -> n **)
+
+  let base_delay_ms r =
+    r.base_delay_ms
+
+  (** val max_delay_ms : retrypolicy -> n **)
+
+  let max_delay_ms r =
+    r.max_delay_ms
+
+  (** val deadline_ms : retrypolicy -> n **)
+
+  let deadline_ms r =
+    r.deadline_ms
+
+  (** val chunk_size : n **)
+
+  let chunk_size =
+    Assembly.chunksize_N
+
   type ('cONN, 'cREDS) sink = { name : string; creds : 'cREDS;
-                                connection : 'cONN }
+                                connection : 'cONN; localchunks : string;
+                                retry : retrypolicy }
 
   (** val name : ('a1, 'a2) sink -> string **)
 
@@ -3014,11 +3320,19 @@ module Distribution =
   let connection s =
     s.connection
 
+  (** val localchunks : ('a1, 'a2) sink -> string **)
+
+  let localchunks s =
+    s.localchunks
+
+  (** val retry : ('a1, 'a2) sink -> retrypolicy **)
+
+  let retry s =
+    s.retry
+
   module type SINK =
    sig
-    type coq_K
-
-    type coq_B = Cstdio.BufferEncrypted.buffer_t
+    type coq_K = string
 
     type coq_CONN
 
@@ -3026,14 +3340,83 @@ module Distribution =
 
     type coq_Sink = (coq_CONN, coq_CREDS) sink
 
-    val init : Configuration.configuration -> coq_K SMap.t -> coq_Sink option
+    val init : Configuration.configuration -> string SMap.t -> coq_Sink option
 
-    val push : coq_K -> coq_B -> coq_Sink -> coq_Sink
+    val put : coq_K -> coq_Sink -> coq_Sink * copy_result
 
-    val pull : coq_K -> coq_Sink -> coq_Sink * coq_B option
+    val get : coq_K -> coq_Sink -> coq_Sink * copy_result
 
-    val list_n : coq_Sink -> coq_Sink * coq_K list
+    val list_n : n -> coq_Sink -> coq_Sink * coq_K list
    end
+
+  (** val no_sink_dir : z **)
+
+  let no_sink_dir =
+    Zneg (XI (XO (XO (XI (XO (XI (XI (XI (XI XH)))))))))
+
+  (** val copy_failed : z **)
+
+  let copy_failed =
+    Zneg (XO (XI (XO (XI (XO (XI (XI (XI (XI XH)))))))))
+
+  (** val wrong_size : z **)
+
+  let wrong_size =
+    Zneg (XI (XI (XO (XI (XO (XI (XI (XI (XI XH)))))))))
+
+  (** val mkdir_failed : z **)
+
+  let mkdir_failed =
+    Zneg (XO (XO (XI (XI (XO (XI (XI (XI (XI XH)))))))))
+
+  (** val no_source : z **)
+
+  let no_source =
+    Zneg (XI (XO (XI (XI (XO (XI (XI (XI (XI XH)))))))))
+
+  (** val remove_failed : z **)
+
+  let remove_failed =
+    Zneg (XO (XI (XI (XI (XO (XI (XI (XI (XI XH)))))))))
+
+  (** val local_path : ('a1, 'a2) sink -> string -> string **)
+
+  let local_path s k =
+    (^) s.localchunks ((^) "/" k)
+
+  (** val is_chunk_file : Filesystem.path -> bool **)
+
+  let is_chunk_file p =
+    (&&) (Filesystem.Path.file_exists p)
+      (N.eqb (Filesystem.Path.file_size p) chunk_size)
+
+  (** val clear_partial : Filesystem.path -> bool **)
+
+  let clear_partial p =
+    (||) (negb (Filesystem.Path.file_exists p)) (Filesystem.remove p)
+
+  (** val ensure_parent : Filesystem.path -> bool **)
+
+  let ensure_parent p =
+    let dir = Filesystem.Path.parent p in
+    (||) (Filesystem.Path.is_directory dir)
+      (Filesystem.create_directories dir)
+
+  (** val sample : (n -> n) -> nat -> 'a1 list -> 'a1 list **)
+
+  let rec sample rand n0 ls =
+    match n0 with
+    | O -> []
+    | S n' ->
+      (match ls with
+       | [] -> []
+       | x0 :: _ ->
+         let i =
+           N.to_nat (N.modulo (rand (N.of_nat n0)) (N.of_nat (length ls)))
+         in
+         (nth i ls x0) :: (sample rand n'
+                            (app (Utilities.take_list i ls)
+                              (Utilities.drop_list (S i) ls))))
 
   type fssink =
     string
@@ -3053,11 +3436,17 @@ module Distribution =
   let fsuser f =
     f
 
+  (** val fs_default_retry : retrypolicy **)
+
+  let fs_default_retry =
+    { max_attempts = (S (S O)); base_delay_ms = (Npos (XO (XO (XI (XO (XO (XI
+      XH))))))); max_delay_ms = (Npos (XO (XO (XO (XI (XO (XI (XI (XI (XI
+      XH)))))))))); deadline_ms = (Npos (XO (XO (XO (XO (XI (XO (XO (XO (XI
+      (XI (XI (XO (XO XH)))))))))))))) }
+
   module FSSink =
    struct
     type coq_K = string
-
-    type coq_B = Cstdio.BufferEncrypted.buffer_t
 
     type coq_CONN = fssink
 
@@ -3065,49 +3454,100 @@ module Distribution =
 
     type coq_Sink = (coq_CONN, coq_CREDS) sink
 
-    (** val fspush : coq_K -> coq_B -> coq_Sink -> coq_Sink **)
-
-    let fspush = fun k _b sink ->
-   print_string "fspush"; print_endline k; sink
-
-    (** val fspull : coq_K -> coq_Sink -> coq_Sink * coq_B option **)
-
-    let fspull = fun k sink ->
-   print_string "fspull"; print_endline k; (sink, None)
-
-    (** val fslist_n : coq_Sink -> coq_Sink * coq_K list **)
-
-    let fslist_n = fun sink ->
-   print_endline "fslist_n"; (sink, [])
-
     (** val init :
-        Configuration.configuration -> coq_K SMap.t -> coq_Sink option **)
+        Configuration.configuration -> string SMap.t -> coq_Sink option **)
 
-    let init _ s =
+    let init c s =
       match SMap.find "basepath" s with
       | Some p ->
         (match SMap.find "user" s with
          | Some u ->
            (match SMap.find "name" s with
-            | Some n0 -> Some { name = n0; creds = u; connection = p }
+            | Some n0 ->
+              Some { name = n0; creds = u; connection = p; localchunks =
+                c.Configuration.path_chunks; retry = fs_default_retry }
             | None -> None)
          | None -> None)
       | None -> None
 
-    (** val push : coq_K -> coq_B -> coq_Sink -> coq_Sink **)
+    (** val sink_path : coq_Sink -> coq_K -> string **)
 
-    let push =
-      fspush
+    let sink_path s k =
+      (^) s.connection ((^) "/" k)
 
-    (** val pull : coq_K -> coq_Sink -> coq_Sink * coq_B option **)
+    (** val put : coq_K -> coq_Sink -> coq_Sink * copy_result **)
 
-    let pull =
-      fspull
+    let put k s =
+      let base = Filesystem.Path.from_string s.connection in
+      let src = Filesystem.Path.from_string (local_path s k) in
+      let tgt = Filesystem.Path.from_string (sink_path s k) in
+      (s,
+      (if negb (Filesystem.Path.is_directory base)
+       then Failed no_sink_dir
+       else if is_chunk_file tgt
+            then Present
+            else if negb (is_chunk_file src)
+                 then Failed wrong_size
+                 else if negb (clear_partial tgt)
+                      then Failed remove_failed
+                      else if negb (ensure_parent tgt)
+                           then Retry mkdir_failed
+                           else if Filesystem.copy_file src tgt
+                                then Copied
+                                else Retry copy_failed))
 
-    (** val list_n : coq_Sink -> coq_Sink * coq_K list **)
+    (** val get : coq_K -> coq_Sink -> coq_Sink * copy_result **)
 
-    let list_n =
-      fslist_n
+    let get k s =
+      let base = Filesystem.Path.from_string s.connection in
+      let src = Filesystem.Path.from_string (sink_path s k) in
+      let tgt = Filesystem.Path.from_string (local_path s k) in
+      (s,
+      (if is_chunk_file tgt
+       then Present
+       else if negb (Filesystem.Path.is_directory base)
+            then Failed no_sink_dir
+            else if negb (Filesystem.Path.file_exists src)
+                 then Failed no_source
+                 else if negb (clear_partial tgt)
+                      then Failed remove_failed
+                      else if negb (ensure_parent tgt)
+                           then Retry mkdir_failed
+                           else if negb (Filesystem.copy_file src tgt)
+                                then Retry copy_failed
+                                else if N.eqb (Filesystem.Path.file_size tgt)
+                                          chunk_size
+                                     then Copied
+                                     else if Filesystem.remove tgt
+                                          then Failed wrong_size
+                                          else Failed remove_failed))
+
+    (** val list_keys : coq_Sink -> coq_K list **)
+
+    let list_keys s =
+      let fname0 = fun de ->
+        Filesystem.Path.to_string
+          (Filesystem.Path.filename (Filesystem.Direntry.as_path de))
+      in
+      let base = Filesystem.Path.from_string s.connection in
+      Filesystem.list_directory base [] (fun d1 acc1 ->
+        if negb (Filesystem.Direntry.is_directory d1)
+        then acc1
+        else Filesystem.list_directory (Filesystem.Direntry.as_path d1) acc1
+               (fun d2 acc2 ->
+               if negb (Filesystem.Direntry.is_directory d2)
+               then acc2
+               else Filesystem.list_directory
+                      (Filesystem.Direntry.as_path d2) acc2 (fun d3 acc3 ->
+                      if Filesystem.Direntry.is_regular_file d3
+                      then ((^) (fname0 d1)
+                             ((^) "/" ((^) (fname0 d2) ((^) "/" (fname0 d3))))) :: acc3
+                      else acc3)))
+
+    (** val list_n : n -> coq_Sink -> coq_Sink * coq_K list **)
+
+    let list_n n0 s =
+      (s, (sample Utilities.rnd (N.to_nat n0) (list_keys s)))
    end
 
   type s3sink = { s3protocol : string; s3host : string; s3port : string;
@@ -3150,11 +3590,53 @@ module Distribution =
   let s3password s =
     s.s3password
 
+  (** val s3_put_object : s3sink -> s3credentials -> string -> string -> z **)
+
+  let s3_put_object = fun c cr res lp ->
+   Elykseer_base.S3access.put_object ~protocol:c.s3protocol ~host:c.s3host ~port:c.s3port
+     ~user:cr.s3user ~password:cr.s3password ~resource:res ~file:lp |> Conversion.i2z
+
+  (** val s3_get_object : s3sink -> s3credentials -> string -> string -> z **)
+
+  let s3_get_object = fun c cr res lp ->
+   Elykseer_base.S3access.get_object ~protocol:c.s3protocol ~host:c.s3host ~port:c.s3port
+     ~user:cr.s3user ~password:cr.s3password ~resource:res ~file:lp |> Conversion.i2z
+
+  (** val s3_list_objects :
+      s3sink -> s3credentials -> string -> string list **)
+
+  let s3_list_objects = fun c cr prefix ->
+   Elykseer_base.S3access.list_objects ~protocol:c.s3protocol ~host:c.s3host ~port:c.s3port
+     ~user:cr.s3user ~password:cr.s3password ~prefix
+
+  (** val s3_result : z -> copy_result **)
+
+  let s3_result code =
+    if (&&) (Z.leb (Zpos (XO (XO (XO (XI (XO (XO (XI XH)))))))) code)
+         (Z.ltb code (Zpos (XO (XO (XI (XI (XO (XI (XO (XO XH))))))))))
+    then Copied
+    else if (||)
+              ((||)
+                ((||) (Z.ltb code Z0)
+                  (Z.leb (Zpos (XO (XO (XI (XO (XI (XI (XI (XI XH)))))))))
+                    code))
+                (Z.eqb code (Zpos (XI (XO (XI (XI (XO (XI (XO (XI XH)))))))))))
+              (Z.eqb code (Zpos (XO (XO (XO (XI (XI (XO (XO (XI XH))))))))))
+         then Retry code
+         else Failed code
+
+  (** val s3_default_retry : retrypolicy **)
+
+  let s3_default_retry =
+    { max_attempts = (S (S (S (S (S O))))); base_delay_ms = (Npos (XO (XO (XI
+      (XO (XI (XI (XI (XI XH))))))))); max_delay_ms = (Npos (XO (XO (XO (XO
+      (XI (XI (XO (XO (XI (XO (XI (XO (XI (XI XH)))))))))))))));
+      deadline_ms = (Npos (XO (XO (XO (XO (XO (XO (XI (XI (XI (XI (XI (XO (XO
+      (XI (XO (XO (XI (XO (XO XH)))))))))))))))))))) }
+
   module S3Sink =
    struct
     type coq_K = string
-
-    type coq_B = Cstdio.BufferEncrypted.buffer_t
 
     type coq_CONN = s3sink
 
@@ -3162,25 +3644,10 @@ module Distribution =
 
     type coq_Sink = (coq_CONN, coq_CREDS) sink
 
-    (** val s3push : coq_K -> coq_B -> coq_Sink -> coq_Sink **)
-
-    let s3push = fun k _b sink ->
-   print_string "s3push"; print_endline k; sink
-
-    (** val s3pull : coq_K -> coq_Sink -> coq_Sink * coq_B option **)
-
-    let s3pull = fun k sink ->
-   print_string "s3pull"; print_endline k; (sink, None)
-
-    (** val s3list_n : coq_Sink -> coq_Sink * coq_K list **)
-
-    let s3list_n = fun sink ->
-   print_endline "s3list_n"; (sink, [])
-
     (** val init :
-        Configuration.configuration -> coq_K SMap.t -> coq_Sink option **)
+        Configuration.configuration -> string SMap.t -> coq_Sink option **)
 
-    let init _ s =
+    let init c s =
       match SMap.find "access" s with
       | Some u ->
         (match SMap.find "secret" s with
@@ -3202,7 +3669,8 @@ module Distribution =
                           (match SMap.find "name" s with
                            | Some n0 ->
                              Some { name = n0; creds = creds0; connection =
-                               s3 }
+                               s3; localchunks = c.Configuration.path_chunks;
+                               retry = s3_default_retry }
                            | None -> None)
                         | None -> None)
                      | None -> None)
@@ -3212,20 +3680,47 @@ module Distribution =
          | None -> None)
       | None -> None
 
-    (** val push : coq_K -> coq_B -> coq_Sink -> coq_Sink **)
+    (** val resource : coq_Sink -> coq_K -> string **)
 
-    let push =
-      s3push
+    let resource s k =
+      (^) "/" ((^) s.connection.s3prefix ((^) "/" k))
 
-    (** val pull : coq_K -> coq_Sink -> coq_Sink * coq_B option **)
+    (** val put : coq_K -> coq_Sink -> coq_Sink * copy_result **)
 
-    let pull =
-      s3pull
+    let put k s =
+      let lp = local_path s k in
+      (s,
+      (if negb (is_chunk_file (Filesystem.Path.from_string lp))
+       then Failed wrong_size
+       else s3_result (s3_put_object s.connection s.creds (resource s k) lp)))
 
-    (** val list_n : coq_Sink -> coq_Sink * coq_K list **)
+    (** val get : coq_K -> coq_Sink -> coq_Sink * copy_result **)
 
-    let list_n =
-      s3list_n
+    let get k s =
+      let lp = local_path s k in
+      let p = Filesystem.Path.from_string lp in
+      (s,
+      (if is_chunk_file p
+       then Present
+       else if negb (clear_partial p)
+            then Failed remove_failed
+            else (match s3_result
+                          (s3_get_object s.connection s.creds (resource s k)
+                            lp) with
+                  | Copied ->
+                    if N.eqb (Filesystem.Path.file_size p) chunk_size
+                    then Copied
+                    else if Filesystem.remove p
+                         then Retry copy_failed
+                         else Failed remove_failed
+                  | x -> x)))
+
+    (** val list_n : n -> coq_Sink -> coq_Sink * coq_K list **)
+
+    let list_n n0 s =
+      (s,
+        (sample Utilities.rnd (N.to_nat n0)
+          (s3_list_objects s.connection s.creds s.connection.s3prefix)))
    end
 
   type sink_type =
@@ -3246,30 +3741,316 @@ module Distribution =
   | S3 s0 -> f s0
   | FS s0 -> f0 s0
 
-  (** val enumerate_chunk_paths :
+  (** val chunk_key_of_cid : string -> string **)
+
+  let chunk_key_of_cid cid =
+    let n0 = length0 cid in
+    (^) (substring (sub n0 (S (S O))) (S (S O)) cid)
+      ((^) "/"
+        ((^) (substring (sub n0 (S (S (S (S O))))) (S (S O)) cid)
+          ((^) "/" ((^) cid ".lxr"))))
+
+  (** val enumerate_chunk_keys :
       Configuration.configuration -> Assembly.aid_t -> Nchunks.t -> string
       list **)
 
-  let enumerate_chunk_paths c aid0 nchunks0 =
-    let n0 = Nchunks.to_positive nchunks0 in
-    fold_left (fun acc cid ->
-      (Assembly.chunk_identifier_path c aid0 cid) :: acc)
-      (Utilities.make_list n0) []
+  let enumerate_chunk_keys c aid0 nchunks0 =
+    map (fun cid -> chunk_key_of_cid (Assembly.chunk_identifier c aid0 cid))
+      (Utilities.make_list (Nchunks.to_positive nchunks0))
 
-  (** val distribute_by_weight : string list -> n list -> string list list **)
+  (** val distribute_aux : 'a1 list -> nat list -> 'a1 list list **)
 
-  let distribute_by_weight fps ws0 =
-    let n0 = N.of_nat (length fps) in
-    let ws = map (fun w -> if N.ltb n0 w then n0 else w) ws0 in
-    let repfps = fold_left (fun acc _ -> app fps acc) ws [] in
-    let (_, lls) =
-      fold_left (fun pat w ->
-        let (fps0, acc) = pat in
-        let w' = N.to_nat w in
-        ((Utilities.drop_list w' fps0),
-        ((Utilities.take_list w' fps0) :: acc))) ws (repfps, [])
-    in
-    let lls' = map rev lls in rev lls'
+  let rec distribute_aux rep = function
+  | [] -> []
+  | w :: ws' ->
+    (Utilities.take_list w rep) :: (distribute_aux
+                                     (Utilities.drop_list w rep) ws')
+
+  (** val distribute_by_weight : 'a1 list -> n list -> 'a1 list list **)
+
+  let distribute_by_weight ks ws0 =
+    let n0 = length ks in
+    let ws = map (fun w -> Nat.min (N.to_nat w) n0) ws0 in
+    distribute_aux (concat (repeat ks (length ws))) ws
+
+  (** val valid_weights : nat -> n -> n list -> bool **)
+
+  let valid_weights nsinks n0 ws =
+    (&&) (Nat.eqb (length ws) nsinks) (N.leb n0 (fold_right N.add N0 ws))
+
+  (** val plan :
+      'a1 list -> n list -> 'a2 list -> ('a1 * 'a2 list) list option **)
+
+  let plan sinks ws ks =
+    if valid_weights (length sinks) (N.of_nat (length ks)) ws
+    then Some (combine sinks (distribute_by_weight ks ws))
+    else None
+
+  (** val delay : retrypolicy -> nat -> n **)
+
+  let delay p a =
+    N.min p.max_delay_ms
+      (N.mul p.base_delay_ms (N.pow (Npos (XO XH)) (N.of_nat a)))
+
+  (** val max_att : retrypolicy -> nat **)
+
+  let max_att p =
+    Nat.max (S O) p.max_attempts
+
+  type ('snk, 'ky) entry = { e_sink : 'snk; e_key : 'ky; e_attempt : 
+                             nat; e_first : n; e_due : n; e_last : z }
+
+  (** val e_sink : ('a1, 'a2) entry -> 'a1 **)
+
+  let e_sink e =
+    e.e_sink
+
+  (** val e_key : ('a1, 'a2) entry -> 'a2 **)
+
+  let e_key e =
+    e.e_key
+
+  (** val e_attempt : ('a1, 'a2) entry -> nat **)
+
+  let e_attempt e =
+    e.e_attempt
+
+  (** val e_first : ('a1, 'a2) entry -> n **)
+
+  let e_first e =
+    e.e_first
+
+  (** val e_due : ('a1, 'a2) entry -> n **)
+
+  let e_due e =
+    e.e_due
+
+  (** val e_last : ('a1, 'a2) entry -> z **)
+
+  let e_last e =
+    e.e_last
+
+  type ('snk, 'ky) final = { f_sink : 'snk; f_key : 'ky; f_attempts : 
+                             nat; f_result : copy_result }
+
+  (** val f_sink : ('a1, 'a2) final -> 'a1 **)
+
+  let f_sink f =
+    f.f_sink
+
+  (** val f_key : ('a1, 'a2) final -> 'a2 **)
+
+  let f_key f =
+    f.f_key
+
+  (** val f_attempts : ('a1, 'a2) final -> nat **)
+
+  let f_attempts f =
+    f.f_attempts
+
+  (** val f_result : ('a1, 'a2) final -> copy_result **)
+
+  let f_result f =
+    f.f_result
+
+  type 'snk event = { v_sink : 'snk; v_attempt : nat; v_start : n; v_first : n }
+
+  (** val v_sink : 'a1 event -> 'a1 **)
+
+  let v_sink e =
+    e.v_sink
+
+  (** val v_attempt : 'a1 event -> nat **)
+
+  let v_attempt e =
+    e.v_attempt
+
+  (** val v_start : 'a1 event -> n **)
+
+  let v_start e =
+    e.v_start
+
+  (** val v_first : 'a1 event -> n **)
+
+  let v_first e =
+    e.v_first
+
+  (** val initial_queue : ('a1 * 'a2 list) list -> ('a1, 'a2) entry list **)
+
+  let initial_queue p =
+    flat_map (fun sg ->
+      map (fun k -> { e_sink = (fst sg); e_key = k; e_attempt = O; e_first =
+        N0; e_due = N0; e_last = Z0 }) (snd sg))
+      p
+
+  (** val pick :
+      ('a1, 'a2) entry list -> (('a1, 'a2) entry * ('a1, 'a2) entry list)
+      option **)
+
+  let rec pick = function
+  | [] -> None
+  | e :: r ->
+    (match pick r with
+     | Some p ->
+       let (m, r') = p in
+       if N.ltb m.e_due e.e_due then Some (m, (e :: r')) else Some (e, r)
+     | None -> Some (e, []))
+
+  (** val give_up : ('a1, 'a2) entry -> ('a1, 'a2) final **)
+
+  let give_up e =
+    { f_sink = e.e_sink; f_key = e.e_key; f_attempts = e.e_attempt;
+      f_result = (Failed e.e_last) }
+
+  type ('snk, 'ky) decision =
+  | Requeue of ('snk, 'ky) entry
+  | Final of ('snk, 'ky) final
+
+  (** val decision_rect :
+      (('a1, 'a2) entry -> 'a3) -> (('a1, 'a2) final -> 'a3) -> ('a1, 'a2)
+      decision -> 'a3 **)
+
+  let decision_rect f f0 = function
+  | Requeue e -> f e
+  | Final f1 -> f0 f1
+
+  (** val decision_rec :
+      (('a1, 'a2) entry -> 'a3) -> (('a1, 'a2) final -> 'a3) -> ('a1, 'a2)
+      decision -> 'a3 **)
+
+  let decision_rec f f0 = function
+  | Requeue e -> f e
+  | Final f1 -> f0 f1
+
+  (** val decide :
+      ('a1 -> retrypolicy) -> ('a1, 'a2) entry -> n -> n -> copy_result ->
+      ('a1, 'a2) decision **)
+
+  let decide policy e first t' r =
+    let pol = policy e.e_sink in
+    let a = S e.e_attempt in
+    (match r with
+     | Retry c ->
+       let due = N.add t' (delay pol e.e_attempt) in
+       if (&&) (Nat.ltb a (max_att pol))
+            (N.leb due (N.add first pol.deadline_ms))
+       then Requeue { e_sink = e.e_sink; e_key = e.e_key; e_attempt = a;
+              e_first = first; e_due = due; e_last = c }
+       else Final { f_sink = e.e_sink; f_key = e.e_key; f_attempts = a;
+              f_result = (Failed c) }
+     | _ ->
+       Final { f_sink = e.e_sink; f_key = e.e_key; f_attempts = a; f_result =
+         r })
+
+  (** val schedule :
+      ('a1 -> retrypolicy) -> ('a3 -> 'a1 -> 'a2 -> 'a3 * copy_result) ->
+      ('a3 -> 'a3 * n) -> ('a3 -> n -> 'a3 * n) -> nat -> 'a3 -> ('a1, 'a2)
+      entry list -> ('a1, 'a2) final list -> 'a1 event list -> ('a3 * ('a1,
+      'a2) final list) * 'a1 event list **)
+
+  let rec schedule policy copy0 now sleep_until0 fuel st q fs log0 =
+    match fuel with
+    | O -> ((st, (app (rev fs) (map give_up q))), (rev log0))
+    | S fuel' ->
+      (match pick q with
+       | Some p ->
+         let (e, q') = p in
+         let (st1, t0) = sleep_until0 st e.e_due in
+         let first = if Nat.eqb e.e_attempt O then t0 else e.e_first in
+         if N.ltb (N.add first (policy e.e_sink).deadline_ms) t0
+         then schedule policy copy0 now sleep_until0 fuel' st1 q'
+                ((give_up e) :: fs) log0
+         else let (st2, r) = copy0 st1 e.e_sink e.e_key in
+              let ev = { v_sink = e.e_sink; v_attempt = (S e.e_attempt);
+                v_start = t0; v_first = first }
+              in
+              let (st3, t') = now st2 in
+              (match decide policy e first t' r with
+               | Requeue e' ->
+                 schedule policy copy0 now sleep_until0 fuel' st3
+                   (app q' (e' :: [])) fs (ev :: log0)
+               | Final f ->
+                 schedule policy copy0 now sleep_until0 fuel' st3 q'
+                   (f :: fs) (ev :: log0))
+       | None -> ((st, (rev fs)), (rev log0)))
+
+  (** val fuel_for : ('a1 -> retrypolicy) -> ('a1, 'a2) entry list -> nat **)
+
+  let fuel_for policy q =
+    S (list_sum (map (fun e -> max_att (policy e.e_sink)) q))
+
+  (** val run_plan :
+      ('a1 -> retrypolicy) -> ('a3 -> 'a1 -> 'a2 -> 'a3 * copy_result) ->
+      ('a3 -> 'a3 * n) -> ('a3 -> n -> 'a3 * n) -> 'a3 -> ('a1 * 'a2 list)
+      list -> ('a3 * ('a1, 'a2) final list) * 'a1 event list **)
+
+  let run_plan policy copy0 now sleep_until0 st p =
+    let q = initial_queue p in
+    schedule policy copy0 now sleep_until0 (fuel_for policy q) st q [] []
+
+  (** val distribution_ok : ('a1, 'a2) final list -> bool **)
+
+  let distribution_ok fs =
+    forallb (fun f -> is_ok f.f_result) fs
+
+  (** val sk_e : ('a1, 'a2) entry -> 'a1 * 'a2 **)
+
+  let sk_e e =
+    (e.e_sink, e.e_key)
+
+  (** val sk_f : ('a1, 'a2) final -> 'a1 * 'a2 **)
+
+  let sk_f f =
+    (f.f_sink, f.f_key)
+
+  (** val remaining : ('a1 -> retrypolicy) -> ('a1, 'a2) entry -> nat **)
+
+  let remaining policy e =
+    sub (max_att (policy e.e_sink)) e.e_attempt
+
+  (** val sink_policy : sink_type -> retrypolicy **)
+
+  let sink_policy = function
+  | S3 x -> x.retry
+  | FS x -> x.retry
+
+  (** val copy_chunk : direction -> sink_type -> string -> copy_result **)
+
+  let copy_chunk d s k =
+    match d with
+    | PUT ->
+      (match s with
+       | S3 x -> snd (S3Sink.put k x)
+       | FS x -> snd (FSSink.put k x))
+    | GET ->
+      (match s with
+       | S3 x -> snd (S3Sink.get k x)
+       | FS x -> snd (FSSink.get k x))
+
+  (** val run :
+      direction -> (sink_type * string list) list -> (sink_type, string)
+      final list **)
+
+  let run d p =
+    snd
+      (fst
+        (run_plan sink_policy (fun _ s k -> ((), (copy_chunk d s k)))
+          (fun _ -> ((), (Utilities.now_ms ()))) (fun _ due -> ((),
+          (Utilities.sleep_until due))) () p))
+
+  (** val restore_ok : string list -> ('a1, string) final list -> bool **)
+
+  let restore_ok ks fs =
+    forallb (fun k ->
+      existsb (fun f -> (&&) ((=) f.f_key k) (is_ok f.f_result)) fs) ks
+
+  (** val run_ok :
+      direction -> string list -> (sink_type, string) final list -> bool **)
+
+  let run_ok d ks fs =
+    match d with
+    | PUT -> distribution_ok fs
+    | GET -> restore_ok ks fs
  end
 
 module Processor =

@@ -19,7 +19,7 @@ jobs:
   spec-and-extraction:
     runs-on: ubuntu-latest
     container:
-      image: codieplusplus/elykseer-ml:v0.10.2
+      image: codieplusplus/elykseer-ml:v0.10.3-1
       # the workspace belongs to the runner, not to the image user "coq"
       options: --user root
     env:
@@ -49,6 +49,16 @@ jobs:
         run: |
           eval "$(opam env)"
           theories/assumptions.sh check
+
+      - name: Property tests of the Rocq spec (QuickChick)
+        run: |
+          eval "$(opam env)"
+          # images before the one with QuickChick (docker/Dockerfile) install it here
+          if ! opam list --installed --silent coq-quickchick; then
+            opam pin add -y -n coq-simple-io.1.11.0 ./ext/rocq-simple-io-1.11.0.tar.gz
+            opam install -y coq-quickchick.2.1.1 "rocq-mathcomp-ssreflect<2.6"
+          fi
+          theories/tests/quickchick.sh
 
       - name: Verify extraction matches committed lxr.ml / lxr.mli
         run: |

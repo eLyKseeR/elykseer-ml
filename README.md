@@ -121,8 +121,8 @@ Both images in one step, without pushing the base image first ([docker/docker-ba
 
 ```sh
 cd docker/
-export BASE_VERSION=2
-export VERSION=v0.10.2
+export BASE_VERSION=3
+export VERSION=v0.10.3
 
 # Build for both platforms (linux/amd64, linux/arm64) locally
 docker buildx bake --allow=fs.read=../.git
@@ -139,8 +139,8 @@ Use different VERSION values or tags for each leg, then combine:
 
 ```sh
 cd docker/
-export BASE_VERSION=2
-export IMG_VERSION=v0.10.2
+export BASE_VERSION=3
+export IMG_VERSION=v0.10.3
 
 # Build amd64 leg
 PLATFORMS=linux/amd64 VERSION=${IMG_VERSION}-amd64 docker buildx bake --allow=fs.read=../.git --push
@@ -166,9 +166,10 @@ in one step, both architectures:
 
 ```sh
 cd docker/
-BASE_VERSION=2  # increment on every upgrade
+BASE_VERSION=3  # increment on every upgrade
 
 docker buildx build -f Dockerfile.base --platform linux/amd64,linux/arm64 \
+  --build-context ext=../ext \
   --build-arg OCAML_VERSION=5.2.1 --build-arg COQ_VERSION=9.0.0 \
   -t codieplusplus/elykseer-ml:base_${BASE_VERSION} \
   --push .
@@ -178,15 +179,17 @@ or, in two separate steps (each on a native builder, which avoids slow emulation
 
 ```sh
 cd docker/
-BASE_VERSION=2
+BASE_VERSION=3
 
 # amd64 leg
 docker buildx build -f Dockerfile.base --platform linux/amd64 \
+  --build-context ext=../ext \
   -t codieplusplus/elykseer-ml:base_amd64_${BASE_VERSION} \
   --push .
 
 # arm64 leg (e.g. native Apple Silicon)
 docker buildx build -f Dockerfile.base --platform linux/arm64 \
+  --build-context ext=../ext \
   -t codieplusplus/elykseer-ml:base_arm64_${BASE_VERSION} \
   --push .
 
@@ -206,8 +209,8 @@ in one step, both architectures:
 
 ```sh
 cd docker/
-VERSION="v0.10.1"  # adapt
-BASE_VERSION=2
+VERSION="v0.10.3"  # adapt
+BASE_VERSION=3
 
 docker buildx build --build-context elykseer-ml-git=../.git \
   --build-arg BASE_VERSION=${BASE_VERSION} \
@@ -221,8 +224,11 @@ or, in two separate steps, then combined (the legs pull `base_${BASE_VERSION}` f
 
 ```sh
 cd docker/
-VERSION="v0.10.1"  # adapt
-BASE_VERSION=2
+VERSION="v0.10.3"  # adapt
+BASE_VERSION=3
+
+# inspect base image
+docker buildx imagetools inspect codieplusplus/elykseer-ml:base_${BASE_VERSION}
 
 # amd64 leg
 docker buildx build --build-context elykseer-ml-git=../.git \

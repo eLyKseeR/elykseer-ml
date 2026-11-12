@@ -24,7 +24,7 @@ jobs:
   tests-and-roundtrip:
     runs-on: ubuntu-latest
     container:
-      image: codieplusplus/elykseer-ml:v0.10.2
+      image: codieplusplus/elykseer-ml:v0.10.3-1
       # the workspace belongs to the runner, not to the image user "coq"
       options: --user root
     env:

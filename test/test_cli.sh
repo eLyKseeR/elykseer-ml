@@ -153,6 +153,33 @@ rm -rf sink2
 expect 1 "PUT to a missing sink directory fails" distribute -d PUT -x chunks -c sinks.json 8 8
 echo '{ "sinks": [ { "type": "FTP", "name": "x" } ] }' > bad.json
 expect 2 "invalid sink configuration" distribute -d PUT -x chunks -c bad.json 16
+cat > retry.json <<EOF
+{ "sinks": [ { "type": "FS", "name": "s1", "credentials": { "user": "*" }, "access": { "basepath": "${WORK}/sink1" },
+               "retry": { "max_attempts": -1 } } ] }
+EOF
+expect 2 "negative retry setting is a configuration error" distribute -d PUT -x chunks -c retry.json 16
+sed 's/-1/3/' retry.json > retry3.json
+expect 0 "retry settings are accepted" distribute -d PUT -x chunks -c retry3.json 16
+sed 's/-1/101/' retry.json > retry101.json
+expect 2 "too many attempts are a configuration error" distribute -d PUT -x chunks -c retry101.json 16
+# a restore needs every chunk from one sink only
+mkdir -p sink2
+expect 0 "PUT all chunks to both sinks" distribute -d PUT -x chunks -c sinks.json 16 16
+mv sink2 sink2.off
+expect 0 "GET succeeds with one of two sinks missing" distribute -d GET -x chunks3 -c sinks.json 16 16
+check "all 16 chunks restored from one sink" test "$(find chunks3 -name '*.lxr' | wc -l | tr -d ' ')" -eq 16
+mv sink2.off sink2
+if [ "$(id -u)" -ne 0 ]; then
+  # a sink that cannot be written to is retried, then given up on
+  mkdir sinkro && chmod 555 sinkro
+  sed "s|${WORK}/sink1|${WORK}/sinkro|" retry3.json > retryro.json
+  expect 1 "PUT to a read-only sink fails" distribute -d PUT -x chunks -c retryro.json 16
+  check "after 3 attempts" grep -q "after 3 attempts" out.log
+  sed 's/"max_attempts": 3/"max_attempts": 3, "deadline_ms": 1/' retryro.json > retrydl.json
+  expect 1 "PUT with a short deadline fails" distribute -d PUT -x chunks -c retrydl.json 16
+  check "the deadline stops the retries" grep -q "after 1 attempt$" out.log
+  chmod 755 sinkro
+fi
 
 echo "audit regressions"
 # chunks that cannot all be written must fail the backup (half of the chunk subdirectories are read-only)

@@ -17,7 +17,7 @@
  To accept a change on purpose: `theories/assumptions.sh update` and commit the result.
  *)
 
-From LXR Require Import Assembly AssemblyCache CheckApos Environment Nchunks Processor.
+From LXR Require Import Assembly AssemblyCache CheckApos Distribution Environment Nchunks Processor.
 
 (** * Proved statements
 
@@ -39,6 +39,24 @@ Locate AssemblyCache.emptyread_id.
 Print Assumptions AssemblyCache.emptyread_id.
 Locate AssemblyCache.emptywrite_id.
 Print Assumptions AssemblyCache.emptywrite_id.
+Locate Distribution.plan_covers.
+Print Assumptions Distribution.plan_covers.
+Locate Distribution.ok_plan_complete.
+Print Assumptions Distribution.ok_plan_complete.
+Locate Distribution.attempts_bounded.
+Print Assumptions Distribution.attempts_bounded.
+Locate Distribution.deadline_respected.
+Print Assumptions Distribution.deadline_respected.
+Locate Distribution.tried_at_least_once.
+Print Assumptions Distribution.tried_at_least_once.
+Locate Distribution.ok_was_copied.
+Print Assumptions Distribution.ok_was_copied.
+Locate Distribution.restore_ok_complete.
+Print Assumptions Distribution.restore_ok_complete.
+Locate Distribution.FSSink.get_copied_size.
+Print Assumptions Distribution.FSSink.get_copied_size.
+Locate Distribution.S3Sink.get_copied_size.
+Print Assumptions Distribution.S3Sink.get_copied_size.
 
 (** * Extracted entry points
 
@@ -74,3 +92,5 @@ Locate Processor.list_directory_entries.
 Print Assumptions Processor.list_directory_entries.
 Locate Processor.close.
 Print Assumptions Processor.close.
+Locate Distribution.run.
+Print Assumptions Distribution.run.

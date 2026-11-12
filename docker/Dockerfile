@@ -1,9 +1,9 @@
 # syntax=docker/dockerfile:1
 # run from within docker/:
-#   docker buildx build --build-arg BASE_VERSION=1 --build-context elykseer-ml-git=../.git -t codieplusplus/elykseer-ml:latest .
+#   docker buildx build --build-arg BASE_VERSION=3 --build-context elykseer-ml-git=../.git -t codieplusplus/elykseer-ml:latest .
 # the base image comes from Dockerfile.base
 
-ARG BASE_VERSION=1
+ARG BASE_VERSION=3
 
 FROM codieplusplus/elykseer-ml:base_${BASE_VERSION} AS build-env
 
@@ -35,8 +35,6 @@ RUN eval $(opam env) && cd /tmp/ && git clone https://github.com/CodiePP/ml-cpp-
 RUN git config --global url."https://github.com/gpg/".insteadOf "https://dev.gnupg.org/source/"
 RUN cd /tmp/ && git clone https://github.com/eLyKseeR/elykseer-crypto.git elykseer-crypto.git && cd elykseer-crypto.git && git checkout --detach ${ELYKSEER_CRYPTO_COMMIT} && git submodule update --init && make -C ext
 # C++20 modules need the Ninja generator; GCC 14 crashes (ICE) on elykseer-crypto's modules, so use Clang
-USER root
-RUN apt update && apt install -y ninja-build clang clang-tools
 USER coq
 # the prebuilt Boost in ~/.local is static only
 RUN eval $(opam env) && cd /tmp/elykseer-crypto.git && sed -i 's/set(Boost_USE_STATIC_LIBS OFF)/set(Boost_USE_STATIC_LIBS ON)/' test/cpp/CMakeLists.txt && cmake -S . -B build -G Ninja --fresh -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang++ && cmake --build build --target static_lib -j$(nproc) && cd src/ml && dune build -p elykseer_crypto && dune install -p elykseer_crypto
@@ -59,14 +57,14 @@ RUN tar cvzf /tmp/coq.home.tgz -C /home/coq --exclude ./prebuilt/\* --exclude ./
 ###############################################################################
 
 # pinned by version and digest, same as Dockerfile.base
-FROM debian:trixie-20260918@sha256:9cc080028c43b27d2074d63a5f9caf7166d731494965616c1a6d2827a004585c
+FROM debian:trixie-20261104@sha256:9c6e381421d0f48d1b8133e573f33c185ee16cbf505eda9c4a8a4791b25ea8a6
 
 # 
 LABEL org.opencontainers.image.source=https://github.com/eLyKseeR/elykseer-ml
 LABEL org.opencontainers.image.description="formally specified & verified implementation of eLyKseeR in Coq / OCaml"
 LABEL org.opencontainers.image.licenses=GPL-3.0-or-later
 
-RUN apt update && apt upgrade -y && apt install -y sudo opam bash git jq binutils texinfo less vim gettext sed curl pkg-config libgmp-dev libffi-dev libcurl4-gnutls-dev nodejs && apt autoremove -y
+RUN apt update && apt upgrade -y && apt install -y sudo opam bash git jq binutils texinfo less vim gettext sed curl pkg-config libgmp-dev libffi-dev libcurl4-gnutls-dev nodejs time && apt autoremove -y
 
 RUN addgroup --gid 1000 coq && adduser --disabled-password --uid 1000 --gid 1000 coq
 
@@ -93,8 +91,12 @@ COPY --chown=1000 --from=build-env /tmp/src/elykseer-ml.git /home/coq/elykseer-m
 
 WORKDIR /home/coq/elykseer-ml.git
 
-# install test dependencies (alcotest, qcheck, etc.) before building
-RUN eval $(opam env) && opam install -y alcotest alcotest-lwt qcheck qcheck-alcotest
+# # install test dependencies (alcotest, qcheck, etc.) before building
+# RUN eval $(opam env) && opam install -y alcotest alcotest-lwt qcheck qcheck-alcotest
+# # property tests of the Rocq spec (theories/tests/quickchick.sh); coq-simple-io is vendored
+# # in ext/ (no network to GitHub needed); QuickChick 2.1.1 does not build with mathcomp 2.6
+# RUN eval $(opam env) && opam pin add -y -n coq-simple-io.1.11.0 ./ext/rocq-simple-io-1.11.0.tar.gz \
+#  && opam install -y coq-quickchick.2.1.1 "rocq-mathcomp-ssreflect<2.6"
 
 RUN eval $(opam env) && coq_makefile -f _CoqProject -o Makefile
 

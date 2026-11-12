@@ -44,7 +44,7 @@ jobs:
     # adjust the label to whatever your Forgejo runner advertises
     runs-on: docker
     container:
-      image: codieplusplus/elykseer-ml:v0.10.2
+      image: codieplusplus/elykseer-ml:v0.10.3-1
     timeout-minutes: 45
     steps:
       - name: Checkout

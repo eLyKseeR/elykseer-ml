@@ -310,19 +310,18 @@ Extract Constant output_stdout => "fun ll m ->
    in
    print_endline m; Some ()".
 
-Extract Constant S3Sink.s3push => "fun k _b sink ->
-   print_string ""s3push""; print_endline k; sink".
-Extract Constant S3Sink.s3pull => "fun k sink ->
-   print_string ""s3pull""; print_endline k; (sink, None)".
-Extract Constant S3Sink.s3list_n => "fun sink ->
-   print_endline ""s3list_n""; (sink, [])".
+Extract Constant s3_put_object => "fun c cr res lp ->
+   Elykseer_base.S3access.put_object ~protocol:c.s3protocol ~host:c.s3host ~port:c.s3port
+     ~user:cr.s3user ~password:cr.s3password ~resource:res ~file:lp |> Conversion.i2z".
+Extract Constant s3_get_object => "fun c cr res lp ->
+   Elykseer_base.S3access.get_object ~protocol:c.s3protocol ~host:c.s3host ~port:c.s3port
+     ~user:cr.s3user ~password:cr.s3password ~resource:res ~file:lp |> Conversion.i2z".
+Extract Constant s3_list_objects => "fun c cr prefix ->
+   Elykseer_base.S3access.list_objects ~protocol:c.s3protocol ~host:c.s3host ~port:c.s3port
+     ~user:cr.s3user ~password:cr.s3password ~prefix".
 
-Extract Constant FSSink.fspush => "fun k _b sink ->
-   print_string ""fspush""; print_endline k; sink".
-Extract Constant FSSink.fspull => "fun k sink ->
-   print_string ""fspull""; print_endline k; (sink, None)".
-Extract Constant FSSink.fslist_n => "fun sink ->
-   print_endline ""fslist_n""; (sink, [])".
+Extract Constant now_ms => "fun () -> Conversion.i2n (Elykseer_base.Clock.now_ms ())".
+Extract Constant sleep_until => "fun due -> Conversion.i2n (Elykseer_base.Clock.sleep_until (Conversion.n2i due))".
 
 (* extract into "lxr.ml" all named modules and definitions, and their dependencies *)
 Extraction "lxr.ml"  Version Conversion Utilities Filesupport Nchunks Assembly

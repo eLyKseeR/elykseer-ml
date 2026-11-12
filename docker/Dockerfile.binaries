@@ -1,7 +1,7 @@
-# DOCKER_BUILDKIT=1 docker build -f Dockerfile.binaries --build-arg FROM_VERSION=v0.10.0 -t codieplusplus/elykseer-ml-binaries:arm64 .
+# DOCKER_BUILDKIT=1 docker build -f Dockerfile.binaries --build-arg FROM_VERSION=v0.10.3 -t codieplusplus/elykseer-ml-binaries:arm64 .
 
 # build from a released image, not from a moving tag
-ARG FROM_VERSION=v0.10.0
+ARG FROM_VERSION=v0.10.3
 
 FROM codieplusplus/elykseer-ml:${FROM_VERSION} AS build-env
 
@@ -17,7 +17,7 @@ RUN tar czf /tmp/coq.local.tgz .local
 ###############################################################################
 
 # pinned by version and digest, same as Dockerfile.base
-FROM debian:trixie-20260918@sha256:9cc080028c43b27d2074d63a5f9caf7166d731494965616c1a6d2827a004585c
+FROM debian:trixie-20261104@sha256:9c6e381421d0f48d1b8133e573f33c185ee16cbf505eda9c4a8a4791b25ea8a6
 
 # 
 LABEL org.opencontainers.image.source=https://github.com/eLyKseeR/elykseer-ml

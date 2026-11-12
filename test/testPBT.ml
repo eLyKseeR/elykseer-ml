@@ -250,38 +250,6 @@ let prop_prepare_blocks_boundaries =
        let bs = L.Processor.prepare_blocks [] (L.Conversion.i2n fsz) in
        sum_sizes bs = fsz)
 
-let prop_distribute_group_sizes =
-  QCheck.Test.make ~count:500 ~name:"distribute groups have correct sizes"
-    (make (Gen.pair (Gen.int_range 16 64) (Gen.list (Gen.int_range 1 100))))
-    (fun (n, weights) ->
-       let cfg = test_config n in
-       let nch = L.Nchunks.from_int n in
-       let fps = L.Distribution.enumerate_chunk_paths cfg test_aid nch in
-       let weights_n = List.map L.Conversion.i2n weights in
-       let groups = L.Distribution.distribute_by_weight fps weights_n in
-
-       (* Check group sizes match expected *)
-       let actual_sizes = List.map List.length groups in
-       let expected_sizes = List.map (fun w -> min w n) weights in
-       actual_sizes = expected_sizes)
-
-let prop_distribute_no_loss =
-  QCheck.Test.make ~count:500 ~name:"distribute loses no chunks when sum >= n"
-    (make (Gen.pair (Gen.int_range 16 64) (Gen.list (Gen.int_range 1 50))))
-    (fun (n, raw_weights) ->
-       (* Ensure weights sum to at least n *)
-       assume (List.fold_left (+) 0 raw_weights >= n);
-
-       let cfg = test_config n in
-       let nch = L.Nchunks.from_int n in
-       let fps = L.Distribution.enumerate_chunk_paths cfg test_aid nch in
-       let weights_n = List.map L.Conversion.i2n raw_weights in
-       let groups = L.Distribution.distribute_by_weight fps weights_n in
-       let all_chunks = List.flatten groups in
-
-       (* At least n chunks distributed when sum >= n *)
-       List.length all_chunks >= n)
-
 (* ============================================================================
    Test Suite Registration
    ============================================================================ *)
@@ -302,6 +270,4 @@ let test = ("PBT", List.map QCheck_alcotest.to_alcotest [
   (* Phase 5: Extracted logic *)
   prop_prepare_blocks_covers;
   prop_prepare_blocks_boundaries;
-  prop_distribute_group_sizes;
-  prop_distribute_no_loss;
 ])

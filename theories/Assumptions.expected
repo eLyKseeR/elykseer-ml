@@ -73,6 +73,37 @@
   Axioms: id_assembly_full_buffer_from_writable
   Axioms: id_buffer_t_from_enc
   Axioms: id_buffer_t_from_full
+== LXR.Distribution.Distribution.plan_covers
+  (closed under the global context)
+== LXR.Distribution.Distribution.ok_plan_complete
+  (closed under the global context)
+== LXR.Distribution.Distribution.attempts_bounded
+  (closed under the global context)
+== LXR.Distribution.Distribution.deadline_respected
+  (closed under the global context)
+== LXR.Distribution.Distribution.tried_at_least_once
+  (closed under the global context)
+== LXR.Distribution.Distribution.ok_was_copied
+  (closed under the global context)
+== LXR.Distribution.Distribution.restore_ok_complete
+  (closed under the global context)
+== LXR.Distribution.Distribution.FSSink.get_copied_size
+  Axioms: Filesystem.Filesystem.Path.file_exists
+  Axioms: Filesystem.Filesystem.Path.file_size
+  Axioms: Filesystem.Filesystem.Path.from_string
+  Axioms: Filesystem.Filesystem.Path.is_directory
+  Axioms: Filesystem.Filesystem.Path.parent
+  Axioms: Filesystem.Filesystem.copy_file
+  Axioms: Filesystem.Filesystem.create_directories
+  Axioms: Filesystem.Filesystem.path
+  Axioms: Filesystem.Filesystem.remove
+== LXR.Distribution.Distribution.S3Sink.get_copied_size
+  Axioms: Filesystem.Filesystem.Path.file_exists
+  Axioms: Filesystem.Filesystem.Path.file_size
+  Axioms: Filesystem.Filesystem.Path.from_string
+  Axioms: Filesystem.Filesystem.path
+  Axioms: Filesystem.Filesystem.remove
+  Axioms: s3_get_object
 == LXR.Nchunks.Nchunks.from_positive
   (closed under the global context)
 == LXR.Assembly.Assembly.backup
@@ -317,6 +348,20 @@
   Axioms: id_assembly_full_buffer_from_writable
   Axioms: id_buffer_t_from_enc
   Axioms: id_buffer_t_from_full
+== LXR.Distribution.Distribution.run
+  Axioms: Filesystem.Filesystem.Path.file_exists
+  Axioms: Filesystem.Filesystem.Path.file_size
+  Axioms: Filesystem.Filesystem.Path.from_string
+  Axioms: Filesystem.Filesystem.Path.is_directory
+  Axioms: Filesystem.Filesystem.Path.parent
+  Axioms: Filesystem.Filesystem.copy_file
+  Axioms: Filesystem.Filesystem.create_directories
+  Axioms: Filesystem.Filesystem.path
+  Axioms: Filesystem.Filesystem.remove
+  Axioms: Utilities.Utilities.now_ms
+  Axioms: Utilities.Utilities.sleep_until
+  Axioms: s3_get_object
+  Axioms: s3_put_object
 == all assumptions
   Axioms: Conversion.Conversion.i2s
   Axioms: Conversion.Conversion.n2i
@@ -352,16 +397,21 @@
   Axioms: Filesystem.Filesystem.Direntry.is_symlink
   Axioms: Filesystem.Filesystem.Path.append
   Axioms: Filesystem.Filesystem.Path.file_exists
+  Axioms: Filesystem.Filesystem.Path.file_size
   Axioms: Filesystem.Filesystem.Path.from_string
   Axioms: Filesystem.Filesystem.Path.is_directory
   Axioms: Filesystem.Filesystem.Path.parent
   Axioms: Filesystem.Filesystem.Path.to_string
+  Axioms: Filesystem.Filesystem.copy_file
   Axioms: Filesystem.Filesystem.create_directories
   Axioms: Filesystem.Filesystem.direntry
   Axioms: Filesystem.Filesystem.list_directory
   Axioms: Filesystem.Filesystem.path
+  Axioms: Filesystem.Filesystem.remove
   Axioms: ProofIrrelevance.proof_irrelevance
+  Axioms: Utilities.Utilities.now_ms
   Axioms: Utilities.Utilities.rnd256
+  Axioms: Utilities.Utilities.sleep_until
   Axioms: assembly_add_content
   Axioms: assembly_get_content
   Axioms: chunk_identifier_path
@@ -374,3 +424,5 @@
   Axioms: id_buffer_t_from_enc
   Axioms: id_buffer_t_from_full
   Axioms: id_enc_from_buffer_t
+  Axioms: s3_get_object
+  Axioms: s3_put_object
